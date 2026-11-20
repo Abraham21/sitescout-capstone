@@ -86,6 +86,10 @@ def test_two_depth_retains_competing_observations_then_changes_the_winner():
                     {"id": "specialty", "score": 9, "invitation": "feedback"},
                 ]
             }
+        import json
+
+        evidence = json.loads(prompt.splitlines()[-1])["evidence"]
+        assert all(entry.get("source_url") and entry.get("passage") for entry in evidence.values())
         return {"passed": True, "feedback": "Grounded."}
 
     pitch = write_pitch(LEAD, QUALIFIED, page, model)
@@ -226,6 +230,11 @@ def test_business_phone_and_gallery_reach_the_artifact_and_pitch():
         ],
     }
     page = {**build_preview(lead, q), "url": "/p/a"}
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(page["html"], "html.parser")
+    assert not soup.select_one("#project-type")
+    assert soup.select_one("footer a[href*=yelp] svg") and soup.select_one(".concept-mark")
     assert page["html"].count('href="tel:+18185550101"') == 2
     assert 'href="https://www.yelp.com/biz/fixture"' in page["html"]
     assert (
@@ -279,10 +288,14 @@ def test_synthetic_portfolio_keeps_photo_visible_and_its_gallery_link_local():
     assert len(soup.select("#work [data-slide]")) == 3
     assert len(soup.select("#reviews [data-slide]")) == 2
     assert "fictional customer" in soup.select_one("#reviews").get_text()
-    assert soup.select_one("[data-color]")["href"] == "#estimate"
+    assert not soup.select_one("[data-color], #color-reference")
+    assert soup.select_one("#reviews [data-rotate]")
+    assert "Send request" in soup.select_one("#request-button").get_text()
     assert "Preview estimate request form" in page["features"]
-    service = soup.select_one("a[data-service]")["data-service"]
-    assert service in [option.text for option in soup.select("#project-type option")]
+    cards = soup.select("a[data-service]")
+    assert cards and cards[0].select_one("svg")
+    choices = [option.text for option in soup.select("#project-type option")]
+    assert all(card["data-service"] in choices for card in cards) if len(cards) > 1 else not choices
 
 
 def test_testimonial_requires_quote_and_reviewer_in_the_original_source():
@@ -302,3 +315,32 @@ def test_testimonial_requires_quote_and_reviewer_in_the_original_source():
     assert "Attributed customer reviews" in build_preview(LEAD, q)["features"]
     q["profile"]["testimonials"][0] = {**item, "author": "Someone else"}
     assert "Attributed customer reviews" not in build_preview(LEAD, q)["features"]
+
+
+def test_multiple_services_and_places_only_use_cited_facts():
+    from bs4 import BeautifulSoup
+
+    q = {
+        **QUALIFIED,
+        "facts": {
+            **QUALIFIED["facts"],
+            "service_areas": ["Pasadena", "Glendale", "Hollywood"],
+            "citations": {**QUALIFIED["facts"]["citations"], "Glendale": "e1", "Hollywood": "e1"},
+        },
+        "evidence": [
+            QUALIFIED["evidence"][0],
+            {
+                "id": "e1",
+                "url": "https://example.org/services",
+                "text": "Interior painting and cabinet refinishing. Serving Pasadena and Glendale.",
+            },
+            QUALIFIED["evidence"][2],
+        ],
+    }
+    page = build_preview(LEAD, q)
+    soup = BeautifulSoup(page["html"], "html.parser")
+    assert {o.get_text() for o in soup.select("#project-type option")} >= {
+        "Interior painting",
+        "Cabinet refinishing",
+    }
+    assert [o.get_text() for o in soup.select(".area-list li")] == ["Pasadena", "Glendale"]

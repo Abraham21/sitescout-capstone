@@ -94,5 +94,57 @@
         "sourced_review_blocks": 0
       }
     ]
+  },
+  "independent_gallery_run": {
+    "run_id": "c3c549ec0275",
+    "input": "Three active registry IDs. Start live showcase in the operator desk.",
+    "source": "https://local.yahoo.com/info-234005761-paintastic-painting-burbank/",
+    "paintastic_hero": {
+      "alt": "Two story beige house with arched entryway and lawn",
+      "source_alt": "Paintastic Painting gallery photo 8",
+      "caption_origin": "visual description",
+      "evidence_id": "e15"
+    },
+    "method": "Chromium opened the returned public URLs and checked whole heading words and document width at 320, 390, 768, 1024, 1280, 1440, 1531 and 1920 CSS pixels. On each page it tried an empty and a valid sample request, tested service preselection where offered and checked that no submission left the browser. The same form check passed in the operator desk iframe.",
+    "results": [
+      {
+        "name": "paintastic",
+        "url": "https://p-0caf0bac7bdc97792e.sitescout-previews-ec8f1c9e.pages.dev",
+        "project_photos": 6,
+        "testimonial_excerpts": 0,
+        "project_type_options": []
+      },
+      {
+        "name": "plum",
+        "url": "https://p-d40410a907d7444a85.sitescout-previews-ec8f1c9e.pages.dev",
+        "project_photos": 0,
+        "testimonial_excerpts": 0,
+        "project_type_options": []
+      },
+      {
+        "name": "linen",
+        "url": "https://p-e45c8e9ca20f3128e3.sitescout-previews-ec8f1c9e.pages.dev",
+        "project_photos": 3,
+        "testimonial_excerpts": 2,
+        "project_type_options": [
+          "Select a project type",
+          "Exterior painting",
+          "Cabinet refinishing",
+          "Other painting inquiry"
+        ]
+      },
+      {
+        "name": "copper",
+        "url": "https://p-f6dcf41aecd3f55a49.sitescout-previews-ec8f1c9e.pages.dev",
+        "project_photos": 0,
+        "testimonial_excerpts": 0,
+        "project_type_options": []
+      }
+    ],
+    "additional_checks": [
+      "Paintastic’s footer links to its Yelp and Yahoo Local profiles. Its city is labeled as its base. The estimate form omits the single-option selector.",
+      "In the synthetic Linen Leaf rehearsal, two services prefill the form and the sourced service area includes Pasadena, Altadena and San Marino. The rotating testimonials pause for user interaction and remain static with reduced motion.",
+      "The batch board marks the one business whose agent handoffs are shown. Changing the inspection selection changes the marker and the detail panel together."
+    ]
   }
 }

@@ -112,7 +112,7 @@ def business_claims(lead, q, sources):
     facts = q.get("facts") or {}
     for kind, values in [
         ("service", facts.get("services", [])),
-        ("area", [facts.get("service_area", "")]),
+        ("area", facts.get("service_areas") or [facts.get("service_area", "")]),
     ]:
         for value in values:
             if not isinstance(value, str) or not value or len(value) > 100:
@@ -196,21 +196,58 @@ def evidence_profile(q, sources):
 
 
 @lru_cache(maxsize=8)
-def photo_palette(data_uri):
-    """Three well-separated tones sampled from the displayed photograph, in darkest-first order."""
+def hero_ground(data_uri):
+    """Tint the paper around the photograph with its average color."""
     try:
-        body = base64.b64decode(data_uri.split(",", 1)[1])
-        with Image.open(BytesIO(body)) as original:
-            sample = original.convert("RGB").resize((64, 48)).quantize(colors=12).convert("RGB")
-        chosen = []
-        for _, rgb in sorted(sample.getcolors(), reverse=True):
-            if all(sum((a - b) ** 2 for a, b in zip(rgb, other)) > 42**2 for other in chosen):
-                chosen.append(rgb)
-            if len(chosen) == 3:
-                break
-        return ["#%02X%02X%02X" % rgb for rgb in sorted(chosen, key=sum)]
+        with Image.open(BytesIO(base64.b64decode(data_uri.split(",", 1)[1]))) as photo:
+            rgb = photo.convert("RGB").resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))
+        linen = (249, 246, 236)
+        tones = [round(0.76 * base + 0.24 * color) for base, color in zip(linen, rgb)]
+        return "#" + "".join(f"{tone:02x}" for tone in tones)
     except (ValueError, OSError, IndexError):
-        return []
+        return "#ece7d9"
+
+
+PROFILE_ICONS = {
+    "yelp.com": ("Yelp", "yelp"),
+    "local.yahoo.com": ("Yahoo Local", "yahoo"),
+    "instagram.com": ("Instagram", "instagram"),
+    "facebook.com": ("Facebook", "facebook"),
+    "houzz.com": ("Houzz", "houzz"),
+}
+
+
+def profile_footer(links, staged):
+    """Link only verified destinations. The embedded publisher marks work offline."""
+    if staged:
+        return ""
+    buttons = []
+    for url, label in links.items():
+        host = urlsplit(url).hostname or ""
+        platform = next(
+            (
+                brand
+                for domain, brand in PROFILE_ICONS.items()
+                if host == domain or host.endswith("." + domain)
+            ),
+            None,
+        )
+        if platform:
+            label, file = platform
+            icon = (ASSETS / "profile-icons" / (file + ".svg")).read_text()
+        elif fixture_url(url):
+            continue
+        else:
+            icon = '<span aria-hidden="true">↗</span>'
+        buttons.append(
+            f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener noreferrer">'
+            f'<span aria-hidden="true" class="publisher-icon">{icon}</span>{escape(label)}</a>'
+        )
+    return (
+        '<nav class="profiles" aria-label="Public profiles">' + "".join(buttons) + "</nav>"
+        if buttons
+        else ""
+    )
 
 
 def slide_controls(total, label):
@@ -219,8 +256,10 @@ def slide_controls(total, label):
     return (
         '<div class="slide-controls">'
         f'<button type="button" data-step="-1" aria-label="Previous {label}">←</button>'
-        f'<span data-position aria-live="polite">1 / {total}</span>'
-        f'<button type="button" data-step="1" aria-label="Next {label}">→</button></div>'
+        f'<span data-position aria-live="{"off" if label == "review" else "polite"}">1 / {total}</span>'
+        f'<button type="button" data-step="1" aria-label="Next {label}">→</button>'
+        + ('<button type="button" data-rotate hidden>Pause</button>' if label == "review" else "")
+        + "</div>"
     )
 
 
@@ -281,16 +320,46 @@ def reviews_section(reviews):
 def service_section(city, services):
     if not services:
         return ""
-    items = "".join(
-        f'<li><h3><a href="#estimate" data-service="{escape(s)}">{escape(s)}'
-        ' <span aria-hidden="true">↗</span></a></h3></li>'
-        for s in services
+    # Project prompts help a homeowner describe a job without claiming additional services.
+    options = (
+        (
+            "interior",
+            "M4 25V9l10-4 14 5v15l-14 3Zm10-20v23M4 25l10-5 14 5M19 12l5 2v5l-5-2z",
+            "Which rooms, and which walls or ceilings?",
+        ),
+        (
+            "exterior",
+            "m2 16 14-12 14 12M6 13v14h20V13M14 27v-8h5v8M9 16h2m-2 4h2",
+            "Which surfaces outside need a new finish?",
+        ),
+        (
+            "cabinet",
+            "M4 6h24v20H4zM16 6v20M7 9h6v14H7zM19 9h6v14h-6zM5 26v2m22-2v2",
+            "Which cabinets and what finish do you have in mind?",
+        ),
+        (
+            "trim",
+            "M4 27V5h23M8 27V9h19M12 27V13h15M4 5l8 8",
+            "Which trim, doors or frames would you like painted?",
+        ),
     )
+    items = []
+    for service in services:
+        path, prompt = next(
+            ((path, note) for word, path, note in options if word in service.lower()),
+            ("M5 6h19v8H5zM24 10h3v8l-12 3v3M13 24h4v5h-4z", "What would you like painted, and when?"),
+        )
+        items.append(
+            f'<li><a href="#estimate" data-service="{escape(service, quote=True)}">'
+            f'<svg aria-hidden="true" class="service-icon" viewBox="0 0 32 32"><path d="{path}"/></svg>'
+            f'<h3>{escape(service)}</h3><p>{prompt}</p><span class="service-arrow" aria-hidden="true">↗</span>'
+            f"</a></li>"
+        )
     return (
         '<section class="services wrap" id="services"><div class="services-heading">'
         f"<h2>Painting services <em>in {escape(city)}.</em></h2>"
         "<p>Choose the service you’d like to discuss for your estimate.</p></div>"
-        f"<ul>{items}</ul></section>"
+        f"<ul>{''.join(items)}</ul></section>"
     )
 
 
@@ -325,8 +394,13 @@ def build_preview(lead, qualification):
         contact = f'<a class="call" href="tel:+1{digits}" aria-label="Call {escape(name)} at {escape(phone)}"><span>Call </span>{escape(phone)}</a>'
     elif email:
         contact = f'<a class="call" href="mailto:{escape(email)}">{escape(email)}</a>'
-    mark = f'<img class="logo" src="{logo["url"]}" alt="">' if logo else ""
-    area = by_kind.get("area")
+    initial = next((letter for letter in name if letter.isalnum()), "")
+    mark = (
+        f'<img class="logo" src="{logo["url"]}" alt="">'
+        if logo
+        else f'<span class="concept-mark" aria-hidden="true">{escape(initial.upper())}</span>'
+    )
+    areas = list(dict.fromkeys(claim["text"] for claim in claims if claim["kind"] == "area"))
     category = services[0] if services else by_kind.get("classification", "Painting")
     local_photo = city.casefold() == "burbank" and not photos
     if photos:
@@ -353,18 +427,6 @@ def build_preview(lead, qualification):
         hero_photo = embedded_file(theme["image"])
         alt = theme["image_alt"]
         credit = source_link(theme["photo_url"], theme["credit"] + " · Stock photograph")
-    swatches = "".join(
-        f'<a href="#estimate" data-color="{color}" style="--chip:{color}" aria-label="Use photo color {color} in estimate" title="{color}"></a>'
-        for color in photo_palette(hero_photo)
-    )
-    palette = (
-        (
-            '<div class="palette"><div><strong>Photo palette</strong><span>Pick a color to start</span></div>'
-            f'<div class="chips">{swatches}</div></div>'
-        )
-        if swatches
-        else ""
-    )
     record = ""
     registry = sources["registry"]
     if web_url(registry.get("url")):
@@ -388,23 +450,29 @@ def build_preview(lead, qualification):
         features.append("Attributed customer reviews")
     if logo:
         features.append("Business logo")
-    if palette:
-        features.append("Color sampling from the hero photograph")
+    else:
+        features.append("SiteScout concept wordmark")
 
     extra_links = {}
     for item in work + reviews:
         extra_links.setdefault(item["url"], item["label"])
-    sources_html = " · ".join(
-        source_link(url, label) for url, label in extra_links.items() if not fixture_url(url)
+    for photo in photos:
+        url = photo["source_url"]
+        if urlsplit(url).hostname == "local.yahoo.com":
+            extra_links.setdefault(url, "Yahoo Local")
+    social = qualification.get("social")
+    if web_url(social) and any(source.get("url") == social for source in sources.values()):
+        extra_links.setdefault(social, "Social profile")
+    area_list = (
+        '<ul class="area-list">' + "".join(f"<li>{escape(area)}</li>" for area in areas) + "</ul>"
     )
     details = "".join(
         f"<div><dt>{label}</dt><dd>{value}</dd></div>"
         for label, value in (
             ("Based in", escape(city) + ", California"),
-            ("Service area", escape(area) if area else ""),
+            ("Service areas", area_list if areas else ""),
             ("Trade", escape(category)),
             ("License", record),
-            ("Public profiles", sources_html),
         )
         if value
     )
@@ -428,11 +496,14 @@ def build_preview(lead, qualification):
         )
     else:
         gallery_link = ""
-    service_options = "".join(f"<option>{escape(value)}</option>" for value in services)
-    if services:
-        service_options += "<option>Other painting inquiry</option>"
-    else:
-        service_options = "<option>General painting inquiry</option>"
+    service_field = ""
+    if len(services) > 1:
+        options = "".join(f"<option>{escape(service)}</option>" for service in services)
+        service_field = (
+            '<label class="full" for="project-type">Project type<select id="project-type">'
+            f'<option value="">Select a project type</option>{options}'
+            "<option>Other painting inquiry</option></select></label>"
+        )
     place = f"{city}, California"
     intro = (
         f"See {name}’s project photos and start planning your own painting project."
@@ -481,7 +552,7 @@ def build_preview(lead, qualification):
         intro=escape(intro),
         record=record,
         credit=credit,
-        palette=palette,
+        hero_ground=hero_ground(hero_photo),
         gallery=gallery_link,
         source_note="Fictional business · Sample website by SiteScout"
         if staged
@@ -489,10 +560,10 @@ def build_preview(lead, qualification):
         work_nav=nav_links,
         sections=sections,
         detail_rows=details,
-        service_options=service_options,
+        service_field=service_field,
+        profiles=profile_footer(extra_links, staged),
         contact_prompt='<p class="contact-prompt">Prefer to talk it through?</p>' if contact else "",
-        area_note=escape(area or city),
-        area_label="Service area" if area else "Based in",
+        area_note=escape(city),
     )
     evidence = dict.fromkeys(
         [c["evidence_id"] for c in claims]
@@ -829,7 +900,10 @@ def review(lead, qualification, preview, pitch, model):
             "model_checked": False,
         }
     facts = evidence_for(lead, qualification)
-    cited = {i: str(facts[i]["text"])[:750] for i in pitch["evidence_ids"]}
+    cited = {
+        i: {"source_url": facts[i]["url"], "passage": str(facts[i]["text"])[:750]}
+        for i in pitch["evidence_ids"]
+    }
     response = ask(
         model,
         "STUDIO_REVIEW",

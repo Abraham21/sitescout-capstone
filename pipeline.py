@@ -90,7 +90,11 @@ def run_lead(run_id, lead, domain, emit, case=None):
             progress("Applying the evidence rules to a frozen synthetic case.")
             result = qualify_fixture(case, progress=progress)
         else:
-            result = research.qualify(lead, model, search, progress)
+
+            def review_photos(prompt, photos):
+                return services.gemini(prompt, run_id, lid, photos=photos)
+
+            result = research.qualify(lead, model, search, progress, photo_model=review_photos)
         finding = {"text": result["reason"]}
         by_id = {entry["id"]: entry for entry in result.get("evidence", [])}
         source = next((by_id[i] for i in result.get("issue_evidence_ids", []) if i in by_id), {})
@@ -300,16 +304,10 @@ def run_batch(limit=3, mode="live", on_event=None):
                 for entry in showcase_entries():
                     license_id = entry["id"]
                     if license_id in active and license_id not in dismissed:
-                        candidate = {
-                            **active[license_id],
-                            "source_hints": entry.get("source_hints", []),
-                        }
-                        if entry.get("photo_captions"):
-                            candidate["photo_captions"] = entry["photo_captions"]
-                        candidates.append(candidate)
+                        candidates.append(active[license_id])
                 candidates = candidates[: int(limit)]
                 progress(
-                    "Selected active licenses from the curated list. Optional operator-supplied links are leads to check."
+                    "Selected active licenses for the showcase. Research uses the same tools as ordinary discovery."
                 )
 
         else:

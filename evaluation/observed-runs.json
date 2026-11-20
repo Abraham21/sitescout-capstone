@@ -251,6 +251,84 @@
           "output_tokens": 661
         }
       ]
+    },
+    {
+      "release": "Independent media discovery and owner preview",
+      "run_id": "103b6ee39bc6",
+      "selection": "Ten previously unseen actual licenses",
+      "started_at": "2026-11-20T22:46:01.025+00:00",
+      "elapsed_seconds": 26.068,
+      "outcomes": {
+        "hold": 9,
+        "skip": 1
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 26,
+          "dollars": 0.182,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "release": "Independent media discovery and owner preview",
+      "run_id": "c3c549ec0275",
+      "selection": "Three real license IDs, searched afresh via the dashboard without supplied profile or image URLs or captions",
+      "started_at": "2026-11-20T22:49:01.608+00:00",
+      "elapsed_seconds": 26.23,
+      "outcomes": {
+        "hold": 1,
+        "skip": 1,
+        "manual": 1
+      },
+      "hosted_verified": 1,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 6,
+          "dollars": 0.042,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        {
+          "service": "Gemini",
+          "state": "reported",
+          "calls": 4,
+          "dollars": 0.004253,
+          "input_tokens": 3841,
+          "output_tokens": 366
+        }
+      ]
+    },
+    {
+      "release": "Independent media discovery and owner preview",
+      "run_id": "3513730a56a0",
+      "selection": "Ten synthetic businesses with frozen evidence through the full pipeline",
+      "started_at": "2026-11-20T22:49:43.225+00:00",
+      "elapsed_seconds": 13.041,
+      "outcomes": {
+        "skip": 2,
+        "manual": 2,
+        "hold": 4,
+        "blocked": 1,
+        "ready": 1
+      },
+      "hosted_verified": 3,
+      "provider_usage": [
+        {
+          "service": "Gemini",
+          "state": "reported",
+          "calls": 9,
+          "dollars": 0.004698,
+          "input_tokens": 3849,
+          "output_tokens": 483
+        }
+      ]
     }
   ]
 }

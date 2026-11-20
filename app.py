@@ -97,6 +97,8 @@ button[kind=primary]:focus-visible,.ss-chain a:focus-visible{outline:3px solid #
 .ss-status{display:inline-flex;align-items:center;gap:.4rem;line-height:1.3}.ss-status.active::before{content:'';border:2px solid #a5c8b7;border-top-color:#195849;width:.75rem;height:.75rem;box-sizing:border-box;border-radius:50%;animation:ss-spin 1s linear infinite}
 @keyframes ss-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.ss-status.active::before{animation:none}}
 .ss-batch summary:focus-visible{outline:2px solid #27704d;outline-offset:2px}
+.ss-batch tr:has(.ss-following) th[scope=row]{box-shadow:inset 3px 0 #27704d;padding-left:.7rem}
+.ss-following{display:inline-block;margin-left:.5rem;color:#286147;font-size:.72rem;font-weight:650}
 @media(max-width:830px){.ss-batch .stage-col{display:none}.ss-batch th[scope=row]{width:62%}.ss-batch td:last-child{width:auto}.ss-batch header{gap:.25rem}}
 @media(max-width:1150px){.stMainBlockContainer{padding-inline:1.6rem}.ss-chain{grid-template-columns:repeat(2,minmax(0,1fr))}.ss-card:nth-child(2)::after{display:none}}
 @media(max-width:700px){.stMainBlockContainer{padding:4.2rem 1rem 1rem}.ss-chain{grid-template-columns:minmax(0,1fr);gap:.5rem}.ss-card:not(:last-child)::after{display:none}.ss-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ss-metric{padding:.43rem}.ss-event{grid-template-columns:4rem 4rem 1fr}}
@@ -274,7 +276,7 @@ def handoff_chain(events, lead=None, *, synthetic=False):
         )
 
 
-def batch_board(events, leads=(), *, interrupted=False):
+def batch_board(events, leads=(), *, focused_id=None, interrupted=False):
     """Build each row from events already observed. Stored results are only passed after completion."""
     names = {}
     activity = {}
@@ -342,7 +344,8 @@ def batch_board(events, leads=(), *, interrupted=False):
             if preview.get("published")
             else steps.get("Publish", {}).get("handoff", {}).get("url")
         )
-        business = f"<details><summary>{escape(display_name(name))}</summary><p>{escape(message)}</p>{link(public_url, 'Open website preview')}</details>"
+        marker = ' <small class="ss-following">Shown below</small>' if lead_id == focused_id else ""
+        business = f"<details><summary>{escape(display_name(name))}{marker}</summary><p>{escape(message)}</p>{link(public_url, 'Open website preview')}</details>"
         cells = []
         for step, label in stages.items():
             status = steps.get(step, {}).get("status", "")
@@ -374,7 +377,6 @@ def batch_board(events, leads=(), *, interrupted=False):
 
 
 def show_activity(events, *, synthetic=False):
-    batch_board(events)
     # Keep the detail on an active builder until it finishes, then follow the next worker.
     ended = {e["lead_id"] for e in events if e["stage"] == "Queue" and e.get("lead_id")}
     active = [e for e in events if e.get("lead_id") and e["lead_id"] not in ended]
@@ -383,12 +385,14 @@ def show_activity(events, *, synthetic=False):
         active[-1]["lead_id"] if active else events[-1].get("lead_id"),
     )
     selected = [e for e in events if e.get("lead_id") == focus] if focus else []
+    batch_board(events, focused_id=focus)
     if selected:
+        st.caption("Agent handoffs · automatically following one business")
         st.subheader(display_name(selected[-1]["lead_name"]))
         handoff_chain(selected, synthetic=synthetic)
     else:
         st.caption("Discovering businesses")
-    st.caption("Latest events")
+    st.caption("Latest events across the batch")
     timeline(events[-3:])
 
 
@@ -696,7 +700,8 @@ def workspace(run, replay=False):
         pipeline.leads(run_id, replay=replay), key=lambda item: QUEUE_ORDER.get(item["status"], 7)
     )
     metrics(leads)
-    batch_board(events, leads, interrupted=run["status"] in ("failed", "interrupted", "superseded"))
+    board = st.container()
+    selected = None
     if leads:
         queue, business = st.columns([1, 2], gap="medium")
         with queue:
@@ -720,6 +725,13 @@ def workspace(run, replay=False):
         lead_panel(records[selected], run_id, events, replay, synthetic=synthetic)
     elif not events:
         st.info("This batch has no saved events yet.")
+    with board:
+        batch_board(
+            events,
+            leads,
+            focused_id=selected,
+            interrupted=run["status"] in ("failed", "interrupted", "superseded"),
+        )
     with st.expander(f"Full run log · {len(events)} events", expanded=not leads):
         if len(events) > 1:
             first, last = (

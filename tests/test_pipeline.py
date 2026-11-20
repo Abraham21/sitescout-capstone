@@ -1,11 +1,51 @@
 """Graph boundaries that could otherwise let an unreviewed draft enter the queue."""
 
 from concurrent.futures import ThreadPoolExecutor
+import base64
+from io import BytesIO
 
 import pytest
+from PIL import Image
 
 import pipeline
 import storage
+
+
+def test_visual_qualifier_uses_one_numbered_sheet_and_preserves_photo_sources():
+    from business_profile import small_raster
+    from research import apply_photo_choices
+    from services import contact_sheet
+
+    photos = [
+        {
+            "url": small_raster((storage.ROOT / "assets" / name).read_bytes(), "project"),
+            "alt": alt,
+            "evidence_id": f"e{index}",
+        }
+        for index, (name, alt) in enumerate(
+            [("green-room.jpg", "Published caption"), ("white-stucco.jpg", "Painter gallery photo 2")],
+            1,
+        )
+    ]
+    with Image.open(BytesIO(base64.b64decode(contact_sheet(photos)))) as sheet:
+        assert sheet.size == (480, 180)
+    profile = {"media": photos.copy()}
+    verdict = {
+        "hero_photo": 2,
+        "photo_captions": [
+            {"photo": 1, "caption": "Overriding a publisher supplied caption"},
+            {"photo": 2, "caption": "White stucco walls beneath a clear sky"},
+        ],
+    }
+    apply_photo_choices(profile, photos, verdict)
+    assert [p["evidence_id"] for p in profile["media"]] == ["e2", "e1"]
+    assert photos[0]["alt"] == "Published caption"
+    assert (
+        photos[1]["alt"].startswith("White stucco")
+        and photos[1]["source_alt"] == "Painter gallery photo 2"
+    )
+    apply_photo_choices(profile, photos, {"hero_photo": 9, "photo_captions": "invalid"})
+    assert profile["cover_evidence_id"] == "e2"
 
 
 @pytest.fixture

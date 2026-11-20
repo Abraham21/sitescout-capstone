@@ -217,10 +217,17 @@ class OperatorDeskTest(unittest.TestCase):
                 return BeautifulSoup(markup, "html.parser")
 
             self.assertEqual(board().find(role="status").get_text(), "10 of 10 finished")
+            businesses = app.selectbox(key=f"lead_{run_id}_all")
+            businesses.set_value(events[first_started - 1]["lead_id"]).run()
+            name = events[first_started - 1]["lead_name"]
+            self.assertIn(name, board().select_one(".ss-following").parent.get_text())
             app.slider(key=f"cursor_{run_id}").set_value(discovered).run()
             self.assertEqual(len(board().select("tbody tr")), 10)
             self.assertEqual({td.text for td in board().select("tbody td:last-child")}, {"Waiting"})
             self.assertFalse(board().select("a, .done"))
+            self.assertIsNone(board().select_one(".ss-following"))
             app.slider(key=f"cursor_{run_id}").set_value(first_started).run()
             self.assertEqual(len(board().select(".ss-status.active")), 1)
             self.assertIn("9 waiting", board().find(role="status").get_text())
+            self.assertIn(name, board().select_one(".ss-following").parent.get_text())
+            self.assertIn(name, [heading.value for heading in app.subheader])

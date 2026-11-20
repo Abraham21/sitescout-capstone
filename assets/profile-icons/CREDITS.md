@@ -1,0 +1,1 @@
+These unmodified brand marks are from [Font Awesome Free 6.7.2](https://github.com/FortAwesome/Font-Awesome/tree/6.7.2/svgs/brands), copyright Fonticons, Inc., under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The credit in each SVG is included in the generated page. The marks identify links to the respective publishers.

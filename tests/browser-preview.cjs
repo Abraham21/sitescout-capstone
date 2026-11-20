@@ -29,7 +29,7 @@ async function checkHeadline(page) {
 async function checkForm(page, site) {
   await site.locator('a[href="#estimate"]').first().click();
   const form = site.locator('#estimate-form');
-  const submit = form.getByRole('button', {name: 'Preview request'});
+  const submit = form.getByRole('button', {name: 'Send request', exact: true});
   const confirmation = site.locator('#form-status');
   const sent = [];
   page.on('request', request => {
@@ -40,12 +40,21 @@ async function checkForm(page, site) {
   assert.equal(await form.evaluate(el => el.checkValidity()), false, 'Empty requests must be rejected');
   await form.getByLabel('Name', {exact: true}).fill('Preview User');
   await form.getByLabel('Email', {exact: true}).fill('preview@example.com');
-  const project = form.locator('select');
-  if (await project.count() && !(await project.inputValue())) await project.selectOption({index: 1});
+  const project = form.locator('#project-type');
+  const services = site.locator('[data-service]');
+  const serviceCount = await services.count();
+  assert.equal(await project.count(), serviceCount > 1 ? 1 : 0, 'Only offer a meaningful choice');
+  if (serviceCount > 1) {
+    const choice = services.nth(1);
+    await choice.click();
+    assert.equal(await project.inputValue(), await choice.getAttribute('data-service'));
+  }
   await form.getByLabel('About your project').fill('Repaint the bedroom walls and hallway trim.');
   assert.equal(await form.evaluate(el => el.checkValidity()), true, 'Completed request should validate');
   await submit.click();
   await confirmation.filter({hasText: /preview|demo/i}).waitFor({state: 'visible'});
+  assert.match(await confirmation.innerText(), /reply|respond/i);
+  assert.match(await confirmation.innerText(), /Abraham/);
   assert.deepEqual(sent, [], 'The preview must keep contact details inside this browser');
 }
 

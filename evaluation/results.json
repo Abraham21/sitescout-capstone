@@ -36,8 +36,8 @@
         "total": 12
       },
       "selected_passages": 37,
-      "selected_chars": 5393,
-      "qualified_selected_chars": 2512
+      "selected_chars": 5439,
+      "qualified_selected_chars": 2558
     },
     "full": {
       "route_agreement": {
@@ -72,8 +72,8 @@
         "total": 12
       },
       "selected_passages": 52,
-      "selected_chars": 11624,
-      "qualified_selected_chars": 8346
+      "selected_chars": 11668,
+      "qualified_selected_chars": 8390
     }
   },
   "cases": [
@@ -119,8 +119,8 @@
         "website_status": "has_site",
         "selected_passages": 7,
         "available_passages": 18,
-        "selected_chars": 1758,
-        "context_sha256": "89f93c36a6d058f4516974d691c96b0d7a9a7522394ba5cf9771ce8678eb8ef1",
+        "selected_chars": 1804,
+        "context_sha256": "1fb8bc0dfc3cc5a5ff9edfb2969954345898492ea4efc588bd114ce165ede959",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -129,8 +129,8 @@
         "website_status": "has_site",
         "selected_passages": 18,
         "available_passages": 18,
-        "selected_chars": 7592,
-        "context_sha256": "8cc78abba1406db28f18c278ade22459fdf69f938f9c0bbaaffe6b650c43835d",
+        "selected_chars": 7636,
+        "context_sha256": "9df8f7f7c77f68dd7f88ede2dfd2311566044904845292316f93d0c47a063eb0",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }

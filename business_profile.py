@@ -65,6 +65,27 @@ def reviews_from(node):
     return rows
 
 
+def named_service_areas(text):
+    """Read place names from explicit service-area statements, without inferring a radius."""
+    places = []
+    for clause in re.finditer(
+        r"(?:^|[.!?;]\s+)(?:we (?:(?:only|proudly) )?serve|(?:proudly )?serving|"
+        r"(?:our )?service areas?(?: (?:includes?|covers?))?)"
+        r"\s*:?\s+([^.!?;:\n]{2,160})(?=[.!?;]|$)",
+        text,
+        re.IGNORECASE,
+    ):
+        for name in re.split(r"\s*(?:,|\band\b|&)\s*", clause[1]):
+            name = name.removeprefix("the ").strip()
+            if (
+                re.fullmatch(r"[A-ZÀ-ÖØ-Þ][\w'-]*(?: [A-ZÀ-ÖØ-Þ][\w'-]*){0,4}", name)
+                and name.casefold() not in {"ca", "more", "homeowners", "nearby areas", "surrounding areas"}
+                and name not in places
+            ):
+                places.append(name)
+    return places
+
+
 def quoted_customers(soup):
     rows = []
     region = re.compile(r"testimonial|customer.review", re.I)
@@ -120,12 +141,12 @@ def listing_profile(profile, url, text, evidence_id):
 
 
 def page_images(soup, url):
-    """Identify only labeled project or logo images on pages later verified as first-party."""
+    """Find masthead logos and project photos in gallery context on pages later verified as first-party."""
     candidates = []
     gallery_pattern = re.compile(r"gallery|portfolio|our[- ]work|projects", re.IGNORECASE)
     title = soup.title.get_text(" ", strip=True) if soup.title else ""
     gallery = gallery_pattern.search(urlsplit(url).path) or gallery_pattern.search(title)
-    for image in soup.select("img")[:80]:
+    for image_number, image in enumerate(soup.select("img")[:80], 1):
         alt = " ".join(str(image.get("alt", "")).split())
         figure = image.find_parent("figure")
         if not alt and figure and (caption := figure.find("figcaption")):
@@ -156,12 +177,13 @@ def page_images(soup, url):
                 or re.search(r"\b(?:our|completed) project\b", alt, re.IGNORECASE)
             ):
                 continue
-            if re.fullmatch(
+            generic_label = re.fullmatch(
                 r"(?:img|image|photo|gallery)[- _]?\d+\.(?:jpe?g|webp|png)", alt, re.IGNORECASE
-            ):
-                alt = "Photograph from the company’s gallery"
-            if not alt:
-                continue
+            )
+            if not alt or generic_label:
+                if not alt and not within_gallery and not (gallery and figure):
+                    continue
+                alt = f"Company gallery photo {image_number}"
         kind = "logo" if logo else "project"
         if re.search(
             r"stock|unsplash|pexels|shutterstock|advertisement|badge", f"{source} {alt}", re.IGNORECASE
@@ -207,6 +229,23 @@ def small_raster(body, kind):
         Image.DecompressionBombError,
     ):
         return ""
+
+
+def hero_fit(data_uri):
+    """Prefer photos that fill a landscape hero with enough resolution and visible detail."""
+    try:
+        body = base64.b64decode(data_uri.partition(",")[2], validate=True)
+        with Image.open(io.BytesIO(body)) as image:
+            width, height = image.size
+            aspect = width / height
+            crop = min(aspect / 1.5, 1.5 / aspect)
+            size = min(width / 1000, 1)
+            sample = image.convert("L").resize((64, 48))
+        levels = sample.histogram()
+        visible = sum(levels[12:244]) / sum(levels)
+        return crop * (0.5 + 0.5 * size) * visible
+    except (OSError, ValueError):
+        return 0
 
 
 def fixture_image(mapping, url, kind):

@@ -41,7 +41,12 @@ def test_retrieval_keeps_decisive_passage_and_exact_services():
     actual = run(long_case)
     assert len(actual["retrieved_ids"]) < actual["corpus_size"]
     assert set(actual["issue_evidence_ids"]) <= set(actual["retrieved_ids"])
-    assert "Exterior painting" in actual["facts"]["services"]
+    assert {"Exterior painting", "Cabinet refinishing"} <= set(actual["facts"]["services"])
+    locations = actual["facts"]["service_areas"]
+    assert locations == ["Pasadena", "Altadena", "San Marino"]
+    for place in locations:
+        ref = actual["facts"]["citations"][place]
+        assert any(e["id"] == ref and place in e["text"] for e in actual["evidence"])
     social_result = run(social)
     assert "Interior painting" in social_result["facts"]["services"]
     assert social_result["email"] == "estimates@copperfinch.example"
@@ -52,9 +57,10 @@ def test_retrieval_keeps_decisive_passage_and_exact_services():
             social, model=lambda _: {"services": [{"value": "Cabinet refinishing", "cite": "e1"}]}
         )["facts"]["services"]
     )
-    assert not run(social, model=lambda _: {"service_area": {"value": "Pasadena", "cite": "registry"}})[
+    facts = run(social, model=lambda _: {"service_area": {"value": "Pasadena", "cite": "registry"}})[
         "facts"
-    ]["service_area"]
+    ]
+    assert facts["service_areas"] == ["Glendale"] and facts["citations"]["Glendale"] != "registry"
     assert run(social, model=lambda _: {"concern": "Possible identity mismatch."})["status"] == "hold"
 
 
@@ -190,9 +196,9 @@ def test_a_bounded_search_cannot_claim_absence_when_a_candidate_remains():
 
 
 def test_a_named_houzz_profile_with_conflicting_phone_prompts_manual_domain_check():
-    lead = {**CASES[0]["lead"], "source_hints": ["https://www.houzz.com/professionals/painters/demo"]}
+    lead = CASES[0]["lead"]
     domain = "https://copperfinch.example"
-    profile = lead["source_hints"][0]
+    profile = "https://www.houzz.com/professionals/painters/demo"
     calls, search_calls = [], []
 
     def fetch(url):
@@ -208,6 +214,10 @@ def test_a_named_houzz_profile_with_conflicting_phone_prompts_manual_domain_chec
 
     def search(query):
         search_calls.append(query)
+        if len(search_calls) == 3:
+            return [
+                {"url": profile, "title": lead["name"], "text": "Contractor profile in California."}
+            ]
         return []
 
     q = research.qualify(lead, None, search, fetcher=fetch)
@@ -287,6 +297,32 @@ def test_verified_first_party_gallery_supports_a_real_self_contained_raster():
     assert business_profile.small_raster(b"<html>not a raster</html>", "project") == ""
 
 
+def test_gallery_cover_uses_image_quality_and_can_select_later_photos():
+    import io
+
+    from PIL import Image
+
+    import business_profile
+
+    profile = {"media": []}
+    source = "https://painter.example/gallery"
+    candidates, rasters = [], {}
+    for i in range(9):
+        url = f"https://painter.example/media/{i}.jpg"
+        candidates.append(
+            (source, {"asset_url": url, "kind": "project", "alt": f"Gallery photo {i + 1}"})
+        )
+        raw = io.BytesIO()
+        # The last image is wide, correctly exposed and spreads across a landscape cover.
+        size = (1200, 800) if i == 8 else (320, 600)
+        Image.new("RGB", size, (90 + i, 60, 120)).save(raw, "JPEG")
+        rasters[url] = business_profile.small_raster(raw.getvalue(), "project")
+
+    research.embed_photos(candidates, profile, lambda *_: "e1", lambda u, _: rasters[u])
+    assert len(profile["media"]) == 6
+    assert profile["media"][0]["asset_url"] == candidates[-1][1]["asset_url"]
+
+
 def test_third_search_follows_a_discovered_directory_website_without_a_manual_hint():
     case = CASES[0]
     profile = "https://www.houzz.com/professionals/painters/copper-finch"
@@ -327,15 +363,18 @@ def test_nonportfolio_illustrations_and_partner_logos_do_not_become_painter_work
         """
         <a href="https://supplier.example"><img alt="Partner logo" src="/logos/partner.png"></a>
         <img alt="Freshly painted kitchen" src="/assets/sample.jpg">
-        <section id="gallery"><img alt="Exterior restoration in Glendale" src="/projects/job.jpg"></section>
+        <section id="gallery"><img alt="Exterior restoration in Glendale" src="/projects/job.jpg">
+        <img src="/projects/finished-room.jpg"></section>
         <header><a href="/"><img alt="Studio logo" src="/logos/self.png"></a></header>""",
         "html.parser",
     )
     images = business_profile.page_images(soup, "https://owner.example/")
     assert [i["asset_url"] for i in images] == [
         "https://owner.example/projects/job.jpg",
+        "https://owner.example/projects/finished-room.jpg",
         "https://owner.example/logos/self.png",
     ]
+    assert images[1]["alt"] == "Company gallery photo 4"
 
 
 def test_bundled_fictional_gallery_is_labeled_and_has_no_external_media_dependency():
