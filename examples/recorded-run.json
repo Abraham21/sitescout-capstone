@@ -1,0 +1,879 @@
+{
+  "run": {
+    "id": "12c3df6f4ca7",
+    "started_at": "2026-11-20T11:54:19.649+00:00"
+  },
+  "leads": [
+    {
+      "name": "Indigo Frame Painting",
+      "id": "900003",
+      "city": "Burbank",
+      "phone": "(818) 555-0103",
+      "classification": "C-33",
+      "source_url": "https://cslb.example/licenses/900003",
+      "status": "skip",
+      "qualification": {
+        "status": "skip",
+        "website_status": "has_site",
+        "website": "https://indigoframe.example/",
+        "reason": "The verified business website already offers a published phone, email, or request form.",
+        "issue": "",
+        "evidence": [
+          {
+            "id": "registry",
+            "url": "https://cslb.example/licenses/900003",
+            "text": "Indigo Frame Painting. CSLB license 900003. Classification C-33 painting and decorating. Listing city: Burbank. Listed business phone: (818) 555-0103."
+          },
+          {
+            "id": "e1",
+            "url": "https://indigoframe.example/",
+            "text": "Indigo Frame Painting, Burbank. Call (818) 555-0103 for estimates."
+          }
+        ],
+        "issue_evidence_ids": [],
+        "facts": {
+          "services": [
+            "Painting and decorating"
+          ],
+          "city": "Burbank",
+          "service_area": "",
+          "citations": {
+            "Painting and decorating": "registry"
+          }
+        },
+        "retrieval": "fts",
+        "model_mode": "code gates only",
+        "email": "",
+        "social": "",
+        "phone": "(818) 555-0103",
+        "retrieved_ids": [
+          "registry",
+          "e1"
+        ],
+        "corpus_size": 2
+      },
+      "channel": ""
+    },
+    {
+      "name": "Linen Leaf Painting",
+      "id": "900002",
+      "city": "Pasadena",
+      "phone": "(818) 555-0102",
+      "classification": "C-33",
+      "source_url": "https://cslb.example/licenses/900002",
+      "status": "manual",
+      "qualification": {
+        "status": "qualified",
+        "website_status": "has_site",
+        "website": "https://linenleaf.example/",
+        "reason": "The linked quote or estimate page returned HTTP 404 on two checks.",
+        "issue": "The linked quote or estimate page returned HTTP 404 on two checks.",
+        "evidence": [
+          {
+            "id": "registry",
+            "url": "https://cslb.example/licenses/900002",
+            "text": "Linen Leaf Painting. CSLB license 900002. Classification C-33 painting and decorating. Listing city: Pasadena. Listed business phone: (818) 555-0102."
+          },
+          {
+            "id": "e1",
+            "url": "https://linenleaf.example/",
+            "text": "Linen Leaf Painting. CSLB 900002. Serving Pasadena. Exterior painting. Use the estimate page for a proposal. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before wor"
+          },
+          {
+            "id": "e2",
+            "url": "https://linenleaf.example/",
+            "text": "h lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines an"
+          },
+          {
+            "id": "e3",
+            "url": "https://linenleaf.example/",
+            "text": "tion goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes"
+          },
+          {
+            "id": "e4",
+            "url": "https://linenleaf.example/",
+            "text": "am protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protect"
+          },
+          {
+            "id": "e5",
+            "url": "https://linenleaf.example/",
+            "text": "k area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area aft"
+          },
+          {
+            "id": "e6",
+            "url": "https://linenleaf.example/",
+            "text": "steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps befo"
+          },
+          {
+            "id": "e7",
+            "url": "https://linenleaf.example/",
+            "text": "s brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush li"
+          },
+          {
+            "id": "e8",
+            "url": "https://linenleaf.example/",
+            "text": "reparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation"
+          },
+          {
+            "id": "e9",
+            "url": "https://linenleaf.example/",
+            "text": "The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Preparation goes through several steps before work begins. The team protects fixtures, trims brush lines and cleans the work area after each stage. Exterior painting. Serving Pasadena. Request an estimate to discuss an exterior project."
+          },
+          {
+            "id": "e10",
+            "url": "https://linenleaf.example/request-estimate",
+            "text": "The linked quote or estimate page returned HTTP 404 on two checks."
+          }
+        ],
+        "issue_evidence_ids": [
+          "e10"
+        ],
+        "facts": {
+          "services": [
+            "Painting and decorating",
+            "Exterior painting"
+          ],
+          "city": "Pasadena",
+          "service_area": "",
+          "citations": {
+            "Painting and decorating": "registry",
+            "Exterior painting": "e1"
+          }
+        },
+        "retrieval": "fts",
+        "model_mode": "deterministic replay",
+        "email": "",
+        "social": "",
+        "phone": "(818) 555-0102",
+        "retrieved_ids": [
+          "registry",
+          "e1",
+          "e9",
+          "e10"
+        ],
+        "corpus_size": 11
+      },
+      "preview": {
+        "variant": "Fieldwork",
+        "features": [
+          "Interactive color palette",
+          "Sample project brief",
+          "Public business details"
+        ],
+        "claims": [
+          {
+            "text": "Linen Leaf Painting",
+            "evidence_id": "registry",
+            "kind": "name"
+          },
+          {
+            "text": "Pasadena",
+            "evidence_id": "registry",
+            "kind": "city"
+          },
+          {
+            "text": "Painting and decorating",
+            "evidence_id": "registry",
+            "kind": "classification"
+          },
+          {
+            "text": "Exterior painting",
+            "evidence_id": "e1",
+            "kind": "service"
+          }
+        ],
+        "url": "https://p-48d544956715b922aa.sitescout-previews-ec8f1c9e.pages.dev",
+        "published": true,
+        "http_status": 200,
+        "content_verified": true,
+        "html_sha256": "828fde346d2eb697e9ba066e1a5d14ebe84ebfb1ce25363583b3e74a9801e4a7"
+      },
+      "pitch": {
+        "subject": "Linen Leaf Painting — a project-planner idea",
+        "body": "Hi Linen Leaf Painting team,\n\nI took a look at the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I built a concept where visitors can try a short painting-project planner.\n\nHere’s the independent design preview: https://p-48d544956715b922aa.sitescout-previews-ec8f1c9e.pages.dev\n\nIf you like this direction, would you like me to set it up for you?\n\nAbraham",
+        "angle": "An observed site issue",
+        "revision": false,
+        "angle_id": "site",
+        "invitation": "permission",
+        "evidence_ids": [
+          "registry",
+          "e10"
+        ],
+        "mode": "two-depth",
+        "angles": [
+          {
+            "id": "site",
+            "label": "An observed site issue",
+            "observation": "The linked quote or estimate page returned HTTP 404 on two checks.",
+            "opening": "I took a look at the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I built a concept where visitors can try a short painting-project planner.",
+            "evidence_ids": [
+              "registry",
+              "e10"
+            ],
+            "priority": 3,
+            "score": 9,
+            "invitation": "permission"
+          },
+          {
+            "id": "specialty",
+            "label": "A documented painting specialty",
+            "observation": "Exterior painting",
+            "opening": "I tried the contact link on the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I sketched a website concept that gives exterior painting a visible place and lets visitors plan a project.",
+            "evidence_ids": [
+              "registry",
+              "e10",
+              "e1"
+            ],
+            "priority": 2,
+            "score": 7,
+            "invitation": "walkthrough"
+          }
+        ],
+        "planned_angles": [
+          {
+            "id": "site",
+            "label": "An observed site issue",
+            "observation": "The linked quote or estimate page returned HTTP 404 on two checks.",
+            "opening": "I took a look at the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I built a concept where visitors can try a short painting-project planner.",
+            "evidence_ids": [
+              "registry",
+              "e10"
+            ],
+            "priority": 3
+          },
+          {
+            "id": "specialty",
+            "label": "A documented painting specialty",
+            "observation": "Exterior painting",
+            "opening": "I tried the contact link on the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I sketched a website concept that gives exterior painting a visible place and lets visitors plan a project.",
+            "evidence_ids": [
+              "registry",
+              "e10",
+              "e1"
+            ],
+            "priority": 2
+          },
+          {
+            "id": "local",
+            "label": "An easier project inquiry",
+            "observation": "Linen Leaf Painting · Pasadena",
+            "opening": "I tried the contact link on the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I made a website concept with a simple project planner so a visitor can put their first ideas in writing.",
+            "evidence_ids": [
+              "registry",
+              "e10"
+            ],
+            "priority": 1
+          },
+          {
+            "id": "palette",
+            "label": "A color-led introduction",
+            "observation": "Linen Leaf Painting · Pasadena",
+            "opening": "I tried the contact link on the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I made a website concept with an interactive palette so visitors can explore a direction before discussing a project.",
+            "evidence_ids": [
+              "registry",
+              "e10"
+            ],
+            "priority": 1
+          }
+        ],
+        "runner_up": {
+          "id": "specialty",
+          "label": "A documented painting specialty",
+          "observation": "Exterior painting",
+          "opening": "I tried the contact link on the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I sketched a website concept that gives exterior painting a visible place and lets visitors plan a project.",
+          "evidence_ids": [
+            "registry",
+            "e10",
+            "e1"
+          ],
+          "priority": 2,
+          "score": 7,
+          "invitation": "walkthrough"
+        }
+      },
+      "review": {
+        "passed": true,
+        "feedback": "The email accurately reflects the verified 404 defect on the estimate page and describes the preview as an independent concept featuring a painting-project planner without overpromising functionality.",
+        "checks": {
+          "Rendered concept matches cited business facts": true,
+          "Assigned preview link is present": true,
+          "Citations belong to the selected observation": true,
+          "Pitch uses only evidenced claims and working features": true,
+          "Independent model review": true
+        },
+        "model_checked": true
+      },
+      "channel": "Phone"
+    },
+    {
+      "name": "Copper Finch Painting",
+      "id": "900001",
+      "city": "Glendale",
+      "phone": "(818) 555-0101",
+      "classification": "C-33",
+      "source_url": "https://cslb.example/licenses/900001",
+      "status": "ready",
+      "qualification": {
+        "status": "qualified",
+        "website_status": "no_site_found",
+        "website": "",
+        "reason": "Customers can find this painter through public profiles. Two targeted searches found no verified business-owned page for estimate inquiries.",
+        "issue": "Customers can find this painter through public profiles. Two targeted searches found no verified business-owned page for estimate inquiries.",
+        "evidence": [
+          {
+            "id": "registry",
+            "url": "https://cslb.example/licenses/900001",
+            "text": "Copper Finch Painting. CSLB license 900001. Classification C-33 painting and decorating. Listing city: Glendale. Listed business phone: (818) 555-0101."
+          },
+          {
+            "id": "e1",
+            "url": "https://www.instagram.com/site_scout_demo_social-estimates/",
+            "text": "Copper Finch Painting Copper Finch Painting in Glendale, CA. (818) 555-0101. Message us for a painting estimate. Interior painting. Serving Glendale. Email: estimates@copperfinch.example."
+          },
+          {
+            "id": "e2",
+            "url": "https://www.bbb.org/us/ca/painter-demo-social-estimates",
+            "text": "Copper Finch Painting Copper Finch Painting, painter in Glendale. Listed business phone (818) 555-0101."
+          }
+        ],
+        "issue_evidence_ids": [
+          "e1",
+          "e2"
+        ],
+        "facts": {
+          "services": [
+            "Painting and decorating",
+            "Interior painting"
+          ],
+          "city": "Glendale",
+          "service_area": "",
+          "citations": {
+            "Painting and decorating": "registry",
+            "Interior painting": "e1"
+          }
+        },
+        "retrieval": "fts",
+        "model_mode": "deterministic replay",
+        "email": "estimates@copperfinch.example",
+        "social": "https://www.instagram.com/site_scout_demo_social-estimates/",
+        "phone": "(818) 555-0101",
+        "retrieved_ids": [
+          "registry",
+          "e1",
+          "e2"
+        ],
+        "corpus_size": 3
+      },
+      "preview": {
+        "variant": "Atelier",
+        "features": [
+          "Interactive color palette",
+          "Sample project brief",
+          "Public business details"
+        ],
+        "claims": [
+          {
+            "text": "Copper Finch Painting",
+            "evidence_id": "registry",
+            "kind": "name"
+          },
+          {
+            "text": "Glendale",
+            "evidence_id": "registry",
+            "kind": "city"
+          },
+          {
+            "text": "Painting and decorating",
+            "evidence_id": "registry",
+            "kind": "classification"
+          },
+          {
+            "text": "Interior painting",
+            "evidence_id": "e1",
+            "kind": "service"
+          }
+        ],
+        "url": "https://p-24554fc0973d6a14a2.sitescout-previews-ec8f1c9e.pages.dev",
+        "published": true,
+        "http_status": 200,
+        "content_verified": true,
+        "html_sha256": "c192d80dca042b97613deb131b4fcdaaf3227f61ea40b6cfd75c0042262f2b5a"
+      },
+      "pitch": {
+        "subject": "Copper Finch Painting — a website idea for your painting services",
+        "body": "Hi Copper Finch Painting team,\n\nI found the public Instagram profile for Copper Finch Painting, but couldn’t verify a separate business website in the sources I checked. I sketched a website concept that gives interior painting a visible place and lets visitors plan a project.\n\nHere’s the independent design preview: https://p-24554fc0973d6a14a2.sitescout-previews-ec8f1c9e.pages.dev\n\nWould you like a quick walkthrough? If it suits your business, I can set it up for you.\n\nAbraham",
+        "angle": "A documented painting specialty",
+        "revision": false,
+        "angle_id": "specialty",
+        "invitation": "walkthrough",
+        "evidence_ids": [
+          "registry",
+          "e1"
+        ],
+        "mode": "two-depth",
+        "angles": [
+          {
+            "id": "specialty",
+            "label": "A documented painting specialty",
+            "observation": "Interior painting",
+            "opening": "I found the public Instagram profile for Copper Finch Painting, but couldn’t verify a separate business website in the sources I checked. I sketched a website concept that gives interior painting a visible place and lets visitors plan a project.",
+            "evidence_ids": [
+              "registry",
+              "e1"
+            ],
+            "priority": 2,
+            "score": 9,
+            "invitation": "walkthrough"
+          },
+          {
+            "id": "local",
+            "label": "An easier project inquiry",
+            "observation": "Copper Finch Painting · Glendale",
+            "opening": "I found the public Instagram profile for Copper Finch Painting, but couldn’t verify a separate business website in the sources I checked. I made a website concept with a simple project planner so a visitor can put their first ideas in writing.",
+            "evidence_ids": [
+              "registry",
+              "e1"
+            ],
+            "priority": 1,
+            "score": 7,
+            "invitation": "permission"
+          }
+        ],
+        "planned_angles": [
+          {
+            "id": "social",
+            "label": "An established public profile",
+            "observation": "https://www.instagram.com/site_scout_demo_social-estimates/",
+            "opening": "I found the public Instagram profile for Copper Finch Painting, but couldn’t verify a separate business website in the sources I checked. I put together a concept with a color palette and a project planner.",
+            "evidence_ids": [
+              "registry",
+              "e1"
+            ],
+            "priority": 3
+          },
+          {
+            "id": "specialty",
+            "label": "A documented painting specialty",
+            "observation": "Interior painting",
+            "opening": "I found the public Instagram profile for Copper Finch Painting, but couldn’t verify a separate business website in the sources I checked. I sketched a website concept that gives interior painting a visible place and lets visitors plan a project.",
+            "evidence_ids": [
+              "registry",
+              "e1"
+            ],
+            "priority": 2
+          },
+          {
+            "id": "local",
+            "label": "An easier project inquiry",
+            "observation": "Copper Finch Painting · Glendale",
+            "opening": "I found the public Instagram profile for Copper Finch Painting, but couldn’t verify a separate business website in the sources I checked. I made a website concept with a simple project planner so a visitor can put their first ideas in writing.",
+            "evidence_ids": [
+              "registry",
+              "e1"
+            ],
+            "priority": 1
+          },
+          {
+            "id": "palette",
+            "label": "A color-led introduction",
+            "observation": "Copper Finch Painting · Glendale",
+            "opening": "I found the public Instagram profile for Copper Finch Painting, but couldn’t verify a separate business website in the sources I checked. I made a website concept with an interactive palette so visitors can explore a direction before discussing a project.",
+            "evidence_ids": [
+              "registry",
+              "e1"
+            ],
+            "priority": 1
+          }
+        ],
+        "runner_up": {
+          "id": "local",
+          "label": "An easier project inquiry",
+          "observation": "Copper Finch Painting · Glendale",
+          "opening": "I found the public Instagram profile for Copper Finch Painting, but couldn’t verify a separate business website in the sources I checked. I made a website concept with a simple project planner so a visitor can put their first ideas in writing.",
+          "evidence_ids": [
+            "registry",
+            "e1"
+          ],
+          "priority": 1,
+          "score": 7,
+          "invitation": "permission"
+        }
+      },
+      "review": {
+        "passed": true,
+        "feedback": "The email accurately reflects the verified business details, acknowledges the lack of a verified website without negative assertions, properly frames the prototype features without overpromising, and maintains an independent affiliation.",
+        "checks": {
+          "Rendered concept matches cited business facts": true,
+          "Assigned preview link is present": true,
+          "Citations belong to the selected observation": true,
+          "Pitch uses only evidenced claims and working features": true,
+          "Independent model review": true
+        },
+        "model_checked": true
+      },
+      "channel": "Email"
+    }
+  ],
+  "events": [
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "",
+      "lead_name": "",
+      "stage": "Discover",
+      "status": "started",
+      "message": "Loading labeled synthetic source snapshots.",
+      "timestamp": "2026-11-20T11:54:19.649+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "",
+      "lead_name": "",
+      "stage": "Discover",
+      "status": "completed",
+      "message": "3 businesses selected.",
+      "timestamp": "2026-11-20T11:54:19.650+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Qualify",
+      "status": "started",
+      "message": "Checking the business identity, official website and contact path.",
+      "timestamp": "2026-11-20T11:54:19.973+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Applying the evidence rules to a frozen synthetic case.",
+      "timestamp": "2026-11-20T11:54:19.975+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Checking business identity against public search results and the license listing.",
+      "timestamp": "2026-11-20T11:54:19.975+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Qualify",
+      "status": "started",
+      "message": "Checking the business identity, official website and contact path.",
+      "timestamp": "2026-11-20T11:54:19.972+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "The first search found a branded candidate matching the business identity; checking the actual site.",
+      "timestamp": "2026-11-20T11:54:19.977+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Applying the evidence rules to a frozen synthetic case.",
+      "timestamp": "2026-11-20T11:54:19.977+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Reading a candidate website and checking its public contact path.",
+      "timestamp": "2026-11-20T11:54:19.977+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900003",
+      "lead_name": "Indigo Frame Painting",
+      "stage": "Qualify",
+      "status": "started",
+      "message": "Checking the business identity, official website and contact path.",
+      "timestamp": "2026-11-20T11:54:19.974+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900003",
+      "lead_name": "Indigo Frame Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Applying the evidence rules to a frozen synthetic case.",
+      "timestamp": "2026-11-20T11:54:19.981+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900003",
+      "lead_name": "Indigo Frame Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Checking business identity against public search results and the license listing.",
+      "timestamp": "2026-11-20T11:54:19.981+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Retrieved 4 of 11 evidence passages for the qualifier.",
+      "timestamp": "2026-11-20T11:54:19.981+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Checking business identity against public search results and the license listing.",
+      "timestamp": "2026-11-20T11:54:19.977+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900003",
+      "lead_name": "Indigo Frame Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "The first search found a branded candidate matching the business identity; checking the actual site.",
+      "timestamp": "2026-11-20T11:54:19.982+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "The name/city search lacked a verified first-party candidate; cross-checking by phone or license.",
+      "timestamp": "2026-11-20T11:54:19.982+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900003",
+      "lead_name": "Indigo Frame Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Reading a candidate website and checking its public contact path.",
+      "timestamp": "2026-11-20T11:54:19.983+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Retrieved 3 of 3 evidence passages for the qualifier.",
+      "timestamp": "2026-11-20T11:54:19.985+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900003",
+      "lead_name": "Indigo Frame Painting",
+      "stage": "Qualify",
+      "status": "completed",
+      "message": "The verified business website already offers a published phone, email, or request form.",
+      "timestamp": "2026-11-20T11:54:19.985+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Qualify",
+      "status": "completed",
+      "message": "Customers can find this painter through public profiles. Two targeted searches found no verified business-owned page for estimate inquiries.",
+      "timestamp": "2026-11-20T11:54:19.986+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900003",
+      "lead_name": "Indigo Frame Painting",
+      "stage": "Queue",
+      "status": "skipped",
+      "message": "Skipped. No outreach.",
+      "timestamp": "2026-11-20T11:54:19.987+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Build",
+      "status": "started",
+      "message": "Rendering the painter concept from sourced business facts.",
+      "timestamp": "2026-11-20T11:54:19.987+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Build",
+      "status": "completed",
+      "message": "Atelier concept rendered.",
+      "timestamp": "2026-11-20T11:54:19.989+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Write",
+      "status": "started",
+      "message": "Preparing an opening and a setup invitation.",
+      "timestamp": "2026-11-20T11:54:19.990+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Qualify",
+      "status": "completed",
+      "message": "The linked quote or estimate page returned HTTP 404 on two checks.",
+      "timestamp": "2026-11-20T11:54:19.982+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Build",
+      "status": "started",
+      "message": "Rendering the painter concept from sourced business facts.",
+      "timestamp": "2026-11-20T11:54:19.997+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Build",
+      "status": "completed",
+      "message": "Fieldwork concept rendered.",
+      "timestamp": "2026-11-20T11:54:19.998+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Write",
+      "status": "started",
+      "message": "Preparing an opening and a setup invitation.",
+      "timestamp": "2026-11-20T11:54:20.002+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Write",
+      "status": "completed",
+      "message": "An observed site issue",
+      "timestamp": "2026-11-20T11:54:23.520+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Review",
+      "status": "started",
+      "message": "Checking the business, cited claims, preview features and invitation.",
+      "timestamp": "2026-11-20T11:54:23.526+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Write",
+      "status": "completed",
+      "message": "A documented painting specialty",
+      "timestamp": "2026-11-20T11:54:24.208+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Review",
+      "status": "started",
+      "message": "Checking the business, cited claims, preview features and invitation.",
+      "timestamp": "2026-11-20T11:54:24.210+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Review",
+      "status": "completed",
+      "message": "The email accurately reflects the verified 404 defect on the estimate page and describes the preview as an independent concept featuring a painting-project planner without overpromising functionality.",
+      "timestamp": "2026-11-20T11:54:25.475+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Publish",
+      "status": "started",
+      "message": "Uploading only this reviewed preview and checking the served HTML.",
+      "timestamp": "2026-11-20T11:54:25.481+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Review",
+      "status": "completed",
+      "message": "The email accurately reflects the verified business details, acknowledges the lack of a verified website without negative assertions, properly frames the prototype features without overpromising, and maintains an independent affiliation.",
+      "timestamp": "2026-11-20T11:54:26.567+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Publish",
+      "status": "started",
+      "message": "Uploading only this reviewed preview and checking the served HTML.",
+      "timestamp": "2026-11-20T11:54:26.571+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Publish",
+      "status": "completed",
+      "message": "Verified the content at the shareable address.",
+      "timestamp": "2026-11-20T11:54:31.089+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Queue",
+      "status": "completed",
+      "message": "Manual contact queue using phone.",
+      "timestamp": "2026-11-20T11:54:31.096+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Publish",
+      "status": "completed",
+      "message": "Verified the content at the shareable address.",
+      "timestamp": "2026-11-20T11:54:31.851+00:00"
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Queue",
+      "status": "completed",
+      "message": "Editable email ready for Abraham to copy.",
+      "timestamp": "2026-11-20T11:54:31.857+00:00"
+    }
+  ]
+}

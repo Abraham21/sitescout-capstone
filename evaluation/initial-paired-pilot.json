@@ -1,0 +1,152 @@
+{
+  "population": "Two predeclared synthetic painting cases, each tried once per condition. Human preference remains unmeasured.",
+  "method": "Gemini selects and scores evidence-limited template choices. Direct uses one writing call; the tree first prunes proposed angles. Both receive the same candidate pool, evidence, model, URL, and final checks. Order alternates by case.",
+  "model": "gemini-3.8-flash",
+  "run_id": "eval-f2e38e3bf0",
+  "usage": [
+    {
+      "service": "Gemini",
+      "state": "reported",
+      "calls": 7,
+      "dollars": 0.00472,
+      "input_tokens": 4073,
+      "output_tokens": 444
+    }
+  ],
+  "errors": [],
+  "cases": [
+    {
+      "case": "social-estimates",
+      "retrieval": {
+        "fts": {
+          "status": "hold",
+          "website_status": "no_site_found",
+          "selected_passages": 3,
+          "available_passages": 3,
+          "selected_chars": 441,
+          "expected_url_in_selection": true,
+          "expected_passage_in_selection": true,
+          "extracted_facts": {
+            "services": [
+              "Painting and decorating",
+              "Interior painting"
+            ],
+            "city": "Glendale",
+            "service_area": "Glendale",
+            "citations": {
+              "Painting and decorating": "registry",
+              "Interior painting": "e1",
+              "Glendale": "e1"
+            }
+          }
+        },
+        "full": {
+          "status": "qualified",
+          "website_status": "no_site_found",
+          "selected_passages": 3,
+          "available_passages": 3,
+          "selected_chars": 441,
+          "expected_url_in_selection": true,
+          "expected_passage_in_selection": true,
+          "extracted_facts": {
+            "services": [
+              "Painting and decorating",
+              "Interior painting"
+            ],
+            "city": "Glendale",
+            "service_area": "Glendale",
+            "citations": {
+              "Painting and decorating": "registry",
+              "Interior painting": "e1",
+              "Glendale": "e1"
+            }
+          }
+        }
+      },
+      "writing": {}
+    },
+    {
+      "case": "broken-estimate",
+      "retrieval": {
+        "full": {
+          "status": "qualified",
+          "website_status": "has_site",
+          "selected_passages": 11,
+          "available_passages": 11,
+          "selected_chars": 6687,
+          "expected_url_in_selection": true,
+          "expected_passage_in_selection": true,
+          "extracted_facts": {
+            "services": [
+              "Painting and decorating",
+              "Exterior painting"
+            ],
+            "city": "Pasadena",
+            "service_area": "Pasadena",
+            "citations": {
+              "Painting and decorating": "registry",
+              "Exterior painting": "e1",
+              "Pasadena": "e1"
+            }
+          }
+        },
+        "fts": {
+          "status": "qualified",
+          "website_status": "has_site",
+          "selected_passages": 4,
+          "available_passages": 11,
+          "selected_chars": 1438,
+          "expected_url_in_selection": true,
+          "expected_passage_in_selection": true,
+          "extracted_facts": {
+            "services": [
+              "Painting and decorating",
+              "Exterior painting"
+            ],
+            "city": "Pasadena",
+            "service_area": "Pasadena",
+            "citations": {
+              "Painting and decorating": "registry",
+              "Exterior painting": "e1",
+              "Pasadena": "e1"
+            }
+          }
+        }
+      },
+      "writing": {
+        "tree": {
+          "calls": 2,
+          "seconds": 4.71,
+          "mode_returned": "two-depth",
+          "angle": "site",
+          "invitation": "permission",
+          "subject": "Linen Leaf Painting — a project-planner idea",
+          "body": "Hi Linen Leaf Painting team,\n\nI took a look at the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I built a concept where visitors can try a short painting-project planner.\n\nHere’s the independent design preview: https://preview.example/broken-estimate\n\nIf you like this direction, would you like me to set it up for you?\n\nAbraham",
+          "evidence_ids": [
+            "registry",
+            "e10"
+          ],
+          "code_review_passed": false,
+          "runner_up": "specialty"
+        },
+        "direct": {
+          "calls": 1,
+          "seconds": 2.92,
+          "mode_returned": "direct",
+          "angle": "specialty",
+          "invitation": "walkthrough",
+          "subject": "Linen Leaf Painting — a website idea for your painting services",
+          "body": "Hi Linen Leaf Painting team,\n\nI tried the contact link on the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I sketched a website concept that gives exterior painting a visible place and lets visitors plan a project.\n\nHere’s the independent design preview: https://preview.example/broken-estimate\n\nWould you like me to walk you through the design and what setting it up would involve?\n\nAbraham",
+          "evidence_ids": [
+            "registry",
+            "e10",
+            "e1"
+          ],
+          "code_review_passed": false,
+          "runner_up": "site"
+        }
+      }
+    }
+  ],
+  "interpretation": "Initial end-to-end pilot. Writing was conditional on a qualified FTS/model verdict, leaving one paired draft. code_review_passed records the whole production decision, including an unavailable independent model-review check. Subsequent writing-only results use both predeclared fixture cases with fixed qualified inputs. This exploratory run is retained separately."
+}

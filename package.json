@@ -1,0 +1,8 @@
+{
+  "name": "sitescout-previews",
+  "private": true,
+  "description": "Cloudflare's static preview uploader for SiteScout",
+  "devDependencies": {
+    "wrangler": "4.165.0"
+  }
+}

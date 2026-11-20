@@ -1,0 +1,510 @@
+{
+  "population": "Authored synthetic cases with known expected outcomes. These cases were visible during development.",
+  "method": "Same frozen pages and deterministic policy for both arms. No LLM call. Identity and contact gates run before retrieval, which supplies evidence for factual extraction and possible model escalation.",
+  "route_changes": 0,
+  "summary": {
+    "fts": {
+      "route_agreement": {
+        "matched": 15,
+        "total": 15
+      },
+      "website_agreement": {
+        "matched": 15,
+        "total": 15
+      },
+      "routes": {
+        "qualified": 3,
+        "skip": 3,
+        "hold": 8,
+        "blocked": 1
+      },
+      "abstentions": 8,
+      "wrong_no_site_among_known_sites": 0,
+      "known_sites": 6,
+      "seeded_blocks_caught": {
+        "matched": 1,
+        "total": 1
+      },
+      "benign_cases_blocked": 0,
+      "benign_cases": 14,
+      "gold_source_url_retrieved": {
+        "matched": 12,
+        "total": 12
+      },
+      "gold_passage_retrieved": {
+        "matched": 12,
+        "total": 12
+      },
+      "selected_passages": 34,
+      "selected_chars": 5073,
+      "qualified_selected_chars": 2192
+    },
+    "full": {
+      "route_agreement": {
+        "matched": 15,
+        "total": 15
+      },
+      "website_agreement": {
+        "matched": 15,
+        "total": 15
+      },
+      "routes": {
+        "qualified": 3,
+        "skip": 3,
+        "hold": 8,
+        "blocked": 1
+      },
+      "abstentions": 8,
+      "wrong_no_site_among_known_sites": 0,
+      "known_sites": 6,
+      "seeded_blocks_caught": {
+        "matched": 1,
+        "total": 1
+      },
+      "benign_cases_blocked": 0,
+      "benign_cases": 14,
+      "gold_source_url_retrieved": {
+        "matched": 12,
+        "total": 12
+      },
+      "gold_passage_retrieved": {
+        "matched": 12,
+        "total": 12
+      },
+      "selected_passages": 45,
+      "selected_chars": 10719,
+      "qualified_selected_chars": 7441
+    }
+  },
+  "cases": [
+    {
+      "case": "social-estimates",
+      "expected": {
+        "status": "qualified",
+        "website_status": "no_site_found",
+        "evidence_url": "https://www.instagram.com/site_scout_demo_social-estimates/",
+        "evidence_contains": "Message us for a painting estimate"
+      },
+      "fts": {
+        "status": "qualified",
+        "website_status": "no_site_found",
+        "selected_passages": 3,
+        "available_passages": 3,
+        "selected_chars": 441,
+        "context_sha256": "925c103fcec2644f8457c4731ac007d16e2a522eb4bbcdfadbe99db36e1bf5f5",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      },
+      "full": {
+        "status": "qualified",
+        "website_status": "no_site_found",
+        "selected_passages": 3,
+        "available_passages": 3,
+        "selected_chars": 441,
+        "context_sha256": "925c103fcec2644f8457c4731ac007d16e2a522eb4bbcdfadbe99db36e1bf5f5",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      }
+    },
+    {
+      "case": "broken-estimate",
+      "expected": {
+        "status": "qualified",
+        "website_status": "has_site",
+        "evidence_url": "https://linenleaf.example/request-estimate",
+        "evidence_contains": "HTTP 404 on two checks"
+      },
+      "fts": {
+        "status": "qualified",
+        "website_status": "has_site",
+        "selected_passages": 4,
+        "available_passages": 11,
+        "selected_chars": 1438,
+        "context_sha256": "5a1728a3cdc3049fcbaf462fad0e5f578edee69eb00a5594a772d8b1d7e363e1",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      },
+      "full": {
+        "status": "qualified",
+        "website_status": "has_site",
+        "selected_passages": 11,
+        "available_passages": 11,
+        "selected_chars": 6687,
+        "context_sha256": "3b1aae1bb68fe6ef1f1de85a21b23bb3fe62d5af25e85d7bbe24a69383763ae8",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      }
+    },
+    {
+      "case": "healthy-phone",
+      "expected": {
+        "status": "skip",
+        "website_status": "has_site",
+        "evidence_url": "https://indigoframe.example/",
+        "evidence_contains": "Call (818) 555-0103"
+      },
+      "fts": {
+        "status": "skip",
+        "website_status": "has_site",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 216,
+        "context_sha256": "930481b777f31c1aa713396e43550cfaee87df1ec7ea517d90b36d2a64369ad7",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      },
+      "full": {
+        "status": "skip",
+        "website_status": "has_site",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 216,
+        "context_sha256": "930481b777f31c1aa713396e43550cfaee87df1ec7ea517d90b36d2a64369ad7",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      }
+    },
+    {
+      "case": "healthy-quote",
+      "expected": {
+        "status": "skip",
+        "website_status": "has_site",
+        "evidence_url": "https://cobaltpine.example/",
+        "evidence_contains": "Request an estimate"
+      },
+      "fts": {
+        "status": "skip",
+        "website_status": "has_site",
+        "selected_passages": 3,
+        "available_passages": 3,
+        "selected_chars": 311,
+        "context_sha256": "f385b795656cf2ef30e11e101c488f4cfafbc5d7d463eceaf12d1e2cb37ca362",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      },
+      "full": {
+        "status": "skip",
+        "website_status": "has_site",
+        "selected_passages": 3,
+        "available_passages": 3,
+        "selected_chars": 311,
+        "context_sha256": "f385b795656cf2ef30e11e101c488f4cfafbc5d7d463eceaf12d1e2cb37ca362",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      }
+    },
+    {
+      "case": "same-name",
+      "expected": {
+        "status": "hold",
+        "website_status": "unsure",
+        "evidence_url": "https://www.instagram.com/site_scout_demo_same-name/",
+        "evidence_contains": "Message us for a painting estimate"
+      },
+      "fts": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 3,
+        "available_passages": 3,
+        "selected_chars": 393,
+        "context_sha256": "2883d356bf94c0e5df9d4b1bcc66ee05bbb5ea679239cf857cd15fdd206de852",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      },
+      "full": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 3,
+        "available_passages": 3,
+        "selected_chars": 393,
+        "context_sha256": "2883d356bf94c0e5df9d4b1bcc66ee05bbb5ea679239cf857cd15fdd206de852",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      }
+    },
+    {
+      "case": "one-profile",
+      "expected": {
+        "status": "hold",
+        "website_status": "unsure",
+        "evidence_url": "https://www.yelp.com/biz/site-scout-fixture-6",
+        "evidence_contains": "Call (818) 555-0106"
+      },
+      "fts": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 236,
+        "context_sha256": "f4e1041aa2fc98a56add705639b5a6d6d51b29d4ebeb8a3c2f7a6cb332bc5f16",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      },
+      "full": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 236,
+        "context_sha256": "f4e1041aa2fc98a56add705639b5a6d6d51b29d4ebeb8a3c2f7a6cb332bc5f16",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      }
+    },
+    {
+      "case": "injection",
+      "expected": {
+        "status": "blocked",
+        "website_status": "unsure",
+        "evidence_url": "https://www.facebook.com/site-scout-fixture-7",
+        "evidence_contains": "Instruction-like text"
+      },
+      "fts": {
+        "status": "blocked",
+        "website_status": "unsure",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 234,
+        "context_sha256": "99fbbebc6daca5f508e5de74875d48a05634346422f2ce43b0778470792f81b8",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      },
+      "full": {
+        "status": "blocked",
+        "website_status": "unsure",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 234,
+        "context_sha256": "99fbbebc6daca5f508e5de74875d48a05634346422f2ce43b0778470792f81b8",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      }
+    },
+    {
+      "case": "temporary-failure",
+      "expected": {
+        "status": "hold",
+        "website_status": "unsure",
+        "evidence_url": "https://rosearch.example/",
+        "evidence_contains": "HTTP 503"
+      },
+      "fts": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 201,
+        "context_sha256": "1880fceb307e7301f9874378e35701da8c678ad5656483877abba7c549c88e84",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      },
+      "full": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 201,
+        "context_sha256": "1880fceb307e7301f9874378e35701da8c678ad5656483877abba7c549c88e84",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      }
+    },
+    {
+      "case": "no-evidence",
+      "expected": {
+        "status": "hold",
+        "website_status": "unsure"
+      },
+      "fts": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 1,
+        "available_passages": 1,
+        "selected_chars": 148,
+        "context_sha256": "181b5b2613368e00068daffbb0e07a2bd2a7c65c36164bd8b4683100923f3c5a",
+        "expected_url_in_selection": null,
+        "expected_passage_in_selection": null
+      },
+      "full": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 1,
+        "available_passages": 1,
+        "selected_chars": 148,
+        "context_sha256": "181b5b2613368e00068daffbb0e07a2bd2a7c65c36164bd8b4683100923f3c5a",
+        "expected_url_in_selection": null,
+        "expected_passage_in_selection": null
+      }
+    },
+    {
+      "case": "profiles-no-need",
+      "expected": {
+        "status": "hold",
+        "website_status": "unsure",
+        "evidence_url": "https://www.instagram.com/site_scout_demo_profiles-no-need/",
+        "evidence_contains": "Painting contractor business listing"
+      },
+      "fts": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 3,
+        "available_passages": 3,
+        "selected_chars": 367,
+        "context_sha256": "1f0e5c295d6fefb70ec7d3574c7d42a87354d4c2ce6f3c0fb3c1520282643bc2",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      },
+      "full": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 3,
+        "available_passages": 3,
+        "selected_chars": 367,
+        "context_sha256": "1f0e5c295d6fefb70ec7d3574c7d42a87354d4c2ce6f3c0fb3c1520282643bc2",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      }
+    },
+    {
+      "case": "espanol-healthy",
+      "expected": {
+        "status": "skip",
+        "website_status": "has_site",
+        "evidence_url": "https://lunaclara.example/",
+        "evidence_contains": "Llámenos"
+      },
+      "fts": {
+        "status": "skip",
+        "website_status": "has_site",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 253,
+        "context_sha256": "eff80005d5e044d02fc2c10169f3aee416a0d520162ef29c7cebb9ba58604f73",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      },
+      "full": {
+        "status": "skip",
+        "website_status": "has_site",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 253,
+        "context_sha256": "eff80005d5e044d02fc2c10169f3aee416a0d520162ef29c7cebb9ba58604f73",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      }
+    },
+    {
+      "case": "uncertain-contact",
+      "expected": {
+        "status": "hold",
+        "website_status": "has_site",
+        "evidence_url": "https://junipersight.example/",
+        "evidence_contains": "Request an estimate"
+      },
+      "fts": {
+        "status": "hold",
+        "website_status": "has_site",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 228,
+        "context_sha256": "1f45ef4c22836b1bc2e3403de32799ab54ab77a01f21e3ca639a7e41b85a7121",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      },
+      "full": {
+        "status": "hold",
+        "website_status": "has_site",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 228,
+        "context_sha256": "1f45ef4c22836b1bc2e3403de32799ab54ab77a01f21e3ca639a7e41b85a7121",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      }
+    },
+    {
+      "case": "damaged-quote-with-phone",
+      "expected": {
+        "status": "qualified",
+        "website_status": "has_site",
+        "evidence_url": "https://plumhill.example/quote",
+        "evidence_contains": "HTTP 410 on two checks"
+      },
+      "fts": {
+        "status": "qualified",
+        "website_status": "has_site",
+        "selected_passages": 3,
+        "available_passages": 3,
+        "selected_chars": 313,
+        "context_sha256": "93c41c306fcca1d138a6dbc28886bd0da2470bbcf630801f481592e3ea5964de",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      },
+      "full": {
+        "status": "qualified",
+        "website_status": "has_site",
+        "selected_passages": 3,
+        "available_passages": 3,
+        "selected_chars": 313,
+        "context_sha256": "93c41c306fcca1d138a6dbc28886bd0da2470bbcf630801f481592e3ea5964de",
+        "expected_url_in_selection": true,
+        "expected_passage_in_selection": true
+      }
+    },
+    {
+      "case": "registry-mirrors",
+      "expected": {
+        "status": "hold",
+        "website_status": "unsure"
+      },
+      "fts": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 1,
+        "available_passages": 4,
+        "selected_chars": 147,
+        "context_sha256": "114cd2fcfef3fb36ec3819ad03a98e0199024344e78165911b5f8b51c9c1c006",
+        "expected_url_in_selection": null,
+        "expected_passage_in_selection": null
+      },
+      "full": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 4,
+        "available_passages": 4,
+        "selected_chars": 462,
+        "context_sha256": "030c9c813af044431fe4b5835b8d1c8a24a2f467c2d7be7e21b476c4e804badb",
+        "expected_url_in_selection": null,
+        "expected_passage_in_selection": null
+      }
+    },
+    {
+      "case": "unfamiliar-mirror",
+      "expected": {
+        "status": "hold",
+        "website_status": "unsure"
+      },
+      "fts": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 1,
+        "available_passages": 2,
+        "selected_chars": 147,
+        "context_sha256": "114cd2fcfef3fb36ec3819ad03a98e0199024344e78165911b5f8b51c9c1c006",
+        "expected_url_in_selection": null,
+        "expected_passage_in_selection": null
+      },
+      "full": {
+        "status": "hold",
+        "website_status": "unsure",
+        "selected_passages": 2,
+        "available_passages": 2,
+        "selected_chars": 229,
+        "context_sha256": "2e48a165cbe1fcb7c50017537a9b56b3892db1ace85a9abcec1b01f009aa124f",
+        "expected_url_in_selection": null,
+        "expected_passage_in_selection": null
+      }
+    }
+  ]
+}

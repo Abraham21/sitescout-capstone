@@ -1,0 +1,98 @@
+{
+  "clock": "Elapsed time from first to last persisted event, with warm CSLB cache. Exa reports cost, Gemini cost is estimated from returned token counts.",
+  "observations": [
+    {
+      "run_id": "016b10ee04a8",
+      "selection": "Early calibration before the ownership correction",
+      "started_at": "2026-11-20T11:42:49.061+00:00",
+      "elapsed_seconds": 13.645,
+      "outcomes": {
+        "skip": 9,
+        "hold": 1
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 20,
+          "dollars": 0.14,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "run_id": "ec6bb255b22e",
+      "selection": "Ten ordinary registry records rechecked after the ownership correction",
+      "started_at": "2026-11-20T11:47:53.653+00:00",
+      "elapsed_seconds": 6.475,
+      "outcomes": {
+        "hold": 7,
+        "skip": 3
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 17,
+          "dollars": 0.119,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "run_id": "5ceaaf4fee35",
+      "selection": "Preselected actual business and healthy-site control",
+      "started_at": "2026-11-20T11:52:54.925+00:00",
+      "elapsed_seconds": 29.576,
+      "outcomes": {
+        "skip": 1,
+        "manual": 1
+      },
+      "hosted_verified": 1,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 3,
+          "dollars": 0.021,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        {
+          "service": "Gemini",
+          "state": "reported",
+          "calls": 4,
+          "dollars": 0.002106,
+          "input_tokens": 2108,
+          "output_tokens": 140
+        }
+      ]
+    },
+    {
+      "run_id": "12c3df6f4ca7",
+      "selection": "Three synthetic walkthrough cases",
+      "started_at": "2026-11-20T11:54:19.649+00:00",
+      "elapsed_seconds": 12.208,
+      "outcomes": {
+        "skip": 1,
+        "manual": 1,
+        "ready": 1
+      },
+      "hosted_verified": 2,
+      "provider_usage": [
+        {
+          "service": "Gemini",
+          "state": "reported",
+          "calls": 6,
+          "dollars": 0.002609,
+          "input_tokens": 2034,
+          "output_tokens": 289
+        }
+      ]
+    }
+  ]
+}

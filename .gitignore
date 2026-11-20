@@ -1,0 +1,11 @@
+/.env
+.env.*
+!.env.example
+.venv/
+.runtime/
+__pycache__/
+.pytest_cache/
+.DS_Store
+node_modules/
+.wrangler/
+.ruff_cache/

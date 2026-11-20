@@ -1,0 +1,226 @@
+"""The operator's local SQLite record. Each completed stage is saved immediately."""
+
+import json
+import os
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+
+
+def runtime_dir():
+    path = Path(os.environ.get("SITESCOUT_DATA_DIR", ROOT / ".runtime"))
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+
+
+@contextmanager
+def connect():
+    db = sqlite3.connect(runtime_dir() / "sitescout.sqlite", timeout=20)
+    db.row_factory = sqlite3.Row
+    try:
+        yield db
+        db.commit()
+    finally:
+        db.close()
+
+
+def initialize():
+    with connect() as db:
+        db.execute("PRAGMA journal_mode=WAL")
+        db.executescript("""
+            CREATE TABLE IF NOT EXISTS runs (
+                id TEXT PRIMARY KEY, mode TEXT, started_at TEXT, status TEXT);
+            CREATE TABLE IF NOT EXISTS leads (
+                run_id TEXT, id TEXT, data TEXT, PRIMARY KEY(run_id,id));
+            CREATE TABLE IF NOT EXISTS events (
+                seq INTEGER PRIMARY KEY, run_id TEXT, data TEXT);
+            CREATE INDEX IF NOT EXISTS events_by_run ON events(run_id,seq);
+            CREATE TABLE IF NOT EXISTS usage (
+                id INTEGER PRIMARY KEY, run_id TEXT, lead_id TEXT, service TEXT,
+                dollars REAL, state TEXT, input_tokens INTEGER, output_tokens INTEGER,
+                created_at TEXT);
+            CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+        """)
+
+
+def new_run(run_id, mode):
+    with connect() as db:
+        db.execute("INSERT INTO runs VALUES (?,?,?,?)", (run_id, mode, now(), "running"))
+
+
+def finish_run(run_id, status):
+    with connect() as db:
+        db.execute("UPDATE runs SET status=? WHERE id=?", (status, run_id))
+
+
+def load_recorded_sample():
+    """Install the bundled, synthetic recording once on a fresh operator desk."""
+    sample = ROOT / "examples/recorded-run.json"
+    if not sample.is_file():
+        return
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        if db.execute("SELECT 1 FROM runs LIMIT 1").fetchone():
+            return
+        record = json.loads(sample.read_text())
+        run = record["run"]
+        db.execute(
+            "INSERT INTO runs VALUES (?,?,?,?)", (run["id"], "sample", run["started_at"], "complete")
+        )
+        for lead in record["leads"]:
+            if lead.get("preview"):
+                # The recording stores decisions and inputs. Rebuild its portable HTML
+                # only when the checked-in renderer still matches what was published.
+                import hashlib
+                import studio
+
+                page = studio.build_preview(lead, lead["qualification"])["html"]
+                if hashlib.sha256(page.encode()).hexdigest() == lead["preview"].pop("html_sha256"):
+                    lead["preview"]["html"] = page
+            db.execute("INSERT INTO leads VALUES (?,?,?)", (run["id"], lead["id"], json.dumps(lead)))
+        db.executemany(
+            "INSERT INTO events(run_id,data) VALUES (?,?)",
+            [(run["id"], json.dumps(event)) for event in record["events"]],
+        )
+
+
+def list_runs():
+    initialize()
+    load_recorded_sample()
+    with connect() as db:
+        return [
+            dict(row)
+            for row in db.execute("""
+            SELECT runs.*,sum(CASE WHEN json_extract(leads.data,'$.status')='ready' THEN 1 ELSE 0 END) AS ready_count,
+                   sum(CASE WHEN json_extract(leads.data,'$.preview.published')=1 THEN 1 ELSE 0 END) AS published_count
+            FROM runs LEFT JOIN leads ON leads.run_id=runs.id WHERE runs.status != 'superseded' GROUP BY runs.id ORDER BY runs.started_at DESC""")
+        ]
+
+
+def save_lead(run_id, lead):
+    with connect() as db:
+        db.execute(
+            "INSERT OR REPLACE INTO leads VALUES (?,?,?)",
+            (run_id, lead["id"], json.dumps(lead, ensure_ascii=False)),
+        )
+
+
+def leads(run_id):
+    with connect() as db:
+        return [
+            json.loads(row[0])
+            for row in db.execute("SELECT data FROM leads WHERE run_id=? ORDER BY rowid", (run_id,))
+        ]
+
+
+def seen_live_ids():
+    with connect() as db:
+        return {
+            row[0]
+            for row in db.execute("""
+            SELECT DISTINCT leads.id FROM leads JOIN runs ON runs.id=leads.run_id
+            WHERE runs.mode IN ('live','showcase') AND runs.status IN ('complete','complete_with_errors','interrupted')
+              AND EXISTS (SELECT 1 FROM events WHERE events.run_id=runs.id AND json_extract(events.data,'$.lead_id')=leads.id
+                          AND json_extract(events.data,'$.stage')='Queue') AND json_extract(data,'$.status')
+              IN ('ready','manual','skip','hold','blocked','dismissed')""")
+        }
+
+
+def dismissed_ids():
+    with connect() as db:
+        return {
+            row[0]
+            for row in db.execute(
+                "SELECT DISTINCT id FROM leads WHERE json_extract(data,'$.status')='dismissed'"
+            )
+        }
+
+
+def add_event(event):
+    with connect() as db:
+        db.execute(
+            "INSERT INTO events(run_id,data) VALUES (?,?)",
+            (event["run_id"], json.dumps(event, ensure_ascii=False)),
+        )
+
+
+def events(run_id):
+    with connect() as db:
+        return [
+            json.loads(row[0])
+            for row in db.execute("SELECT data FROM events WHERE run_id=? ORDER BY seq", (run_id,))
+        ]
+
+
+def edit_lead(run_id, lead_id, change):
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        if db.execute("SELECT 1 FROM runs WHERE id=? AND mode='sample'", (run_id,)).fetchone():
+            raise ValueError("The bundled sample is a read-only recording.")
+        row = db.execute("SELECT data FROM leads WHERE run_id=? AND id=?", (run_id, lead_id)).fetchone()
+        if row is None:
+            raise ValueError("This business is no longer in the run.")
+        lead = json.loads(row[0])
+        change(lead)
+        db.execute(
+            "UPDATE leads SET data=? WHERE run_id=? AND id=?",
+            (json.dumps(lead, ensure_ascii=False), run_id, lead_id),
+        )
+
+
+def reserve(run_id, lead_id, service, maximum, service_limit, call_cap):
+    """Reserve before dispatch so retries/concurrent leads cannot overspend."""
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        total, subtotal = db.execute(
+            "SELECT coalesce(sum(dollars),0),coalesce(sum(CASE WHEN service=? THEN dollars END),0) FROM usage",
+            (service,),
+        ).fetchone()
+        count = db.execute(
+            "SELECT count(*) FROM usage WHERE run_id=? AND lead_id=? AND service=?",
+            (run_id, lead_id, service),
+        ).fetchone()[0]
+        if count >= call_cap or subtotal + maximum > service_limit or total + maximum > 25:
+            raise RuntimeError(f"{service} call or spending limit reached.")
+        cur = db.execute(
+            "INSERT INTO usage VALUES(NULL,?,?,?,?,?,?,?,?)",
+            (run_id, lead_id, service, maximum, "reserved", 0, 0, now()),
+        )
+        return cur.lastrowid
+
+
+def record_usage(request_id, dollars, input_tokens=0, output_tokens=0):
+    with connect() as db:
+        db.execute(
+            "UPDATE usage SET dollars=?,state='reported',input_tokens=?,output_tokens=? WHERE id=?",
+            (dollars, input_tokens, output_tokens, request_id),
+        )
+
+
+def usage(run_id=None):
+    with connect() as db:
+        sql = """SELECT service,state,count(*) AS calls,round(sum(dollars),6) AS dollars,
+                 sum(input_tokens) AS input_tokens,sum(output_tokens) AS output_tokens FROM usage"""
+        args = ()
+        if run_id:
+            sql += " WHERE run_id=?"
+            args = (run_id,)
+        return [dict(row) for row in db.execute(sql + " GROUP BY service,state", args)]
+
+
+def setting(key, default=""):
+    with connect() as db:
+        row = db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+        return row[0] if row else default
+
+
+def set_setting(key, value):
+    with connect() as db:
+        db.execute("INSERT OR REPLACE INTO settings VALUES(?,?)", (key, str(value)))

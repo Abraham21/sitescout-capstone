@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'none'; base-uri 'none'; connect-src 'none'">
+<title>$name — Painting concept</title>
+<style>
+*{box-sizing:border-box}
+:root{color-scheme:light;--paper:#f8f6ef;--ink:#1a2e26;--accent:#194737;--tint:#dce3d3;--line:#b9c4b8;--sun:#f2de81;--pad:clamp(1.15rem,5vw,5.5rem);font:100%/1.55 "Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--paper)}
+body{margin:0}
+body.field{--paper:#f6eee2;--ink:#37261d;--accent:#73331e;--tint:#ecdbcc;--line:#c8b6a7;--sun:#f7c888}
+h1,h2,p,figure{margin:0}
+a{color:inherit;text-underline-offset:4px}
+:focus-visible{outline:3px solid #1556a5;outline-offset:5px}
+section{scroll-margin-top:1rem}
+.top{background:var(--accent);color:white;padding:.48rem var(--pad);font-size:.79rem;letter-spacing:.012em}
+.wrap{width:min(100%,1600px);margin-inline:auto;padding-inline:var(--pad)}
+header{display:flex;align-items:center;justify-content:space-between;gap:1.4rem;padding-block:1.55rem;border-bottom:1px solid var(--line)}
+.wordmark{display:flex;align-items:center;gap:.75rem;text-decoration:none;font-weight:750;line-height:1.12;max-width:32rem;overflow-wrap:anywhere}
+.mark{display:inline-flex;gap:3px;align-items:flex-end;flex:none;height:1.6rem;transform:skew(-12deg)}
+.mark i{display:block;width:.36rem;background:var(--accent);height:70%}.mark i:nth-child(2){height:100%}.mark i:nth-child(3){height:82%}
+nav{display:flex;align-items:center;gap:1.5rem;font-size:.9rem}
+nav a{text-decoration:none}nav a:hover,footer a:hover{text-decoration:underline}
+.hero{display:grid;grid-template-columns:minmax(0,.83fr) minmax(0,1.17fr);align-items:center;gap:clamp(2rem,5.5vw,7rem);margin-block:clamp(2rem,4.8vw,5rem)}
+.hero-copy{padding-block:1rem}
+.kicker,.credit,.palette-label,.caption{font:650 .72rem/1.45 "Helvetica Neue",Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase}
+.kicker{margin-bottom:1.1rem;color:var(--accent);overflow-wrap:anywhere}
+h1,h2{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:500;line-height:.99;letter-spacing:-.052em;text-wrap:balance}
+h1{font-size:clamp(3.3rem,6.5vw,7.3rem)}h2{font-size:clamp(2.5rem,4.5vw,4.75rem)}
+.lede{max-width:34ch;margin:1.35rem 0 1.9rem;font-size:clamp(1rem,1.4vw,1.24rem)}
+.btn{display:inline-flex;align-items:center;justify-content:space-between;gap:1.4rem;border:0;border-radius:0;background:var(--accent);color:white;font:650 1rem/1 sans-serif;padding:1rem 1.2rem;text-decoration:none;cursor:pointer;min-height:48px}.btn:hover{filter:brightness(.87)}
+.hero-photo img{width:100%;height:clamp(310px,41vw,600px);display:block;object-fit:cover}
+.hero-photo figcaption{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.3rem .7rem;padding:.55rem 0;color:var(--ink);font-size:.73rem;line-height:1.4}
+.field .hero{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)}.field .hero-photo{order:-1}
+.field h1,.field h2{font-family:"Avenir Next Condensed","Helvetica Neue",Arial,sans-serif;font-weight:800;letter-spacing:-.062em}
+.color-section{padding-block:clamp(2.5rem,6vw,6rem);border-top:1px solid var(--line)}
+.section-head{display:grid;grid-template-columns:1fr .8fr;align-items:end;gap:2rem;margin-bottom:1.6rem}
+.section-head p{max-width:43ch}
+.swatches{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.swatch{color:var(--tone);border:0;background:var(--pigment);display:flex;justify-content:space-between;align-items:end;gap:.5rem;min-height:clamp(7rem,12vw,12rem);padding:clamp(.8rem,2vw,2rem);font-weight:600;text-align:left;cursor:pointer}
+.swatch:focus-visible{outline-offset:-5px;outline-color:currentColor}
+.swatch span:last-child{opacity:0}
+.swatch[aria-pressed="true"] span:last-child{opacity:1}
+.brief{background:var(--tint);padding:clamp(1.5rem,4.4vw,4.5rem);display:grid;grid-template-columns:1fr .85fr;gap:clamp(2rem,6vw,7rem)}
+.brief h2{max-width:11ch}.brief p{max-width:44ch;margin:1rem 0}
+.brief label{font-weight:650;display:block}
+select{display:block;width:100%;padding:.8rem;margin:.55rem 0 1.25rem;border:1px solid var(--line);font:inherit;background:var(--paper);color:var(--ink);border-radius:0}
+.result{min-height:2.9em;font-weight:600}.result:empty{min-height:0}
+.details{display:flex;justify-content:space-between;gap:2rem;align-items:baseline;padding-block:clamp(2.3rem,5vw,5rem)}
+.details .kicker{margin:0 0 .5rem}.details p{margin-top:.35rem;overflow-wrap:anywhere}
+.details a{display:inline-block;max-width:100%;overflow-wrap:anywhere}.facts{max-width:52ch}
+footer{border-top:1px solid var(--line);padding:1.3rem 0 2rem;font-size:.85rem}
+@media(max-width:740px){nav{gap:.8rem}nav a:first-child{display:none}.hero,.field .hero,.section-head,.brief{grid-template-columns:1fr}.hero{gap:1.2rem}.field .hero-photo{order:0}.hero-photo img{height:clamp(250px,69vw,410px)}.section-head{gap:.8rem}.details{display:block}.details>div+div{margin-top:1.3rem}}
+@media(max-width:430px){header{flex-wrap:wrap;gap:.8rem;padding-block:1rem}h1{font-size:clamp(2.8rem,12vw,3.7rem)}.swatch{font-size:.86rem;padding:.7rem;align-items:flex-end;flex-wrap:wrap}.swatches{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style>
+</head>
+<body class="$theme">
+<div class="top">Independent design preview by SiteScout · Unaffiliated with $name</div>
+<div class="wrap">
+<header>
+<a class="wordmark" href="#main"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span><span>$name</span></a>
+<nav aria-label="Page navigation"><a href="#colors">Color ideas</a><a href="#project">Project planner ↗</a></nav>
+</header>
+<main id="main">
+<section class="hero" aria-labelledby="hero-title">
+<div class="hero-copy"><p class="kicker">$locality · Painting</p><h1 id="hero-title">$headline</h1>
+<p class="lede">$intro</p><a class="btn" href="#project">Plan a project <span aria-hidden="true">↘</span></a></div>
+<figure class="hero-photo"><img src="$image_src" alt="$image_alt" width="1100" height="$image_height"><figcaption><span>Design inspiration · Stock photograph</span><span>$photographer</span></figcaption></figure>
+</section>
+<section class="color-section" id="colors" aria-labelledby="colors-title"><div class="section-head"><h2 id="colors-title">$color_heading</h2><p>Choose a starting shade for your sample project brief. These colors are illustrative.</p></div>
+<div class="swatches" role="group" aria-label="Select a sample color">$swatches</div></section>
+<section class="brief" id="project" aria-labelledby="project-title"><div><h2 id="project-title">Plan a painting project.</h2><p>Try the planner to see how an estimate inquiry could begin. The brief stays on this page. Nothing is sent to the business.</p></div>
+<div><label for="scope">What are you planning?</label><select id="scope"><option>A painting project</option><option>A room refresh</option><option>A color change</option><option>A surface touch-up</option></select>
+<button type="button" class="btn" id="brief-button">Show sample brief <span aria-hidden="true">↗</span></button><p class="result" id="brief-result" role="status"></p></div></section>
+<section class="details" aria-label="Business details"><div><p class="kicker">Business details</p><strong>$name</strong><p>$locality</p>$source_link</div>
+<div class="facts">$details</div></section>
+</main><footer>Prepared by SiteScout for owner review. This concept uses illustrative photography.</footer>
+</div>
+<script>
+const swatches = Array.from(document.querySelectorAll(".swatch"));
+const summary = document.querySelector("#brief-result");
+function updateBrief() {
+  const color = swatches.find(button => button.getAttribute("aria-pressed") === "true").dataset.color;
+  summary.textContent = document.querySelector("#scope").value + " with " + color + " as a starting shade. Sample only.";
+}
+for (const button of swatches) {
+  button.addEventListener("click", () => {
+    for (const swatch of swatches) swatch.setAttribute("aria-pressed", String(swatch === button));
+    if (summary.textContent) updateBrief();
+  });
+}
+document.querySelector("#brief-button").addEventListener("click", updateBrief);
+document.querySelector("#scope").addEventListener("change", () => { if (summary.textContent) updateBrief(); });
+</script>
+</body></html>

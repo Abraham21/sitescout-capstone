@@ -1,0 +1,206 @@
+{
+  "population": "Two predeclared synthetic painting cases, each tried once per condition. Human preference remains unmeasured.",
+  "method": "The qualifier reads the two retrieval contexts. A separate writing experiment uses the same frozen, deterministically qualified fixture for both writers regardless of qualifier abstention. Direct uses one Gemini writing call; the tree prunes angles first. Evidence, model, template choices, URL, and final code checks are shared. Order alternates by case. Code checks exclude the separate production model-review availability gate.",
+  "model": "gemini-3.8-flash",
+  "run_id": "eval-e91b725041",
+  "usage": [
+    {
+      "service": "Gemini",
+      "state": "reported",
+      "calls": 10,
+      "dollars": 0.006096,
+      "input_tokens": 5108,
+      "output_tokens": 604
+    }
+  ],
+  "errors": [],
+  "cases": [
+    {
+      "case": "social-estimates",
+      "retrieval": {
+        "fts": {
+          "status": "qualified",
+          "website_status": "no_site_found",
+          "selected_passages": 3,
+          "available_passages": 3,
+          "selected_chars": 441,
+          "context_sha256": "925c103fcec2644f8457c4731ac007d16e2a522eb4bbcdfadbe99db36e1bf5f5",
+          "expected_url_in_selection": true,
+          "expected_passage_in_selection": true,
+          "extracted_facts": {
+            "services": [
+              "Painting and decorating",
+              "Interior painting"
+            ],
+            "city": "Glendale",
+            "service_area": "Glendale",
+            "citations": {
+              "Painting and decorating": "registry",
+              "Interior painting": "e1",
+              "Glendale": "e1"
+            }
+          }
+        },
+        "full": {
+          "status": "hold",
+          "website_status": "no_site_found",
+          "selected_passages": 3,
+          "available_passages": 3,
+          "selected_chars": 441,
+          "context_sha256": "925c103fcec2644f8457c4731ac007d16e2a522eb4bbcdfadbe99db36e1bf5f5",
+          "expected_url_in_selection": true,
+          "expected_passage_in_selection": true,
+          "extracted_facts": {
+            "services": [
+              "Painting and decorating",
+              "Interior painting"
+            ],
+            "city": "Glendale",
+            "service_area": "Glendale",
+            "citations": {
+              "Painting and decorating": "registry",
+              "Interior painting": "e1",
+              "Glendale": "e1"
+            }
+          }
+        }
+      },
+      "writing": {
+        "direct": {
+          "calls": 1,
+          "seconds": 2.14,
+          "mode_returned": "direct",
+          "angle": "specialty",
+          "invitation": "feedback",
+          "subject": "Copper Finch Painting — a website idea for your painting services",
+          "body": "Hi Copper Finch Painting team,\n\nI found the public Instagram profile for Copper Finch Painting, but couldn’t verify a separate business website in the sources I checked. I sketched a website concept that gives interior painting a visible place and lets visitors plan a project.\n\nHere’s the independent design preview: https://preview.example/social-estimates\n\nDoes this feel right for your business? If so, I can set it up for you.\n\nAbraham",
+          "evidence_ids": [
+            "registry",
+            "e1"
+          ],
+          "code_checks": {
+            "Rendered concept matches cited business facts": true,
+            "Assigned preview link is present": true,
+            "Citations belong to the selected observation": true,
+            "Pitch uses only evidenced claims and working features": true
+          },
+          "runner_up": "social"
+        },
+        "tree": {
+          "calls": 2,
+          "seconds": 4.06,
+          "mode_returned": "two-depth",
+          "angle": "specialty",
+          "invitation": "permission",
+          "subject": "Copper Finch Painting — a website idea for your painting services",
+          "body": "Hi Copper Finch Painting team,\n\nI found the public Instagram profile for Copper Finch Painting, but couldn’t verify a separate business website in the sources I checked. I sketched a website concept that gives interior painting a visible place and lets visitors plan a project.\n\nHere’s the independent design preview: https://preview.example/social-estimates\n\nIf you like this direction, would you like me to set it up for you?\n\nAbraham",
+          "evidence_ids": [
+            "registry",
+            "e1"
+          ],
+          "code_checks": {
+            "Rendered concept matches cited business facts": true,
+            "Assigned preview link is present": true,
+            "Citations belong to the selected observation": true,
+            "Pitch uses only evidenced claims and working features": true
+          },
+          "runner_up": "local"
+        }
+      }
+    },
+    {
+      "case": "broken-estimate",
+      "retrieval": {
+        "full": {
+          "status": "qualified",
+          "website_status": "has_site",
+          "selected_passages": 11,
+          "available_passages": 11,
+          "selected_chars": 6687,
+          "context_sha256": "3b1aae1bb68fe6ef1f1de85a21b23bb3fe62d5af25e85d7bbe24a69383763ae8",
+          "expected_url_in_selection": true,
+          "expected_passage_in_selection": true,
+          "extracted_facts": {
+            "services": [
+              "Painting and decorating",
+              "Exterior painting"
+            ],
+            "city": "Pasadena",
+            "service_area": "Pasadena",
+            "citations": {
+              "Painting and decorating": "registry",
+              "Exterior painting": "e1",
+              "Pasadena": "e1"
+            }
+          }
+        },
+        "fts": {
+          "status": "qualified",
+          "website_status": "has_site",
+          "selected_passages": 4,
+          "available_passages": 11,
+          "selected_chars": 1438,
+          "context_sha256": "5a1728a3cdc3049fcbaf462fad0e5f578edee69eb00a5594a772d8b1d7e363e1",
+          "expected_url_in_selection": true,
+          "expected_passage_in_selection": true,
+          "extracted_facts": {
+            "services": [
+              "Painting and decorating",
+              "Exterior painting"
+            ],
+            "city": "Pasadena",
+            "service_area": "Pasadena",
+            "citations": {
+              "Painting and decorating": "registry",
+              "Exterior painting": "e1",
+              "Pasadena": "e1"
+            }
+          }
+        }
+      },
+      "writing": {
+        "tree": {
+          "calls": 2,
+          "seconds": 4.11,
+          "mode_returned": "two-depth",
+          "angle": "site",
+          "invitation": "permission",
+          "subject": "Linen Leaf Painting — a project-planner idea",
+          "body": "Hi Linen Leaf Painting team,\n\nI took a look at the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I built a concept where visitors can try a short painting-project planner.\n\nHere’s the independent design preview: https://preview.example/broken-estimate\n\nIf you like this direction, would you like me to set it up for you?\n\nAbraham",
+          "evidence_ids": [
+            "registry",
+            "e10"
+          ],
+          "code_checks": {
+            "Rendered concept matches cited business facts": true,
+            "Assigned preview link is present": true,
+            "Citations belong to the selected observation": true,
+            "Pitch uses only evidenced claims and working features": true
+          },
+          "runner_up": "specialty"
+        },
+        "direct": {
+          "calls": 1,
+          "seconds": 3.55,
+          "mode_returned": "direct",
+          "angle": "specialty",
+          "invitation": "walkthrough",
+          "subject": "Linen Leaf Painting — a website idea for your painting services",
+          "body": "Hi Linen Leaf Painting team,\n\nI tried the contact link on the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I sketched a website concept that gives exterior painting a visible place and lets visitors plan a project.\n\nHere’s the independent design preview: https://preview.example/broken-estimate\n\nWould you like me to walk you through the design and what setting it up would involve?\n\nAbraham",
+          "evidence_ids": [
+            "registry",
+            "e10",
+            "e1"
+          ],
+          "code_checks": {
+            "Rendered concept matches cited business facts": true,
+            "Assigned preview link is present": true,
+            "Citations belong to the selected observation": true,
+            "Pitch uses only evidenced claims and working features": true
+          },
+          "runner_up": "site"
+        }
+      }
+    }
+  ]
+}
