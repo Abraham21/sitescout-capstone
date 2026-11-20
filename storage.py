@@ -1,5 +1,7 @@
 """The operator's local SQLite record. Each completed stage is saved immediately."""
 
+import gzip
+import hashlib
 import json
 import os
 import sqlite3
@@ -67,23 +69,26 @@ def load_recorded_sample():
         return
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
-        if db.execute("SELECT 1 FROM runs LIMIT 1").fetchone():
+        # Existing operator runs keep their own captured HTML. A sample-only
+        # installation can also pick up a newer recording after a git pull.
+        if db.execute("SELECT 1 FROM runs WHERE mode != 'sample' LIMIT 1").fetchone():
             return
         record = json.loads(sample.read_text())
         run = record["run"]
+        if db.execute("SELECT 1 FROM runs WHERE id=?", (run["id"],)).fetchone():
+            return
         db.execute(
             "INSERT INTO runs VALUES (?,?,?,?)", (run["id"], "sample", run["started_at"], "complete")
         )
         for lead in record["leads"]:
-            if lead.get("preview"):
-                # The recording stores decisions and inputs. Rebuild its portable HTML
-                # only when the checked-in renderer still matches what was published.
-                import hashlib
-                import studio
-
-                page = studio.build_preview(lead, lead["qualification"])["html"]
-                if hashlib.sha256(page.encode()).hexdigest() == lead["preview"].pop("html_sha256"):
-                    lead["preview"]["html"] = page
+            preview = lead.get("preview")
+            if preview:
+                # Use the exact page the reviewer saw, regardless of later template changes.
+                path = ROOT / "examples/pages" / (Path(lead["id"]).name + ".html.gz")
+                page = gzip.decompress(path.read_bytes())
+                if hashlib.sha256(page).hexdigest() != preview.pop("html_sha256"):
+                    raise ValueError("The bundled preview does not match its recording.")
+                preview["html"] = page.decode()
             db.execute("INSERT INTO leads VALUES (?,?,?)", (run["id"], lead["id"], json.dumps(lead)))
         db.executemany(
             "INSERT INTO events(run_id,data) VALUES (?,?)",

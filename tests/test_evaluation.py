@@ -29,6 +29,17 @@ class EvaluationTest(unittest.TestCase):
         self.assertFalse(row["expected_passage_in_selection"])
         self.assertEqual(evaluation.count_rate([None, False, True]), {"matched": 1, "total": 2})
 
+    def test_blind_form_shows_source_but_hides_qualifier_assessments(self):
+        verdict = {
+            "id": "e1",
+            "url": "https://example.com",
+            "kind": "assessment",
+            "text": "System conclusion",
+        }
+        self.assertNotIn("System conclusion", evaluation.source_block(verdict, blind=True))
+        self.assertIn("https://example.com", evaluation.source_block(verdict, blind=True))
+        self.assertIn("System conclusion", evaluation.source_block(verdict))
+
     def test_private_packet_excludes_superseded_runs_and_does_not_show_decisions(self):
         with (
             tempfile.TemporaryDirectory() as folder,
@@ -88,3 +99,48 @@ class EvaluationTest(unittest.TestCase):
                 {"matched": 5, "total": 5},
             )
             self.assertEqual(evaluation.blind_cards(), packet)
+
+    def test_selected_runs_keep_separate_reproducible_packets_and_matching_score_keys(self):
+        with (
+            tempfile.TemporaryDirectory() as folder,
+            patch.dict(os.environ, {"SITESCOUT_DATA_DIR": folder}),
+        ):
+            storage.initialize()
+            for run in ("original", "revised"):
+                storage.new_run(run, "live")
+                for index in range(5):
+                    storage.save_lead(
+                        run,
+                        {
+                            "id": str(index),
+                            "name": f"Business {index}",
+                            "status": "skip",
+                            "qualification": {
+                                "status": "skip",
+                                "website_status": "has_site",
+                                "evidence": [{"text": "Public observation."}],
+                            },
+                        },
+                    )
+                storage.finish_run(run, "complete")
+                if run == "original":
+                    first = evaluation.blind_cards()
+                    original_key = (first / "key.json").read_bytes()
+            archive = evaluation.blind_cards(["revised"])
+            self.assertEqual(archive.parent, first)
+            self.assertEqual((first / "key.json").read_bytes(), original_key)
+            self.assertEqual(evaluation.blind_cards(["revised"]), archive)
+            first_id = json.loads(original_key)["packet"]
+            self.assertNotEqual(first_id, archive.name)
+            self.assertIn(
+                f"sitescout-routes-answers-{archive.name}.json",
+                (archive / "01-routes.html").read_text(),
+            )
+            for packet_id in (first_id, archive.name):
+                answers = Path(folder) / "drafts.json"
+                answers.write_text(
+                    json.dumps({"packet": packet_id, "phase": "drafts", "reviewer": "A", "answers": []})
+                )
+                self.assertEqual(evaluation.score_blind(answers)["draft_readiness"], {})
+            with self.assertRaisesRegex(ValueError, "missing"):
+                evaluation.blind_cards(["revised", "missing"])

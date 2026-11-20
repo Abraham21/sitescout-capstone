@@ -17,4 +17,14 @@ Run these commands from the repository root with the project virtual environment
 .venv/bin/python evaluation.py --score-blind ~/Downloads/sitescout-drafts-answers.json
 ```
 
-The first command prints system–human agreement with a numerator and denominator for each decision. The second prints the counts of ready, edit, withhold, or insufficient-evidence ratings. A second reviewer can complete the original blank forms independently. Keep real evidence packets, ratings, and identities in private storage. The checked-in results contain synthetic cases only.
+For a follow-up review, select the completed real runs you want to compare with the first release. The command prints a separate packet directory. Open its routing form first, then its draft form. New packet downloads include the packet ID in their filenames. Pass those exact filenames to the same scoring commands above.
+
+```sh
+.venv/bin/python evaluation.py --blind-cards --review-runs 0e187106a15c 4d9c7c5cf370
+```
+
+The routing score prints system–human agreement with a numerator and denominator for each decision. The draft score prints the counts of ready, edit, withhold, or insufficient-evidence ratings. A second reviewer can complete the original blank forms independently. Keep real evidence packets, ratings, and identities in private storage. The repository contains aggregate human review results and run measurements. Individual operator notes and the original review key remain on the Mac. [First-release results](operator-review.json)
+
+## Browser check
+
+With the desk open on a completed revised preview, run `node tests/browser-preview.cjs` from the project root. It opens the embedded site, follows its estimate link, types a project description and checks the resulting brief. This optional check uses Playwright and Chromium. If needed, install them with `npm install --no-save --package-lock=false playwright` and `npx playwright install chromium`, or set `CHROME_BIN` to an installed Chrome executable.

@@ -1,0 +1,55 @@
+{
+  "method": "Chromium opened each hosted URL with a 390 × 844 mobile viewport. Compared the earlier real preview with the redesign. On each revised page, verified the header number against the recorded business, typed an arbitrary project description, clicked prepare and copy, read the clipboard, counted HTTP requests during the interaction, and checked document width at 320 px. No person rated the redesigned previews.",
+  "published_previews": [
+    {
+      "case": "original real concept",
+      "url": "https://p-45e86a22e021ca1ab6.sitescout-previews-ec8f1c9e.pages.dev",
+      "http_status": 200,
+      "noindex": true,
+      "verified_number_in_mobile_header": false,
+      "free_text_estimate_field": false,
+      "copied_project_description": null,
+      "form_network_requests": null,
+      "layout_width_at_320": null
+    },
+    {
+      "case": "PAINTASTIC PAINTING",
+      "url": "https://p-c5260691a4e77011db.sitescout-previews-ec8f1c9e.pages.dev",
+      "http_status": 200,
+      "noindex": true,
+      "verified_number_in_mobile_header": true,
+      "free_text_estimate_field": true,
+      "copied_project_description": true,
+      "form_network_requests": 0,
+      "layout_width_at_320": 320
+    },
+    {
+      "case": "Copper Finch Painting",
+      "url": "https://p-19a220c6b4974f7801.sitescout-previews-ec8f1c9e.pages.dev",
+      "http_status": 200,
+      "noindex": true,
+      "verified_number_in_mobile_header": true,
+      "free_text_estimate_field": true,
+      "copied_project_description": true,
+      "form_network_requests": 0,
+      "layout_width_at_320": 320
+    },
+    {
+      "case": "Linen Leaf Painting",
+      "url": "https://p-ca384091e13026a211.sitescout-previews-ec8f1c9e.pages.dev",
+      "http_status": 200,
+      "noindex": true,
+      "verified_number_in_mobile_header": true,
+      "free_text_estimate_field": true,
+      "copied_project_description": true,
+      "form_network_requests": 0,
+      "layout_width_at_320": 320
+    }
+  ],
+  "real_media_control": {
+    "method": "Integration test of the media reader on a verified painter with a working website. The separate qualification run skipped the business. No concept was published and no draft was created.",
+    "source": "https://bhprofessionalpainting.com/portfolio/",
+    "caption": "Beautiful Transformation- Highland Park, CA",
+    "decoded_jpeg_bytes": 119388
+  }
+}

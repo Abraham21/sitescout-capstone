@@ -14,7 +14,7 @@ def isolated(monkeypatch, tmp_path):
     storage.initialize()
 
 
-def run_graph(monkeypatch, verdicts, domain="demo.test"):
+def run_graph(monkeypatch, verdicts, domain="demo.test", events=None):
     case = next(row for row in pipeline.scenarios() if row["expected"]["status"] == "qualified")
     lead = case["lead"]
     checked = []
@@ -38,17 +38,30 @@ def run_graph(monkeypatch, verdicts, domain="demo.test"):
 
     monkeypatch.setattr(pipeline.studio, "review", review)
     monkeypatch.setattr(pipeline.publication, "publish", publish)
-    result = pipeline.run_lead(
-        "test", lead, domain, lambda stage, action, message, lead: trace.append((stage, action))
-    )
+
+    def emit(stage, action, message, lead, *, handoff=None):
+        trace.append((stage, action))
+        if events is not None and handoff:
+            events[stage] = handoff
+
+    result = pipeline.run_lead("test", lead, domain, emit)
     return result, checked, published, trace
 
 
 def test_reviewer_repairs_then_publishes_once(isolated, monkeypatch):
     fail = {"passed": False, "feedback": "Recover the cited observation.", "model_checked": True}
     yes = {"passed": True, "feedback": "Checked", "model_checked": True}
-    lead, checks, published, trace = run_graph(monkeypatch, [fail, yes])
-    assert lead["status"] in {"ready", "manual"} and len(checks) == 2 and len(published) == 1
+    writer = pipeline.studio.write_pitch
+    attempts = []
+
+    def track_writing(*args, branch):
+        attempts.append(branch)
+        return writer(*args, branch=branch)
+
+    monkeypatch.setattr(pipeline.studio, "write_pitch", track_writing)
+    lead, checks, published, trace = run_graph(monkeypatch, [fail, fail, yes])
+    assert lead["status"] in {"ready", "manual"} and len(checks) == 3 and len(published) == 1
+    assert attempts == [True, False, False]
     assert ("Review", "repair") in trace
     assert lead["pitch"]["revision"] and storage.leads("test")[0]["preview"]["content_verified"]
 
@@ -85,3 +98,21 @@ def test_simultaneous_budget_reservations_cannot_cross_the_limit(isolated):
     with ThreadPoolExecutor(max_workers=4) as workers:
         assert sum(workers.map(reserve, range(4))) == 1
     assert storage.usage()[0]["dollars"] == 0.01
+
+
+def test_handoff_records_use_real_artifacts_and_only_publish_exposes_the_hosted_url(
+    isolated, monkeypatch
+):
+    events = {}
+    passed = {"passed": True, "feedback": "Reviewed.", "model_checked": True}
+    lead, _, _, _ = run_graph(monkeypatch, [passed], events=events)
+    assert events["Qualify"]["text"] == lead["qualification"]["reason"]
+    assert events["Qualify"]["source_url"] in {
+        item["url"] for item in lead["qualification"]["evidence"]
+    }
+    assert events["Build"]["text"] == lead["preview"]["handoff"]
+    assert events["Build"]["section"].lstrip("#") in lead["preview"]["html"]
+    assert events["Write"]["text"] in lead["pitch"]["body"]
+    assert events["Review"]["text"] == lead["review"]["feedback"]
+    assert events["Publish"]["url"] == lead["preview"]["url"]
+    assert all("url" not in payload for stage, payload in events.items() if stage != "Publish")

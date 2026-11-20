@@ -11,7 +11,7 @@ from html import escape
 from pathlib import Path
 from urllib.parse import urlsplit
 
-import research
+from pipeline import qualify_fixture
 import storage
 import studio
 
@@ -28,15 +28,7 @@ def write_json(path, value):
 
 
 def fixture_qualification(case, mode, model):
-    # Frozen search and HTTP snapshots are identical for both retrieval arms.
-    def fetch(url):
-        return case["pages"].get(
-            url, {"url": url, "status": 0, "text": "", "links": [], "has_form": False}
-        )
-
-    return research.qualify(
-        case["lead"], model, lambda _: case["results"], fetcher=fetch, retrieval=mode
-    )
+    return qualify_fixture(case, model=model, retrieval=mode)
 
 
 def retrieval_row(case, qualification):
@@ -216,8 +208,20 @@ def question(label, name, choices):
     return f'<label>{label}<select required name="{name}">{options}</select></label>'
 
 
-def source_block(item):
-    text = escape(str(item.get("text", "")))
+def source_block(item, *, blind=False):
+    raw = str(item.get("text", ""))
+    # Legacy records mixed source quotes with the qualifier's own conclusion.
+    legacy_assessment = raw.startswith(
+        (
+            "A candidate domain has insufficient",
+            "Registry or directory mirror.",
+            "Third-party listing or registry mirror;",
+            "Instruction-like content detected",
+        )
+    )
+    if blind and (item.get("kind") == "assessment" or legacy_assessment):
+        raw = "Open the source to make your own assessment."
+    text = escape(raw)
     url = item.get("url") or ""
     if not studio.web_url(url):
         return f"<blockquote>{text}</blockquote>"
@@ -225,7 +229,7 @@ def source_block(item):
     return f'<blockquote>{text}<small><a href="{escape(url, quote=True)}" target="_blank" rel="noreferrer">{label}</a></small></blockquote>'
 
 
-def blind_page(items, packet_id, phase):
+def blind_page(items, packet_id, phase, *, archive=False):
     cards = []
     for code, lead in items:
         q = lead["qualification"]
@@ -237,7 +241,7 @@ def blind_page(items, packet_id, phase):
         )
         body += (
             "<details open><summary>Observed public evidence</summary>"
-            + "".join(source_block(e) for e in q["evidence"])
+            + "".join(source_block(e, blind=phase == "routes") for e in q["evidence"])
             + "</details>"
         )
         if phase == "routes":
@@ -295,21 +299,26 @@ def blind_page(items, packet_id, phase):
 <script>document.querySelector('form').onsubmit=e=>{{e.preventDefault();const form=e.target;
 const answers=[...form.querySelectorAll('fieldset')].map(card=>Object.fromEntries([['case',card.dataset.code],...[...card.querySelectorAll('select,textarea')].map(f=>[f.name,f.value])]));
 const obj={{packet:'{packet_id}',phase:'{phase}',reviewer:form.elements.reviewer.value,answers}};
-const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(obj,null,2)],{{type:'application/json'}}));a.download='sitescout-{phase}-answers.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);document.querySelector('[role=status]').textContent='Answer file prepared.';}};</script></html>"""
+const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(obj,null,2)],{{type:'application/json'}}));a.download='sitescout-{phase}-answers{"-" + packet_id if archive else ""}.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);document.querySelector('[role=status]').textContent='Answer file prepared.';}};</script></html>"""
 
 
-def blind_cards():
+def blind_cards(review_runs=None):
     folder = storage.runtime_dir() / "blind-review"
-    existing = folder / "key.json"
-    if existing.exists():
+    if not review_runs and (folder / "key.json").exists():
         return folder
+    runs = [
+        r
+        for r in storage.list_runs()
+        if r["mode"] in ("live", "showcase") and r["status"] in ("complete", "complete_with_errors")
+    ]
+    if review_runs:
+        requested = set(review_runs)
+        missing = requested - {r["id"] for r in runs}
+        if missing:
+            raise ValueError("Unavailable or incomplete real runs: " + ", ".join(sorted(missing)))
+        runs = [r for r in runs if r["id"] in requested]
     unique = {}
-    for run in storage.list_runs():
-        if run["mode"] not in ("live", "showcase") or run["status"] not in (
-            "complete",
-            "complete_with_errors",
-        ):
-            continue
+    for run in runs:
         for lead in storage.leads(run["id"]):
             if lead.get("qualification", {}).get("evidence") and lead["status"] != "error":
                 unique.setdefault(
@@ -326,14 +335,21 @@ def blind_cards():
             f"Five actual businesses with completed research are needed; {len(unique)} are available."
         )
     sample = choose_blind(list(unique.values()))
-    packet_id = hashlib.sha256("|".join(str(r["id"]) for r in sample).encode()).hexdigest()[:12]
+    identity = [(r["source_run"], r["id"]) for r in sample]
+    packet_id = hashlib.sha256(json.dumps(identity).encode()).hexdigest()[:12]
+    if review_runs:
+        folder = folder / packet_id
+        if (folder / "key.json").exists():
+            return folder
     items = [(f"Case {i}", r) for i, r in enumerate(sample, 1)]
     folder.mkdir(parents=True, exist_ok=True)
     for phase in ("routes", "drafts"):
         prefix = "01" if phase == "routes" else "02"
-        (folder / f"{prefix}-{phase}.html").write_text(blind_page(items, packet_id, phase))
+        (folder / f"{prefix}-{phase}.html").write_text(
+            blind_page(items, packet_id, phase, archive=bool(review_runs))
+        )
     write_json(
-        existing,
+        folder / "key.json",
         {
             "packet": packet_id,
             "selection": "Five distinct real businesses from completed live discovery or curated showcase, stratified by available qualification outcome and shuffled. Superseded runs and research errors excluded. A challenge sample cannot estimate market prevalence.",
@@ -356,8 +372,13 @@ def blind_cards():
 
 def score_blind(path):
     answers = json.loads(Path(path).read_text())
-    key = json.loads((storage.runtime_dir() / "blind-review/key.json").read_text())
-    if answers["packet"] != key["packet"]:
+    folder = storage.runtime_dir() / "blind-review"
+    for key_path in [folder / "key.json", *folder.glob("*/key.json")]:
+        if key_path.is_file():
+            key = json.loads(key_path.read_text())
+            if key["packet"] == answers["packet"]:
+                break
+    else:
         raise ValueError("These answers belong to a different review packet.")
     rows = answers["answers"]
     codes = [row["case"] for row in rows]
@@ -387,9 +408,17 @@ def main():
     for option in ("fixtures", "paired-pitches", "blind-cards"):
         options.add_argument("--" + option, action="store_true")
     options.add_argument("--score-blind", metavar="ANSWERS.json")
+    parser.add_argument(
+        "--review-runs",
+        nargs="+",
+        metavar="RUN_ID",
+        help="Create a separate packet from these completed real runs.",
+    )
     args = parser.parse_args()
+    if args.review_runs and not args.blind_cards:
+        parser.error("--review-runs requires --blind-cards")
     if args.blind_cards:
-        print(blind_cards())
+        print(blind_cards(args.review_runs))
     elif args.score_blind:
         print(json.dumps(score_blind(args.score_blind), indent=2))
     else:

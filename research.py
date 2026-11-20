@@ -11,7 +11,6 @@ import os
 import re
 import socket
 import sqlite3
-import ssl
 import tempfile
 import time
 import unicodedata
@@ -24,7 +23,11 @@ from urllib.request import Request, urlopen
 
 from bs4 import BeautifulSoup
 
-MASTER = "https://www.cslb.ca.gov/OnlineServices/DataPortal/DownLoadFile.ashx?fName=MasterLicenseData&type=C"
+import business_profile
+
+MASTER = (
+    "https://www.cslb.ca.gov/OnlineServices/DataPortal/DownLoadFile.ashx?fName=MasterLicenseData&type=C"
+)
 LICENSE = "https://www.cslb.ca.gov/OnlineServices/CheckLicenseII/LicenseDetail.aspx?LicNum="
 CITIES = ("Glendale", "Burbank", "Pasadena", "Los Angeles")
 CACHE = (
@@ -41,14 +44,19 @@ def registry_leads(rows):
         license_id = row["LicenseNo"].strip()
         if city not in CITIES or row["State"].strip().upper() != "CA" or not license_id.isdigit():
             continue
-        if row["PrimaryStatus"].strip().upper() not in {"CLEAR", "ACTIVE"} or row["SecondaryStatus"].strip():
+        if (
+            row["PrimaryStatus"].strip().upper() not in {"CLEAR", "ACTIVE"}
+            or row["SecondaryStatus"].strip()
+        ):
             continue
         if not re.search(r"\bC\s*-?\s*33\b", row["Classifications(s)"], re.IGNORECASE):
             continue
         expiry = row["ExpirationDate"].strip().split(" ")[0]
         try:
             expires = (
-                datetime.strptime(expiry, "%m/%d/%Y").date() if "/" in expiry else date.fromisoformat(expiry)
+                datetime.strptime(expiry, "%m/%d/%Y").date()
+                if "/" in expiry
+                else date.fromisoformat(expiry)
             )
         except ValueError:
             continue
@@ -79,7 +87,9 @@ def discover(limit: int, seen: set[str], progress=None) -> list[dict]:
     report = progress or (lambda message: None)
     fresh = CACHE.is_file() and time.time() - CACHE.stat().st_mtime < 86400
     if not fresh:
-        report("Reading the public CSLB master file and filtering active C-33 licenses in four LA-area cities.")
+        report(
+            "Reading the public CSLB master file and filtering active C-33 licenses in four LA-area cities."
+        )
         req = Request(MASTER, headers={"Accept-Encoding": "gzip", "User-Agent": USER_AGENT})
         try:
             with urlopen(req, timeout=45) as response:
@@ -88,7 +98,9 @@ def discover(limit: int, seen: set[str], progress=None) -> list[dict]:
                     if response.headers.get("Content-Encoding") == "gzip"
                     else response
                 )
-                rows = csv.DictReader(io.TextIOWrapper(raw, encoding="cp1252", errors="replace", newline=""))
+                rows = csv.DictReader(
+                    io.TextIOWrapper(raw, encoding="cp1252", errors="replace", newline="")
+                )
                 leads = registry_leads(rows)
             if not leads:
                 raise ValueError("No eligible license records found in the CSLB download.")
@@ -134,6 +146,7 @@ LISTINGS = SOCIAL + (
     "manta.com",
     "google.com",
     "maps.apple.com",
+    "local.yahoo.com",
     "linkedin.com",
     "bizapedia.com",
     "buzzfile.com",
@@ -158,6 +171,7 @@ MIRRORS = (
     "opengovus.com",
     "opengovdata.com",
     "contractorlicensecheck.com",
+    "painternearme.org",
     "licensedcheck.com",
     "licensedcalifornia.com",
     "prorankus.com",
@@ -230,59 +244,79 @@ def public_socket(address, timeout, source_address=None):
     raise OSError("No reachable public address")
 
 
-def fetch_page(url):
-    """Read a bounded public HTML document and a handful of its contact links."""
+def read_public(url, accept, limit):
+    """Connect to public addresses only and cap redirects, response bytes and read time."""
     for _ in range(4):
-        empty = {"url": url, "status": 0, "text": "", "links": [], "has_form": False}
         if not safe_url(url):
-            return empty
+            break
         p = urlsplit(url)
         conn_type = http.client.HTTPSConnection if p.scheme == "https" else http.client.HTTPConnection
         conn = conn_type(p.hostname, p.port, timeout=4)
         conn._create_connection = public_socket
         try:
-            path = p.path or "/"
-            conn.request(
-                "GET",
-                path + ("?" + p.query if p.query else ""),
-                headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
-            )
+            path = (p.path or "/") + ("?" + p.query if p.query else "")
+            conn.request("GET", path, headers={"User-Agent": USER_AGENT, "Accept": accept})
             response = conn.getresponse()
             if response.status in (301, 302, 303, 307, 308):
                 url = urljoin(url, response.getheader("Location") or "")
                 continue
-            empty["status"] = response.status
-            if response.status != 200 or "html" not in (response.getheader("Content-Type") or "").lower():
-                return empty
-            soup = BeautifulSoup(response.read(1_250_000), "html.parser")
-            for tag in soup(["script", "style", "noscript", "template"]):
-                tag.decompose()
-            links = [
-                {
-                    "text": a.get_text(" ", strip=True)[:150] or str(a.get("aria-label", ""))[:150],
-                    "url": urljoin(url, a["href"]),
-                }
-                for a in soup.find_all("a", href=True, limit=160)
-            ]
-            return {
-                **empty,
-                "text": " ".join(soup.stripped_strings)[:30_000],
-                "links": links,
-                "has_form": any(
-                    CONTACT.search(f.get_text(" ", strip=True) + " " + str(f.get("action", "")))
-                    and f.select_one('textarea, input[type="tel"], input[type="email"]')
-                    for f in soup.find_all("form")
-                ),
-            }
-        except (OSError, http.client.HTTPException, UnicodeError, ValueError, ssl.SSLError):
-            return empty
+            content_type = (response.getheader("Content-Type") or "").lower()
+            return (
+                url,
+                response.status,
+                content_type,
+                response.read(limit + 1) if response.status == 200 else b"",
+            )
+        except (OSError, http.client.HTTPException, UnicodeError, ValueError):
+            break
         finally:
             conn.close()
-    return {"url": url, "status": 0, "text": "", "links": [], "has_form": False}
+    return url, 0, "", b""
+
+
+def fetch_image(url, kind):
+    final, status, content_type, body = read_public(url, "image/*", 3_000_000)
+    if status != 200 or not final.startswith("https://") or not content_type.startswith("image/"):
+        return ""
+    return business_profile.small_raster(body, kind)
+
+
+def fetch_page(url):
+    """Read a bounded public HTML document and its labeled links and media."""
+    url, status, content_type, body = read_public(url, "text/html,application/xhtml+xml", 1_250_000)
+    page = {"url": url, "status": status, "text": "", "links": [], "has_form": False}
+    if status != 200 or "html" not in content_type:
+        return page
+    soup = BeautifulSoup(body, "html.parser")
+    for tag in soup(["script", "style", "noscript", "template"]):
+        tag.decompose()
+    page.update(
+        text=" ".join(soup.stripped_strings)[:30_000],
+        links=[
+            {
+                "text": a.get_text(" ", strip=True)[:150] or str(a.get("aria-label", ""))[:150],
+                "url": urljoin(url, a["href"]),
+            }
+            for a in soup.find_all("a", href=True, limit=160)
+        ],
+        images=business_profile.page_images(soup, url),
+        has_form=any(
+            CONTACT.search(f.get_text(" ", strip=True) + " " + str(f.get("action", "")))
+            and f.select_one('textarea, input[type="tel"], input[type="email"]')
+            for f in soup.find_all("form")
+        ),
+    )
+    return page
 
 
 def words(text):
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower().replace("&", " and ")
+    text = (
+        unicodedata.normalize("NFKD", text)
+        .encode("ascii", "ignore")
+        .decode()
+        .lower()
+        .replace("&", " and ")
+    )
     return " ".join(re.findall(r"[a-z0-9]+", text))
 
 
@@ -440,7 +474,8 @@ def extract_facts(lead, result, selected, model):
         "If identity or the finding is contradicted, state the contradiction in concern; otherwise leave it empty. "
         "Never add claims about jobs, licenses, availability, prices, certifications or guarantees.\n"
         + json.dumps(
-            {"candidate": lead["name"], "finding": result["reason"], "passages": selected}, ensure_ascii=False
+            {"candidate": lead["name"], "finding": result["reason"], "passages": selected},
+            ensure_ascii=False,
         )
     )
     facts = result["facts"]
@@ -498,7 +533,9 @@ def extract_facts(lead, result, selected, model):
             facts["service_area"] = val
             facts["citations"][val] = ref
     if review.get("concern"):
-        result.update(status="hold", reason="Qualifier requested an independent identity or evidence check.")
+        result.update(
+            status="hold", reason="Qualifier requested an independent identity or evidence check."
+        )
 
 
 def search_business(lead, search, report):
@@ -506,7 +543,9 @@ def search_business(lead, search, report):
     report("Checking business identity against public search results and the license listing.")
     queries = [
         f'"{lead["name"]}" {lead["city"]} CA painting website contact',
-        f'"{phone}" {lead["name"]} painter' if phone else f'"{lead["id"]}" {lead["name"]} contractor website',
+        f'"{phone}" {lead["name"]} painter'
+        if phone
+        else f'"{lead["id"]}" {lead["name"]} contractor website',
     ]
     records = {}
     lookups = 0
@@ -533,23 +572,195 @@ def search_business(lead, search, report):
             url = str(item.get("url") or "").split("#")[0]
             if safe_url(url) and url not in records:
                 records[url] = " ".join(str(item.get(k) or "") for k in ("title", "text"))
+    profiles = {
+        host(u)
+        for u, text in records.items()
+        if identity(lead, text) and domain_in(u, LISTINGS) and not registry_mirror(u, text)
+    }
+    if lookups == 2 and len(profiles) < 2:
+        report("Evidence is thin. Looking for a trade profile with a website or portfolio link.")
+        query = (
+            f'"{lead["name"]}" {lead["city"]} California Houzz Yelp contractor profile website photos'
+        )
+        for item in search(query)[:7]:
+            url = str(item.get("url") or "").split("#")[0]
+            text = " ".join(str(item.get(k) or "") for k in ("title", "text"))
+            if safe_url(url) and (domain_in(url, LISTINGS) or identity(lead, text) == 2):
+                records.setdefault(url, text)
+        lookups += 1
     return records, lookups
 
 
-def inspect_site(lead, url, corroborated, result, fetch, add):
+def listing_websites(text):
+    pattern = r"(?:official (?:website|site)|business website|website)\s*[\]:()\s-]*(?:visit\s+)?((?:https?://)?(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:/[^)\s,;]*)?)"
+    sites = []
+    for value in re.findall(pattern, text, re.IGNORECASE):
+        url = (value if "://" in value else "https://" + value).rstrip(".,")
+        if safe_url(url) and not domain_in(url, LISTINGS + MIRRORS):
+            sites.append(url)
+    return sites
+
+
+def read_directory_links(lead, records, fetch, report):
+    # A directory may put its website behind a link that a search excerpt omits.
+    hints = [
+        u
+        for u in (lead.get("source_hints") or [])
+        if safe_url(u) and domain_in(u, ("houzz.com", "bbb.org"))
+    ]
+    profiles = [
+        u
+        for u, t in records.items()
+        if not listing_websites(t)
+        and words(lead["name"]) in words(t)
+        and (
+            (domain_in(u, ("houzz.com",)) and "/professionals/" in u)
+            or (domain_in(u, ("bbb.org",)) and re.search(r"visit (?:the )?website", t, re.IGNORECASE))
+        )
+    ]
+    for url in list(dict.fromkeys(hints + profiles))[:2]:
+        report("Opening a professional profile to check the listed website and business identity.")
+        page = fetch(url)
+        if page.get("status") != 200 or host(page["url"]) != host(url):
+            continue
+        body = page.get("text", "")
+        section = re.search(r"Business Details.{0,100}?Business Name", body, re.IGNORECASE)
+        details = body[section.start() : section.start() + 1750] if section else body[:1750]
+        for link in page.get("links", []):
+            if (
+                re.fullmatch(
+                    r"(?:visit (?:our |the )?|business )?website", link["text"].strip(), re.IGNORECASE
+                )
+                and host(link["url"]) != host(url)
+                and safe_url(link["url"])
+            ):
+                details += " Website " + link["url"]
+        if suspect := INJECTION.search(body):
+            records[url] = body[suspect.start() :][:300] + " " + details
+        elif identity(lead, details) == 2 and url in records:
+            records[url] = details + " " + records[url]
+        else:
+            records[url] = details
+
+
+def attach_work(page, result, add, fetch, read_image):
+    """Use only a confirmed business site and its same-site gallery for inline project imagery."""
+    base = page["url"]
+    profile = result["profile"]
+    linked_pages = {}
+    categories = {
+        "work_links": (r"gallery|portfolio|our work|our projects", "Visit the project gallery"),
+        "review_links": (r"reviews|testimonials", "Visit the customer reviews"),
+    }
+    for key, (pattern, label) in categories.items():
+        link = next(
+            (
+                a
+                for a in page.get("links", [])
+                if safe_url(a["url"])
+                and host(a["url"]) == host(base)
+                and a["url"] != base
+                and re.search(pattern, a["text"], re.IGNORECASE)
+            ),
+            None,
+        )
+        if not link:
+            continue
+        target = link["url"]
+        linked = page if target.partition("#")[0] == base else fetch(target)
+        if (
+            linked.get("status") != 200
+            or host(linked.get("url", "")) != host(base)
+            or INJECTION.search(linked.get("text", ""))
+        ):
+            continue
+        linked_pages[key] = linked
+        ref = add(
+            target,
+            f'The confirmed company website links to its "{link["text"][:100]}" page.',
+            "observation",
+        )
+        profile[key].append({"url": target, "source_url": target, "label": label, "evidence_id": ref})
+    if not read_image:
+        return
+    known = set()
+    attempts = 0
+    for source in (linked_pages.get("work_links"), page):
+        if not source:
+            continue
+        for image in source.get("images", []):
+            url, kind = image["asset_url"], image["kind"]
+            if len(known) == 2 or attempts >= 4:
+                return
+            same_site = host(url) == host(base) or domain_in(
+                url, ("wixstatic.com", "squarespace-cdn.com", "wp.com", "images.squarespace-cdn.com")
+            )
+            if kind in known or not same_site or not safe_url(url) or not url.startswith("https://"):
+                continue
+            attempts += 1
+            if INJECTION.search(image["alt"]):
+                continue
+            encoded = read_image(url, kind)
+            if encoded:
+                known.add(kind)
+                alt = clean_text(image["alt"])[:140]
+                ref = add(source["url"], f"Image caption on the verified business page: {alt}", "source")
+                profile["media"].append(
+                    {
+                        "url": encoded,
+                        "source_url": source["url"],
+                        "asset_url": url,
+                        "alt": alt,
+                        "evidence_id": ref,
+                        "kind": kind,
+                    }
+                )
+                if image.get("credit") and safe_url(image.get("credit_url", "")):
+                    profile["media"][-1].update(credit=image["credit"], credit_url=image["credit_url"])
+
+
+def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add):
     """Validate the publisher before testing customer-facing links. Return None for directories."""
     page = fetch(url)
     body = page.get("text") or ""
     final_url = page.get("url") or url
     if INJECTION.search(body):
-        add(final_url, "Instruction-like text detected in an external page; excluded from model input.")
+        add(
+            final_url,
+            "Instruction-like text detected in an external page; excluded from model input.",
+            "assessment",
+        )
         return "blocked", "Instruction-like content detected in a candidate website."
     if registry_mirror(final_url, body) or domain_in(final_url, LISTINGS):
-        add(final_url, "Third-party listing or registry mirror; excluded from ownership and demand signals.")
+        add(
+            final_url,
+            "Third-party listing or registry mirror; excluded from ownership and demand signals.",
+            "assessment",
+        )
         return None
     if page.get("status") != 200 or not body:
-        unresolved = f"A possible website could not be inspected (HTTP {page.get('status') or 'unavailable'})."
-        add(final_url, unresolved)
+        unresolved = (
+            f"A possible website could not be inspected (HTTP {page.get('status') or 'unavailable'})."
+        )
+        ref = add(final_url, unresolved, "observation")
+        if host(url) in listing_targets:
+            source = listing_targets[host(url)]
+            again = fetch(url).get("status") or 0
+            if again != 200:
+                codes = [page.get("status") or 0, again]
+                observations = ", ".join(f"HTTP {n}" if n else "no HTTP response" for n in codes)
+                followup = f"The directory-linked website could not be inspected on two checks ({observations})."
+                if not source["matched"]:
+                    followup += " The profile identity also needs confirmation."
+                second = f"HTTP {again}" if again else "no HTTP response"
+                second_ref = add(url, f"Second public check: {second}.", "observation")
+                result["follow_up"] = {
+                    "url": url,
+                    "source_url": source["url"],
+                    "evidence_ids": [source["id"], ref, second_ref],
+                    "reason": followup,
+                }
+                unresolved = followup
         return "hold", unresolved
     owns_domain = branded(lead, final_url) or host(final_url) in corroborated
     demo = re.search(
@@ -559,9 +770,9 @@ def inspect_site(lead, url, corroborated, result, fetch, add):
     )
     if identity(lead, body) != 2 or not owns_domain or not owner_voice(page) or demo:
         unresolved = "A candidate domain has insufficient independent evidence of first-party ownership."
-        add(final_url, unresolved)
+        add(final_url, unresolved, "assessment")
         return "hold", unresolved
-    result.update(website=final_url, website_status="has_site")
+    result.update(website=final_url, website_status="has_site", _owned_page=page)
     website_email = contact_email(page)
     result["email"] = website_email or result["email"]
     chunks = [body[i : i + 750] for i in range(0, min(len(body), 30_000), 650)]
@@ -582,33 +793,47 @@ def inspect_site(lead, url, corroborated, result, fetch, add):
         contact = fetch(target)
         code = contact.get("status")
         if INJECTION.search(contact.get("text", "")):
-            add(target, "Instruction-like text detected on the linked contact page; excluded from model input.")
+            add(
+                target,
+                "Instruction-like text detected on the linked contact page; excluded from model input.",
+                "assessment",
+            )
             return "blocked", "Instruction-like content detected in a candidate contact page."
         if code in (404, 410) and fetch(target).get("status") == code:
             statement = f"The linked {'quote or estimate' if specific else 'contact'} page returned HTTP {code} on two checks."
-            ref = add(target, statement)
+            ref = add(target, statement, "observation")
             result.update(issue=statement, issue_evidence_ids=[ref])
             return "qualified", statement
         if code == 200 and (
             contact.get("has_form") or phones(contact.get("text", "")) or contact_email(contact)
         ):
-            add(target, "The linked contact page is reachable and offers a phone, email, or request form.")
+            add(
+                target,
+                "The linked contact page is reachable and offers a phone, email, or request form.",
+                "observation",
+            )
             working_contact = True
     if working_contact:
-        return "skip", "The verified business website already offers a published phone, email, or request form."
+        return (
+            "skip",
+            "The verified business website already offers a published phone, email, or request form.",
+        )
     return (
         "hold",
         "The business owns the site, but a specific, reproducible contact problem was not established.",
     )
 
 
-def qualify(lead: dict, model, search, progress=None, *, fetcher=None, retrieval="fts") -> dict:
+def qualify(
+    lead: dict, model, search, progress=None, *, fetcher=None, retrieval="fts", image_reader=None
+) -> dict:
     """Check public search evidence, independently fetch plausible owned pages, and ground extracted facts."""
     report = progress or (lambda message: None)
     fetch = fetcher or fetch_page
     phone = lead.get("phone") or ""
     registry = {
         "id": "registry",
+        "kind": "source",
         "url": lead.get("source_url") or LICENSE + str(lead["id"]),
         "text": f"{lead['name']}. CSLB license {lead['id']}. Classification C-33 painting and decorating. "
         f"Listing city: {lead['city']}. Listed business phone: {phone or 'unavailable'}.",
@@ -634,20 +859,30 @@ def qualify(lead: dict, model, search, progress=None, *, fetcher=None, retrieval
         "email": "",
         "social": "",
         "phone": phone,
+        "profile": {"work_links": [], "review_links": [], "media": []},
     }
 
-    def add(url, text):
-        item = {"id": f"e{len(evidence)}", "url": url, "text": clean_text(text)[:2500]}
+    def add(url, text, kind="source"):
+        item = {"id": f"e{len(evidence)}", "url": url, "text": clean_text(text)[:2500], "kind": kind}
         evidence.append(item)
         return item["id"]
 
     def finish(status, reason):
         from storage import runtime_dir
 
+        owned_page = result.pop("_owned_page", None)
+        if status != "hold" or result["website_status"] == "has_site":
+            result.pop("follow_up", None)
+        if status == "qualified" and owned_page:
+            reader = image_reader or (None if fetcher else fetch_image)
+            attach_work(owned_page, result, add, fetch, reader)
         index = ":memory:" if fetcher is not None else runtime_dir() / "research.sqlite"
         selected = ranking(lead, evidence, retrieval, index=index)
         result.update(
-            status=status, reason=reason, retrieved_ids=[e["id"] for e in selected], corpus_size=len(evidence)
+            status=status,
+            reason=reason,
+            retrieved_ids=[e["id"] for e in selected],
+            corpus_size=len(evidence),
         )
         if status == "qualified":
             report(f"Retrieved {len(selected)} of {len(evidence)} evidence passages for the qualifier.")
@@ -655,7 +890,9 @@ def qualify(lead: dict, model, search, progress=None, *, fetcher=None, retrieval
         return result
 
     records, lookups = search_business(lead, search, report)
+    read_directory_links(lead, records, fetch, report)
     directory = {}
+    listing_targets = {}
     contact_gap = []
     disabled_inbox = ""
     candidates = []
@@ -663,22 +900,40 @@ def qualify(lead: dict, model, search, progress=None, *, fetcher=None, retrieval
     possible_mismatch = False
     for url, text in records.items():
         match = identity(lead, text)
-        if match and INJECTION.search(text):
-            add(url, "Instruction-like text detected in a website search result; excluded from model input.")
+        if (match or url in (lead.get("source_hints") or [])) and INJECTION.search(text):
+            add(
+                url,
+                "Instruction-like text detected in a website search result; excluded from model input.",
+                "assessment",
+            )
             return finish("blocked", "Instruction-like content detected in external evidence.")
         if registry_mirror(url, text):
             if match:
                 add(
                     url,
                     "Registry or directory mirror. Confirms a public listing only; excluded from ownership and demand signals.",
+                    "assessment",
                 )
             continue
         source = next((d for d in LISTINGS if domain_in(url, (d,))), "")
         if source:
+            # Check a named profile's outbound website even if its phone conflicts; never
+            # attribute that profile's work or reviews to this contractor without an identity match.
+            named = words(lead["name"]) in words(text)
+            links = listing_websites(text) if match or named else []
+            ref = add(url, text) if match or links else ""
+            for linked in links:
+                if match == 2 or branded(lead, linked):
+                    candidates.append(linked)
+                    listing_targets[host(linked)] = {"id": ref, "url": url, "matched": match == 2}
+                    if match == 2:
+                        corroborated.add(host(linked))
             if not match:
+                possible_mismatch |= bool(links)
                 continue
-            ref = add(url, text)
-            group = "angi.com" if source == "homeadvisor.com" else source
+            if match == 2:
+                business_profile.listing_profile(result["profile"], url, text, ref)
+            group = {"homeadvisor.com": "angi.com", "local.yahoo.com": "yelp.com"}.get(source, source)
             if group not in directory or match > directory[group][0]:
                 directory[group] = match, ref
             if re.search(
@@ -707,16 +962,6 @@ def qualify(lead: dict, model, search, progress=None, *, fetcher=None, retrieval
                         re.IGNORECASE,
                     ):
                         contact_gap.append(ref)
-            for match_url in re.findall(
-                r"(?:official (?:website|site)|business website|website)\s*[\]:()\s-]*(?:visit\s+)?((?:https?://)?(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:/[^)\s,;]*)?)",
-                text,
-                re.IGNORECASE,
-            ):
-                linked = match_url if "://" in match_url else "https://" + match_url
-                if safe_url(linked) and not domain_in(linked, LISTINGS + MIRRORS):
-                    candidates.append(linked.rstrip("."))
-                    if match == 2:
-                        corroborated.add(host(linked))
             continue
         if match or identity(lead, text + " " + lead["city"]):
             candidates.append(url)
@@ -739,25 +984,25 @@ def qualify(lead: dict, model, search, progress=None, *, fetcher=None, retrieval
             break
         inspected.add(domain)
         report("Reading a candidate website and checking its public contact path.")
-        outcome = inspect_site(lead, url, corroborated, result, fetch, add)
+        outcome = inspect_site(lead, url, corroborated, listing_targets, result, fetch, add)
         if outcome:
             status, explanation = outcome
             if status != "hold":
                 return finish(status, explanation)
             unresolved = explanation
     if unresolved:
-        return finish("hold", unresolved)
+        return finish("hold", result.get("follow_up", {}).get("reason", unresolved))
     if (
-        lookups == 2
+        lookups >= 2
         and len(directory) >= 2
         and any(match == 2 for match, _ in directory.values())
         and contact_gap
         and (phone or result["social"] or result["email"])
     ):
         refs = list(dict.fromkeys([*contact_gap, *(ref for _, ref in directory.values())]))
-        issue = "Customers can find this painter through public profiles. Two targeted searches found no verified business-owned page for estimate inquiries."
+        issue = f"Customers can find this painter through public profiles. {lookups} targeted searches found no verified business-owned page for estimate inquiries."
         if disabled_inbox:
-            issue = f"The matching {disabled_inbox} profile says messaging is disabled. Two targeted searches found no verified business-owned estimate page."
+            issue = f"The matching {disabled_inbox} profile says messaging is disabled. {lookups} targeted searches found no verified business-owned estimate page."
         result.update(website_status="no_site_found", issue=issue, issue_evidence_ids=refs)
         return finish("qualified", issue)
     return finish(

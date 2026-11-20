@@ -94,7 +94,7 @@ def test_two_depth_retains_competing_observations_then_changes_the_winner():
         "registry",
         "e2",
     ]
-    assert "interior painting" in pitch["body"] and "set it up for you" in pitch["body"]
+    assert "interior painting" in pitch["body"] and "What would you change" in pitch["body"]
     result = review(LEAD, QUALIFIED, page, pitch, model)
     assert result["passed"] and result["model_checked"]
     assert calls == ["STUDIO_PLAN", "STUDIO_WRITE", "STUDIO_REVIEW"]
@@ -139,15 +139,19 @@ def test_thin_evidence_skips_branching_and_model_failure_is_labeled():
     assert calls == ["STUDIO_WRITE"] and pitch["mode"] == "template"
     assert "no website" not in pitch["body"].lower()
     result = review(LEAD, q, page, pitch, offline)
-    assert result["passed"] and not result["model_checked"]
+    assert not result["passed"] and not result["model_checked"]
+    assert not result["checks"][
+        "The concept has a business-specific contact, service or portfolio source"
+    ]
 
 
 def test_every_angle_keeps_the_specific_finding_and_a_failed_review_stays_held_on_outage():
     page = preview()
     pitch = write_pitch(LEAD, QUALIFIED, page, None, feedback="Check the issue again.")
-    assert "HTTP 404 twice" in pitch["body"]
+    assert "missing page both times" in pitch["body"]
     assert all(
-        "HTTP 404 twice" in a["opening"] and "e2" in a["evidence_ids"] for a in pitch["planned_angles"]
+        "missing page both times" in a["opening"] and "e2" in a["evidence_ids"]
+        for a in pitch["planned_angles"]
     )
     assert not review(LEAD, QUALIFIED, page, pitch, None)["passed"]
     url = "https://www.instagram.com/painter/"
@@ -162,7 +166,7 @@ def test_every_angle_keeps_the_specific_finding_and_a_failed_review_stays_held_o
     }
     pitch = write_pitch(LEAD, q, {**build_preview(LEAD, q), "url": "/p/a"}, None)
     assert all(
-        "couldn’t verify" in a["opening"] and "social1" in a["evidence_ids"]
+        "couldn’t find one" in a["opening"] and "social1" in a["evidence_ids"]
         for a in pitch["planned_angles"]
     )
 
@@ -190,10 +194,11 @@ def test_directory_only_with_disabled_messaging_preserves_the_finding_in_every_d
     draft = write_pitch(LEAD, q, page, None)
     assert draft["angle_id"] == "profile"
     assert all(
-        "messaging isn’t enabled" in a["opening"] and "yelp" in a["evidence_ids"]
+        "your Yelp page" in a["opening"] and "yelp" in a["evidence_ids"]
         for a in draft["planned_angles"]
     )
-    assert review(LEAD, q, page, draft, None)["passed"]
+    # A registry-only concept without a contact, specialty or real gallery stays held.
+    assert not review(LEAD, q, page, draft, None)["passed"]
 
 
 def test_registry_typography_preserves_identity_and_suffixes():
@@ -201,3 +206,70 @@ def test_registry_typography_preserves_identity_and_suffixes():
 
     assert display_name("A & B PAINTING LLC") == "A & B Painting LLC"
     assert display_name("McKenna Painting") == "McKenna Painting"
+
+
+def test_business_phone_and_gallery_reach_the_artifact_and_pitch():
+    lead = {**LEAD, "phone": "(818) 555-0101"}
+    url = "https://www.yelp.com/biz/fixture"
+    q = {
+        **QUALIFIED,
+        "website_status": "no_site_found",
+        "phone": lead["phone"],
+        "issue_evidence_ids": ["e3", "e1"],
+        "profile": {"work_links": [{"url": url, "label": "9 photos on Yelp", "evidence_id": "e3"}]},
+        "evidence": [
+            {**QUALIFIED["evidence"][0], "text": "Tamarind Painting. Pasadena. (818) 555-0101."},
+            *QUALIFIED["evidence"][1:],
+            {"id": "e3", "url": url, "text": "Tamarind Painting. See all 9 photos."},
+        ],
+    }
+    page = {**build_preview(lead, q), "url": "/p/a"}
+    assert page["html"].count('href="tel:+18185550101"') == 2
+    assert 'href="https://www.yelp.com/biz/fixture"' in page["html"]
+    assert (
+        page["section"] == "#estimate"
+        and "9 photos" in page["handoff"]
+        and "e3" in page["evidence_ids"]
+    )
+    pitch = write_pitch(lead, q, page, None)
+    assert pitch["opening"] in pitch["body"] and "links to your photos" in pitch["opening"]
+    assert review(lead, q, page, pitch, None)["passed"]
+    wrong = {**page, "handoff": "Imported their photos."}
+    assert not review(lead, q, wrong, pitch, None)["passed"]
+
+
+def test_uncorroborated_phone_logo_or_unrelated_portfolio_does_not_render():
+    q = {
+        **QUALIFIED,
+        "phone": "(818) 555-0101",
+        "profile": {
+            "media": [
+                {
+                    "kind": "logo",
+                    "evidence_id": "e1",
+                    "source_url": "https://unrelated.org",
+                    "url": "data:image/png;base64,YQ==",
+                }
+            ],
+            "work_links": [
+                {"evidence_id": "e2", "url": "https://unrelated.org", "label": "Foreign work"}
+            ],
+        },
+    }
+    page = build_preview(LEAD, q)
+    assert 'href="tel:' not in page["html"] and "unrelated.org" not in page["html"]
+    assert "Business logo" not in page["features"]
+
+
+def test_synthetic_portfolio_keeps_photo_visible_and_its_gallery_link_local():
+    import pipeline
+    from bs4 import BeautifulSoup
+
+    case = next(c for c in pipeline.scenarios() if c["id"] == "broken-estimate")
+    q = pipeline.qualify_fixture(case)
+    page = build_preview(case["lead"], q)
+    soup = BeautifulSoup(page["html"], "html.parser")
+    assert soup.select_one(".hero-art img")["src"].startswith("data:image/jpeg;base64,")
+    assert "staged" in soup.select_one(".hero-art figcaption").get_text().lower()
+    assert soup.select_one(".hero-proof")["href"] == "#work" and soup.select_one("#work img")
+    assert not any(".example/" in a.get("href", "") for a in soup.select("a"))

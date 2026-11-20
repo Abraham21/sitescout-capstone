@@ -35,9 +35,9 @@
         "matched": 12,
         "total": 12
       },
-      "selected_passages": 34,
-      "selected_chars": 5073,
-      "qualified_selected_chars": 2192
+      "selected_passages": 35,
+      "selected_chars": 5148,
+      "qualified_selected_chars": 2267
     },
     "full": {
       "route_agreement": {
@@ -71,9 +71,9 @@
         "matched": 12,
         "total": 12
       },
-      "selected_passages": 45,
-      "selected_chars": 10719,
-      "qualified_selected_chars": 7441
+      "selected_passages": 47,
+      "selected_chars": 10960,
+      "qualified_selected_chars": 7682
     }
   },
   "cases": [
@@ -91,7 +91,7 @@
         "selected_passages": 3,
         "available_passages": 3,
         "selected_chars": 441,
-        "context_sha256": "925c103fcec2644f8457c4731ac007d16e2a522eb4bbcdfadbe99db36e1bf5f5",
+        "context_sha256": "3cbc33d834bf663aec5155c41ca7577afeb133217abb00b7100bbd5d011a97a5",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -101,7 +101,7 @@
         "selected_passages": 3,
         "available_passages": 3,
         "selected_chars": 441,
-        "context_sha256": "925c103fcec2644f8457c4731ac007d16e2a522eb4bbcdfadbe99db36e1bf5f5",
+        "context_sha256": "3cbc33d834bf663aec5155c41ca7577afeb133217abb00b7100bbd5d011a97a5",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -117,20 +117,20 @@
       "fts": {
         "status": "qualified",
         "website_status": "has_site",
-        "selected_passages": 4,
-        "available_passages": 11,
-        "selected_chars": 1438,
-        "context_sha256": "5a1728a3cdc3049fcbaf462fad0e5f578edee69eb00a5594a772d8b1d7e363e1",
+        "selected_passages": 5,
+        "available_passages": 13,
+        "selected_chars": 1513,
+        "context_sha256": "e2ceb698023830d9c5a44c15efdcd8a5825147b6badc364d17ed2e4a97368931",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
       "full": {
         "status": "qualified",
         "website_status": "has_site",
-        "selected_passages": 11,
-        "available_passages": 11,
-        "selected_chars": 6687,
-        "context_sha256": "3b1aae1bb68fe6ef1f1de85a21b23bb3fe62d5af25e85d7bbe24a69383763ae8",
+        "selected_passages": 13,
+        "available_passages": 13,
+        "selected_chars": 6928,
+        "context_sha256": "e44e074c68aa5ac77c3ca8b1306fbd2bba0f17b012955dba3a2f8c20eb5750d2",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -149,7 +149,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 216,
-        "context_sha256": "930481b777f31c1aa713396e43550cfaee87df1ec7ea517d90b36d2a64369ad7",
+        "context_sha256": "b770eada6607f2d9e769aa530b0267675b8488d1272844c4c164649bf4a89edc",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -159,7 +159,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 216,
-        "context_sha256": "930481b777f31c1aa713396e43550cfaee87df1ec7ea517d90b36d2a64369ad7",
+        "context_sha256": "b770eada6607f2d9e769aa530b0267675b8488d1272844c4c164649bf4a89edc",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -178,7 +178,7 @@
         "selected_passages": 3,
         "available_passages": 3,
         "selected_chars": 311,
-        "context_sha256": "f385b795656cf2ef30e11e101c488f4cfafbc5d7d463eceaf12d1e2cb37ca362",
+        "context_sha256": "5d4b4591e8eab8335a6d00e74b245f26b477bd0346642ca2bb7573a84c8d297c",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -188,7 +188,7 @@
         "selected_passages": 3,
         "available_passages": 3,
         "selected_chars": 311,
-        "context_sha256": "f385b795656cf2ef30e11e101c488f4cfafbc5d7d463eceaf12d1e2cb37ca362",
+        "context_sha256": "5d4b4591e8eab8335a6d00e74b245f26b477bd0346642ca2bb7573a84c8d297c",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -207,7 +207,7 @@
         "selected_passages": 3,
         "available_passages": 3,
         "selected_chars": 393,
-        "context_sha256": "2883d356bf94c0e5df9d4b1bcc66ee05bbb5ea679239cf857cd15fdd206de852",
+        "context_sha256": "a1ef99137ff3d4ceaa4987fa5379be32780e6b0c3dfc15a46d61f849375296cc",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -217,7 +217,7 @@
         "selected_passages": 3,
         "available_passages": 3,
         "selected_chars": 393,
-        "context_sha256": "2883d356bf94c0e5df9d4b1bcc66ee05bbb5ea679239cf857cd15fdd206de852",
+        "context_sha256": "a1ef99137ff3d4ceaa4987fa5379be32780e6b0c3dfc15a46d61f849375296cc",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -236,7 +236,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 236,
-        "context_sha256": "f4e1041aa2fc98a56add705639b5a6d6d51b29d4ebeb8a3c2f7a6cb332bc5f16",
+        "context_sha256": "a31caaea447f98914be82d0cc255ab02d76a8b9b1e31a2ac09dd25460081fb3c",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -246,7 +246,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 236,
-        "context_sha256": "f4e1041aa2fc98a56add705639b5a6d6d51b29d4ebeb8a3c2f7a6cb332bc5f16",
+        "context_sha256": "a31caaea447f98914be82d0cc255ab02d76a8b9b1e31a2ac09dd25460081fb3c",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -265,7 +265,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 234,
-        "context_sha256": "99fbbebc6daca5f508e5de74875d48a05634346422f2ce43b0778470792f81b8",
+        "context_sha256": "396274379092ea78519f76dbe39d2666bc5391ac3f0cd7f98a47256f5e9b006c",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -275,7 +275,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 234,
-        "context_sha256": "99fbbebc6daca5f508e5de74875d48a05634346422f2ce43b0778470792f81b8",
+        "context_sha256": "396274379092ea78519f76dbe39d2666bc5391ac3f0cd7f98a47256f5e9b006c",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -294,7 +294,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 201,
-        "context_sha256": "1880fceb307e7301f9874378e35701da8c678ad5656483877abba7c549c88e84",
+        "context_sha256": "fa9df568fe134500df158af76f0908c3a8c71df1ac9f70350af79a377e26e40d",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -304,7 +304,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 201,
-        "context_sha256": "1880fceb307e7301f9874378e35701da8c678ad5656483877abba7c549c88e84",
+        "context_sha256": "fa9df568fe134500df158af76f0908c3a8c71df1ac9f70350af79a377e26e40d",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -321,7 +321,7 @@
         "selected_passages": 1,
         "available_passages": 1,
         "selected_chars": 148,
-        "context_sha256": "181b5b2613368e00068daffbb0e07a2bd2a7c65c36164bd8b4683100923f3c5a",
+        "context_sha256": "25b60689fa4a0f669732ad06b947cec412dafefd4f78ac8c51d90ce0a1a536e6",
         "expected_url_in_selection": null,
         "expected_passage_in_selection": null
       },
@@ -331,7 +331,7 @@
         "selected_passages": 1,
         "available_passages": 1,
         "selected_chars": 148,
-        "context_sha256": "181b5b2613368e00068daffbb0e07a2bd2a7c65c36164bd8b4683100923f3c5a",
+        "context_sha256": "25b60689fa4a0f669732ad06b947cec412dafefd4f78ac8c51d90ce0a1a536e6",
         "expected_url_in_selection": null,
         "expected_passage_in_selection": null
       }
@@ -350,7 +350,7 @@
         "selected_passages": 3,
         "available_passages": 3,
         "selected_chars": 367,
-        "context_sha256": "1f0e5c295d6fefb70ec7d3574c7d42a87354d4c2ce6f3c0fb3c1520282643bc2",
+        "context_sha256": "4db9bdfab214493604c3fd8b5b61eb52e857be4a2a7049a2fa4a45ffd69fc659",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -360,7 +360,7 @@
         "selected_passages": 3,
         "available_passages": 3,
         "selected_chars": 367,
-        "context_sha256": "1f0e5c295d6fefb70ec7d3574c7d42a87354d4c2ce6f3c0fb3c1520282643bc2",
+        "context_sha256": "4db9bdfab214493604c3fd8b5b61eb52e857be4a2a7049a2fa4a45ffd69fc659",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -379,7 +379,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 253,
-        "context_sha256": "eff80005d5e044d02fc2c10169f3aee416a0d520162ef29c7cebb9ba58604f73",
+        "context_sha256": "5625e64ec88e5f93ca749f3c06424464aa9e8dfad5ba5e885c9fd1a2848938ad",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -389,7 +389,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 253,
-        "context_sha256": "eff80005d5e044d02fc2c10169f3aee416a0d520162ef29c7cebb9ba58604f73",
+        "context_sha256": "5625e64ec88e5f93ca749f3c06424464aa9e8dfad5ba5e885c9fd1a2848938ad",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -408,7 +408,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 228,
-        "context_sha256": "1f45ef4c22836b1bc2e3403de32799ab54ab77a01f21e3ca639a7e41b85a7121",
+        "context_sha256": "876ed53c568b1181deb75fdfae55f78e1a0599002c8f6a8f9ec76aa8158fa601",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -418,7 +418,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 228,
-        "context_sha256": "1f45ef4c22836b1bc2e3403de32799ab54ab77a01f21e3ca639a7e41b85a7121",
+        "context_sha256": "876ed53c568b1181deb75fdfae55f78e1a0599002c8f6a8f9ec76aa8158fa601",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -437,7 +437,7 @@
         "selected_passages": 3,
         "available_passages": 3,
         "selected_chars": 313,
-        "context_sha256": "93c41c306fcca1d138a6dbc28886bd0da2470bbcf630801f481592e3ea5964de",
+        "context_sha256": "6f82d92bcda23ed4e732658fd81be3c4dcc859dafc1a2359bcbdfc06d09948d3",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -447,7 +447,7 @@
         "selected_passages": 3,
         "available_passages": 3,
         "selected_chars": 313,
-        "context_sha256": "93c41c306fcca1d138a6dbc28886bd0da2470bbcf630801f481592e3ea5964de",
+        "context_sha256": "6f82d92bcda23ed4e732658fd81be3c4dcc859dafc1a2359bcbdfc06d09948d3",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -464,7 +464,7 @@
         "selected_passages": 1,
         "available_passages": 4,
         "selected_chars": 147,
-        "context_sha256": "114cd2fcfef3fb36ec3819ad03a98e0199024344e78165911b5f8b51c9c1c006",
+        "context_sha256": "7cf30a5a0183f90c976bb1af119615e5ab6f1335ceb119815401e891c18538ab",
         "expected_url_in_selection": null,
         "expected_passage_in_selection": null
       },
@@ -474,7 +474,7 @@
         "selected_passages": 4,
         "available_passages": 4,
         "selected_chars": 462,
-        "context_sha256": "030c9c813af044431fe4b5835b8d1c8a24a2f467c2d7be7e21b476c4e804badb",
+        "context_sha256": "949cdaad30a823df403084a2fb6bbfabd1d4c0dd07c537f64210cb658b76525b",
         "expected_url_in_selection": null,
         "expected_passage_in_selection": null
       }
@@ -491,7 +491,7 @@
         "selected_passages": 1,
         "available_passages": 2,
         "selected_chars": 147,
-        "context_sha256": "114cd2fcfef3fb36ec3819ad03a98e0199024344e78165911b5f8b51c9c1c006",
+        "context_sha256": "7cf30a5a0183f90c976bb1af119615e5ab6f1335ceb119815401e891c18538ab",
         "expected_url_in_selection": null,
         "expected_passage_in_selection": null
       },
@@ -501,7 +501,7 @@
         "selected_passages": 2,
         "available_passages": 2,
         "selected_chars": 229,
-        "context_sha256": "2e48a165cbe1fcb7c50017537a9b56b3892db1ace85a9abcec1b01f009aa124f",
+        "context_sha256": "199a7afe768235c621ba5d612b0294ae908007657e7d21ab533016e4a221bb5e",
         "expected_url_in_selection": null,
         "expected_passage_in_selection": null
       }

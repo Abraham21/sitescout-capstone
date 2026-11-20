@@ -37,13 +37,13 @@ def scenarios():
     return json.loads((storage.ROOT / "examples/scenarios.json").read_text())
 
 
-def showcase_ids():
+def showcase_entries():
     path = storage.ROOT / "examples/showcase-licenses.json"
     return json.loads(path.read_text()) if path.is_file() else []
 
 
 def showcase_available():
-    return bool(showcase_ids() and os.getenv("GOOGLE_API_KEY") and os.getenv("EXA_API_KEY"))
+    return bool(showcase_entries() and os.getenv("GOOGLE_API_KEY") and os.getenv("EXA_API_KEY"))
 
 
 def sample_tools(case):
@@ -58,6 +58,19 @@ def sample_tools(case):
     return search, fetch
 
 
+def qualify_fixture(case, model=None, progress=None, retrieval="fts"):
+    """Run the production qualifier against local search, page and media snapshots."""
+    search, fetch = sample_tools(case)
+    options = {}
+    if case.get("image_files"):
+        from business_profile import fixture_image
+
+        options["image_reader"] = lambda url, kind: fixture_image(case["image_files"], url, kind)
+    return research.qualify(
+        case["lead"], model, search, progress, fetcher=fetch, retrieval=retrieval, **options
+    )
+
+
 def run_lead(run_id, lead, domain, emit, case=None):
     """Graph nodes share this lead's state; the batch runner handles concurrency."""
     lid = lead["id"]
@@ -66,38 +79,55 @@ def run_lead(run_id, lead, domain, emit, case=None):
         (lambda prompt: services.gemini(prompt, run_id, lid)) if os.getenv("GOOGLE_API_KEY") else None
     )
     search = lambda query: services.exa(query, run_id, lid)
-    fetcher = None
-    if case:
-        search, fetcher = sample_tools(case)
 
-    def note(stage, status, message):
-        emit(stage, status, message, lead)
+    def note(stage, status, message, handoff=None):
+        emit(stage, status, message, lead, handoff=handoff)
 
     def qualify(state):
         note("Qualify", "started", "Checking the business identity, official website and contact path.")
-        options = {"fetcher": fetcher} if fetcher else {}
-        # A fixture walkthrough fixes the qualification inputs and route so the
-        # operator can rehearse it. Live discovery always uses the real model.
+        progress = lambda msg: note("Qualify", "info", msg)
         if case:
-            note("Qualify", "info", "Applying the evidence rules to a frozen synthetic case.")
-        result = research.qualify(
-            lead, None if case else model, search, lambda msg: note("Qualify", "info", msg), **options
+            progress("Applying the evidence rules to a frozen synthetic case.")
+            result = qualify_fixture(case, progress=progress)
+        else:
+            result = research.qualify(lead, model, search, progress)
+        finding = {"text": result["reason"]}
+        by_id = {entry["id"]: entry for entry in result.get("evidence", [])}
+        source = next((by_id[i] for i in result.get("issue_evidence_ids", []) if i in by_id), {})
+        source_url = (
+            source.get("url")
+            or (result.get("follow_up") or {}).get("source_url")
+            or result.get("website")
         )
-        note("Qualify", "completed", result["reason"])
+        if source_url:
+            finding.update(source_url=source_url, source_label="Open finding source")
+        note("Qualify", "completed", result["reason"], finding)
         return {"qualification": result, "status": result["status"]}
 
     def build(state):
         note("Build", "started", "Rendering the painter concept from sourced business facts.")
         result = studio.build_preview(lead, state["qualification"])
         result.update(url=url, published=False)
-        note("Build", "completed", result["variant"] + " concept rendered.")
+        message = result.get("handoff") or (result["variant"] + " concept rendered.")
+        note("Build", "completed", message, {"text": message, "section": result.get("section", "")})
         return {"preview": result}
 
     def write(state):
         note("Write", "started", "Preparing an opening and a setup invitation.")
         prior = state.get("review", {}).get("feedback", "")
-        draft = studio.write_pitch(lead, state["qualification"], state["preview"], model, prior)
-        note("Write", "completed", draft.get("angle") or "Draft prepared.")
+        # A revision uses the reviewer's feedback in a single writing call. This leaves
+        # room for both repairs and their reviews within the eight-call lead budget.
+        draft = studio.write_pitch(
+            lead,
+            state["qualification"],
+            state["preview"],
+            model,
+            prior,
+            branch=state.get("repairs", 0) == 0,
+        )
+        paragraphs = draft["body"].split("\n\n")
+        opening = draft.get("opening") or next((p for p in paragraphs[1:] if p.strip()), paragraphs[0])
+        note("Write", "completed", draft["angle"], {"text": opening})
         return {"pitch": draft}
 
     def review(state):
@@ -118,7 +148,13 @@ def run_lead(run_id, lead, domain, emit, case=None):
                 feedback="Independent review was unavailable. The concept is on hold.",
             )
         passed = verdict["passed"]
-        note("Review", "completed" if passed else "held", verdict.get("feedback") or "Checks complete.")
+        feedback = verdict.get("feedback") or "Checks complete."
+        note(
+            "Review",
+            "completed" if passed else "held",
+            feedback,
+            {"text": feedback, "checks": verdict.get("checks", {})},
+        )
         return {"review": verdict, "status": "reviewed" if passed else "hold"}
 
     def after_review(state):
@@ -137,7 +173,8 @@ def run_lead(run_id, lead, domain, emit, case=None):
         preview = dict(state["preview"])
         note("Publish", "started", "Uploading only this reviewed preview and checking the served HTML.")
         preview.update(publication.publish(preview, alias))
-        note("Publish", "completed", "Verified the content at the shareable address.")
+        message = "Verified the content at the shareable address."
+        note("Publish", "completed", message, {"text": message, "url": preview["url"]})
         return {"preview": preview}
 
     def route(state):
@@ -222,7 +259,7 @@ def run_batch(limit=3, mode="live", on_event=None):
             db.execute("UPDATE runs SET status='interrupted' WHERE status='running'")
         storage.new_run(run_id, mode)
 
-        def emit(stage, status, message, lead=None):
+        def emit(stage, status, message, lead=None, *, handoff=None):
             entry = {
                 "run_id": run_id,
                 "lead_id": (lead or {}).get("id", ""),
@@ -232,6 +269,8 @@ def run_batch(limit=3, mode="live", on_event=None):
                 "message": str(message),
                 "timestamp": storage.now(),
             }
+            if handoff:
+                entry["handoff"] = handoff
             storage.add_event(entry)
             if on_event:
                 if threading.current_thread() is caller:
@@ -256,10 +295,18 @@ def run_batch(limit=3, mode="live", on_event=None):
             else:
                 active = {row["id"]: row for row in research.discover(100_000, set())}
                 dismissed = storage.dismissed_ids()
-                candidates = [active[i] for i in showcase_ids() if i in active and i not in dismissed][
-                    : int(limit)
-                ]
-                progress("Selected registered businesses from the curated showcase list.")
+                candidates = []
+                for entry in showcase_entries():
+                    license_id = entry["id"]
+                    if license_id in active and license_id not in dismissed:
+                        candidates.append(
+                            {**active[license_id], "source_hints": entry.get("source_hints", [])}
+                        )
+                candidates = candidates[: int(limit)]
+                progress(
+                    "Selected active licenses from the curated list. Optional operator-supplied links are leads to check."
+                )
+
         else:
             rows = scenarios()
             winners = [r for r in rows if r["expected"]["status"] == "qualified"]

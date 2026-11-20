@@ -1,10 +1,15 @@
-# Painter concept photographs
+# Preview image and type sources
 
-Each preview embeds one licensed stock photograph and labels it as design inspiration. The photographs illustrate a possible direction and carry no assertion about a business, its employees or its past projects.
+The renderer labels neighborhood photographs, illustrative stock and sourced business photography on the page. It embeds images and fonts so the saved concept also works offline.
 
-| File | Photograph | Photographer |
+| Asset | Source and role | Attribution and license |
 |---|---|---|
-| atelier.jpg | [Green plant on white pot](https://www.pexels.com/photo/green-plant-on-white-pot-4065156/) | cottonbro studio |
-| roller.jpg | [Paint roller with brown paint](https://www.pexels.com/photo/close-up-shot-of-a-person-holding-a-paint-roller-with-brown-paint-5798972/) | Ivan S |
+| burbank-mentzer.jpg | [Mentzer House in Burbank](https://commons.wikimedia.org/wiki/File:Mentzer_House_(Burbank)_(2).jpg), a recognizable example of local painted architecture. The caption identifies it as a neighborhood photograph. | Alexis Doine, [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Resized for this site. |
+| white-stucco.jpg | [Sunlit stucco buildings in Los Angeles](https://www.pexels.com/photo/white-building-in-sunlight-in-california-17351194/), illustrative exterior finishes. | Anastasiya Badun, [Pexels License](https://www.pexels.com/license/). |
+| green-room.jpg | [Interior with green woodwork](https://www.pexels.com/photo/an-interior-of-a-home-7746035/), illustrative interior finishes. | Max Vakhtbovych, [Pexels License](https://www.pexels.com/license/). |
+| california-entry.jpg | [Spanish-style California home](https://www.pexels.com/photo/charming-spanish-style-home-with-palm-trees-36241381/), a staged portfolio image in the fictional Linen Leaf rehearsal. | Phil Evenden, [Pexels License](https://www.pexels.com/license/). |
+| atelier.jpg, roller.jpg | [Green plant on white pot](https://www.pexels.com/photo/green-plant-on-white-pot-4065156/) and [paint roller](https://www.pexels.com/photo/close-up-shot-of-a-person-holding-a-paint-roller-with-brown-paint-5798972/), illustration in the earlier design. | cottonbro studio and Ivan S, [Pexels License](https://www.pexels.com/license/). |
 
-[Pexels License](https://www.pexels.com/license/) permits use in websites and templates. The photos are bundled for inclusion in these designs.
+[Barlow Condensed](https://github.com/google/fonts/tree/main/ofl/barlowcondensed) and [DM Serif Text](https://github.com/google/fonts/tree/main/ofl/dmseriftext) use the SIL Open Font License. Each portable HTML document includes the license of its embedded face. The unmodified font files and their notices are in [fonts](fonts/).
+
+Business gallery links open the matched publisher’s page. When the qualifier verifies a first-party project image or logo, the renderer embeds the bounded image and links the project caption to the original source.

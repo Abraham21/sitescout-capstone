@@ -58,6 +58,10 @@
           {
             "text": "Request estimate",
             "url": "https://linenleaf.example/request-estimate"
+          },
+          {
+            "url": "https://linenleaf.example/portfolio/exterior",
+            "text": "Exterior project gallery"
           }
         ],
         "has_form": false
@@ -68,6 +72,22 @@
         "text": "",
         "links": [],
         "has_form": false
+      },
+      "https://linenleaf.example/portfolio/exterior": {
+        "url": "https://linenleaf.example/portfolio/exterior",
+        "status": 200,
+        "text": "Staged exterior portfolio example for the fictional Linen Leaf Painting. Photo by Phil Evenden via Pexels.",
+        "links": [],
+        "has_form": false,
+        "images": [
+          {
+            "asset_url": "https://linenleaf.example/media/staged-stucco-entry.jpg",
+            "alt": "Finished stucco and terracotta entry. Staged portfolio example for this fictional painter. Photo by Phil Evenden, Pexels.",
+            "kind": "project",
+            "credit": "Staged portfolio example · Phil Evenden / Pexels",
+            "credit_url": "https://www.pexels.com/photo/charming-spanish-style-home-with-palm-trees-36241381/"
+          }
+        ]
       }
     },
     "expected": {
@@ -76,7 +96,10 @@
       "evidence_url": "https://linenleaf.example/request-estimate",
       "evidence_contains": "HTTP 404 on two checks"
     },
-    "synthetic": true
+    "synthetic": true,
+    "image_files": {
+      "https://linenleaf.example/media/staged-stucco-entry.jpg": "california-entry.jpg"
+    }
   },
   {
     "id": "healthy-phone",

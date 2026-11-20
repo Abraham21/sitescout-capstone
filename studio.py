@@ -17,42 +17,29 @@ from urllib.parse import urlsplit
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 THEMES = {
-    "Atelier": {
-        "theme": "atelier",
-        "file": "atelier.jpg",
-        "image_height": 1097,
-        "image_alt": "A plant and a blank picture frame against an evergreen wall.",
-        "photographer": "Photo by cottonbro studio",
-        "headline": "A feel for color.",
-        "intro": "Explore a palette for your space, then turn a favorite shade into a project brief.",
-        "color_heading": "The studio palette.",
-        "colors": [
-            ("Juniper", "#254e43", "white"),
-            ("Parchment", "#ded8c1", "#23372d"),
-            ("Rose clay", "#b77763", "#21120e"),
-        ],
-    },
-    "Fieldwork": {
-        "theme": "field",
-        "file": "roller.jpg",
-        "image_height": 733,
-        "image_alt": "A hand resting on a ladder beside a rust-colored paint roller.",
-        "photographer": "Photo by Ivan S",
-        "headline": "Plan your next coat.",
-        "intro": "Pick a paint color and sketch out the next change you want to make to your space.",
-        "color_heading": "Start with a shade.",
-        "colors": [
-            ("Oxide", "#8b4029", "white"),
-            ("Linen", "#ded0b7", "#34231a"),
-            ("Ink", "#334957", "white"),
-        ],
-    },
+    "Atelier": dict(
+        theme="atelier",
+        font="dmseriftext",
+        weight="400",
+        image="green-room.jpg",
+        image_alt="Green woodwork and pale plaster around an open living space.",
+        credit="Interior color inspiration · Max Vakhtbovych",
+        photo_url="https://www.pexels.com/photo/an-interior-of-a-home-7746035/",
+    ),
+    "Fieldwork": dict(
+        theme="field",
+        font="barlowcondensed",
+        weight="700",
+        image="white-stucco.jpg",
+        image_alt="Sunlit white stucco and terracotta roof tiles in Los Angeles.",
+        credit="Los Angeles color inspiration · Anastasiya Badun",
+        photo_url="https://www.pexels.com/photo/white-building-in-sunlight-in-california-17351194/",
+    ),
 }
-FEATURES = ["Interactive color palette", "Sample project brief", "Public business details"]
 INVITATIONS = {
-    "permission": "If you like this direction, would you like me to set it up for you?",
-    "feedback": "Does this feel right for your business? If so, I can set it up for you.",
-    "walkthrough": "Would you like a quick walkthrough? If it suits your business, I can set it up for you.",
+    "permission": "Would a site like this be useful for you? I’d be happy to set it up.",
+    "feedback": "What would you change to make it feel more like your business?",
+    "walkthrough": "Want me to walk you through it? We can change the parts that don’t fit.",
 }
 
 
@@ -82,33 +69,44 @@ def evidence_for(lead, q):
     return sources
 
 
-@lru_cache(maxsize=2)
-def embedded_photo(filename):
-    return "data:image/jpeg;base64," + base64.b64encode((ASSETS / filename).read_bytes()).decode(
-        "ascii"
+@lru_cache(maxsize=6)
+def embedded_file(filename):
+    mime = "font/woff2" if filename.endswith(".woff2") else "image/jpeg"
+    return (
+        "data:" + mime + ";base64," + base64.b64encode((ASSETS / filename).read_bytes()).decode("ascii")
     )
 
 
 def web_url(url):
-    parts = urlsplit(str(url or ""))
+    try:
+        parts = urlsplit(str(url or ""))
+        return (
+            parts.scheme in {"https", "http"}
+            and bool(parts.hostname)
+            and not parts.username
+            and not parts.password
+            and not re.search(r"[\s\\\x00-\x1f]", str(url))
+        )
+    except ValueError:
+        return False
+
+
+def fixture_url(url):
+    return (urlsplit(url).hostname or "").endswith((".example", ".test", ".invalid"))
+
+
+def source_link(url, label, style=""):
+    if fixture_url(url):
+        return f'<span data-source-url="{escape(url, quote=True)}">{escape(label)}</span>'
     return (
-        parts.scheme in {"https", "http"}
-        and bool(parts.hostname)
-        and not parts.username
-        and not parts.password
+        f'<a class="{style}" href="{escape(url, quote=True)}" target="_blank" '
+        f'rel="noopener noreferrer">{escape(label)} <span aria-hidden="true">↗</span></a>'
     )
 
 
-def build_preview(lead, qualification):
-    """Render a standalone HTML concept. Only independently sourced facts become copy."""
-    sources = evidence_for(lead, qualification)
-    if not sources:
-        raise ValueError(
-            "A qualified business with matching name and city in its registry evidence is required."
-        )
-    facts = qualification.get("facts") or {}
-    citations = facts.get("citations", {})
+def business_claims(lead, q, sources):
     claims = [{"text": lead[key], "evidence_id": "registry", "kind": key} for key in ("name", "city")]
+    facts = q.get("facts") or {}
     for kind, values in [
         ("service", facts.get("services", [])),
         ("area", [facts.get("service_area", "")]),
@@ -116,189 +114,382 @@ def build_preview(lead, qualification):
         for value in values:
             if not isinstance(value, str) or not value or len(value) > 100:
                 continue
-            eid = citations.get(value)
+            eid = facts.get("citations", {}).get(value)
             if eid in sources and f" {normalized(value)} " in f" {normalized(sources[eid]['text'])} ":
-                claim_kind = "classification" if eid == "registry" and kind == "service" else kind
-                claims.append({"text": value, "evidence_id": eid, "kind": claim_kind})
-    # A documented interior specialty gets a room composition; exterior specialists
-    # get the worksite composition. Keep the visual stable on repeated research.
-    specialties = " ".join(c["text"].lower() for c in claims if c["kind"] == "service")
-    if "interior" in specialties:
+                kind_ = "classification" if eid == "registry" and kind == "service" else kind
+                claims.append({"text": value, "kind": kind_, "evidence_id": eid})
+    # Display the operator's published contact information only when the qualification cites it.
+    phone = str(q.get("phone") or lead.get("phone") or "")
+    digits = re.sub(r"\D", "", phone)
+    digits = digits[1:] if len(digits) == 11 and digits.startswith("1") else digits
+    if len(digits) == 10 and digits in re.sub(r"\D", "", sources["registry"]["text"]):
+        claims.append(
+            {
+                "kind": "phone",
+                "text": f"({digits[:3]}) {digits[3:6]}-{digits[6:]}",
+                "evidence_id": "registry",
+            }
+        )
+    email = q.get("email") or ""
+    if re.fullmatch(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", email):
+        eid = next(
+            (i for i, src in sources.items() if email.casefold() in src["text"].casefold()), None
+        )
+        if eid:
+            claims.append({"kind": "email", "text": email, "evidence_id": eid})
+    return claims
+
+
+def evidence_profile(q, sources):
+    """Accept a link only with its business evidence. Network fetches belong to research."""
+    profile = q.get("profile") or {}
+    selected = {}
+    for key in ("work_links", "review_links", "media"):
+        accepted = []
+        for item in profile.get(key, []):
+            if not isinstance(item, dict):
+                continue
+            source = sources.get(item.get("evidence_id"), {})
+            url = item.get("source_url") or item.get("url", "")
+            if not (web_url(url) and web_url(source.get("url"))):
+                continue
+            if url.rstrip("/") != source["url"].rstrip("/"):
+                continue
+            if key == "media":
+                image = item.get("url", "")
+                if (
+                    item.get("kind") not in {"logo", "project"}
+                    or len(image) > 900_000
+                    or not re.fullmatch(r"data:image/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*", image)
+                ):
+                    continue
+            else:
+                if item.get("url", "").rstrip("/") != url.rstrip("/"):
+                    continue
+                if not item.get("label"):
+                    continue
+            accepted.append(item)
+        selected[key] = accepted[:4]
+    return selected
+
+
+def project_gallery(name, photos, work_links, review_links):
+    if not (photos or work_links or review_links):
+        return ""
+    cards = ""
+    for m in photos:
+        label = str(m.get("alt") or "Project photograph")[:180]
+        cards += (
+            f'<figure><img loading="lazy" src="{m["url"]}" alt="{escape(label)}">'
+            f"<figcaption>{source_link(m['source_url'], label)}</figcaption></figure>"
+        )
+    links = []
+    for item in work_links + review_links:
+        if item["url"] not in [url for url, _ in links]:
+            links.append((item["url"], item["label"]))
+    social = "".join(
+        source_link(url, label, "proof-link") for url, label in links if not fixture_url(url)
+    )
+    title = "A closer look at the work." if photos or work_links else "Customer reviews."
+    return (
+        f'<section id="work" class="work wrap"><div><h2>{title}</h2>'
+        f"<p>Explore {escape(name)}’s public {'project photos' if photos or work_links else 'review profile'}.</p></div>"
+        f'<div class="work-body"><div class="gallery">{cards}</div>{social}</div></section>'
+    )
+
+
+def build_preview(lead, qualification):
+    """Build one offline-ready page from the qualification. Never make a network request."""
+    sources = evidence_for(lead, qualification)
+    if not sources:
+        raise ValueError(
+            "A qualified business with matching name and city in its registry evidence is required."
+        )
+    claims = business_claims(lead, qualification, sources)
+    by_kind = {claim["kind"]: claim["text"] for claim in claims}
+    services = [claim["text"] for claim in claims if claim["kind"] == "service"]
+    specialty = " ".join(services).lower()
+    if "interior" in specialty or "cabinet" in specialty:
         variant = "Atelier"
-    elif "exterior" in specialties:
+    elif "exterior" in specialty:
         variant = "Fieldwork"
     else:
-        choice = hashlib.sha256(str(lead["id"]).encode()).digest()[0] % 2
-        variant = list(THEMES)[choice]
+        variant = list(THEMES)[hashlib.sha256(str(lead["id"]).encode()).digest()[0] % 2]
     theme = THEMES[variant]
-    specialty = next((c["text"] for c in claims if c["kind"] == "service"), "")
-    intro = (
-        f"Explore a color direction for {specialty.lower()} and start a sample project brief."
-        if specialty
-        else theme["intro"]
-    )
-    swatches = []
-    for i, (color, pigment, tone) in enumerate(theme["colors"]):
-        swatches.append(
-            f'<button type="button" class="swatch" data-color="{color}" aria-pressed="{str(i == 0).lower()}" style="--pigment:{pigment};--tone:{tone}"><span>{color}</span><span aria-hidden="true">✓</span></button>'
-        )
-    details = []
-    services = [escape(c["text"]) for c in claims if c["kind"] == "service"]
-    if services:
-        details.append("<p><strong>Services</strong><br>" + " · ".join(services) + "</p>")
-    for claim in claims:
-        if claim["kind"] == "classification":
-            details.append(
-                "<p><strong>License classification</strong><br>" + escape(claim["text"]) + "</p>"
+    profile = evidence_profile(qualification, sources)
+    photos = [m for m in profile["media"] if m["kind"] == "project"]
+    logo = next((m for m in profile["media"] if m["kind"] == "logo"), None)
+    work, reviews = profile["work_links"], profile["review_links"]
+    name, city = display_name(lead["name"]), lead["city"]
+    phone, email = by_kind.get("phone"), by_kind.get("email")
+    contact = ""
+    if phone:
+        contact = f'<a class="call" href="tel:+1{re.sub(r"[^0-9]", "", phone)}"><span>Call </span>{escape(phone)}</a>'
+    elif email:
+        contact = f'<a class="call" href="mailto:{escape(email)}">Email {escape(name)}</a>'
+    logo_html = f'<img class="logo" src="{logo["url"]}" alt="">' if logo else ""
+    hero_photo = photos[0]["url"] if photos else embedded_file(theme["image"])
+    alt = photos[0].get("alt") or "Business project photograph" if photos else theme["image_alt"]
+    credit = source_link(theme["photo_url"], theme["credit"] + " · Stock photograph")
+    if photos:
+        sample = photos[0]
+        if fixture_url(sample["source_url"]) and web_url(sample.get("credit_url")):
+            credit = source_link(sample["credit_url"], sample.get("credit") or sample["alt"])
+        else:
+            credit = source_link(
+                sample["source_url"],
+                sample["alt"] if fixture_url(sample["source_url"]) else "Project photo · " + name,
             )
-        if claim["kind"] == "area":
-            details.append("<p><strong>Service area</strong><br>" + escape(claim["text"]) + "</p>")
-    record_url = sources["registry"].get("url", "")
-    record_link = ""
-    if web_url(record_url):
-        record_link = f'<p><a href="{escape(record_url, quote=True)}" target="_blank" rel="noopener noreferrer">View public business record ↗</a></p>'
-    html = Template((ASSETS / "painter.html").read_text()).substitute(
-        theme,
-        intro=escape(intro),
-        name=escape(display_name(lead["name"])),
-        locality=escape(lead["city"]),
-        swatches="".join(swatches),
-        image_src=embedded_photo(theme["file"]),
-        details="".join(details),
-        source_link=record_link,
+    local_photo = city.casefold() == "burbank" and not photos
+    if local_photo:
+        hero_photo = embedded_file("burbank-mentzer.jpg")
+        alt = "Blue painted siding, white trim and a picket fence at Burbank’s historic Mentzer House."
+        credit = source_link(
+            "https://commons.wikimedia.org/wiki/File:Mentzer_House_(Burbank)_(2).jpg",
+            "Neighborhood architecture · Mentzer House, Burbank · Alexis Doine",
+        )
+    staged = fixture_url(sources["registry"].get("url", ""))
+    license_id = str(lead["id"])
+    registry = sources["registry"]
+    record = ""
+    if web_url(registry.get("url")):
+        label = (
+            f"CSLB #{license_id}"
+            if license_id.isdigit() and license_id in registry["text"]
+            else "Public business record"
+        )
+        record = source_link(registry["url"], ("Sample license #" + license_id) if staged else label)
+    service_name = services[0] if services else by_kind.get("classification", "Painting")
+    features = ["Free-text estimate notes", "Copyable project brief"]
+    if contact:
+        features.append("Published phone number" if phone else "Published business email")
+    if work:
+        features.append("Business gallery link")
+    if reviews:
+        features.append("Public review profile")
+    if photos:
+        features.append("Sourced project photography")
+    if logo:
+        features.append("Business logo")
+    service_html = ""
+    if services:
+        items = "".join(
+            f'<li><a href="#estimate" data-service="{escape(s)}">{escape(s)} <span aria-hidden="true">↗</span></a></li>'
+            for s in services
+        )
+        service_html = f'<section class="specialties wrap"><div><h2>Painting services.</h2><p>Choose a service to start your estimate notes.</p></div><ul>{items}</ul></section>'
+    work_html = project_gallery(name, photos, work, reviews)
+    geography = (
+        f"<div><dt>Service area</dt><dd>{escape(by_kind['area'])}</dd></div>"
+        if "area" in by_kind
+        else ""
     )
-    return {"html": html, "variant": variant, "features": list(FEATURES), "claims": claims}
+    details = (
+        f'<section class="details wrap"><div><h2>Business details.</h2><p>{escape(name)}</p></div>'
+        f"<dl><div><dt>Based in</dt><dd>{escape(city)}, California</dd></div>{geography}"
+        f"<div><dt>Trade</dt><dd>{escape(service_name)}</dd></div>"
+        + (f"<div><dt>License record</dt><dd>{record}</dd></div>" if record else "")
+        + "</dl></section>"
+    )
+    in_page = [
+        "Placed the published phone in the header and estimate section."
+        if phone
+        else (
+            "Linked the published email from the header and estimate section."
+            if email
+            else "Added a free-text project brief for estimate preparation."
+        )
+    ]
+    if photos or work:
+        in_page.append(
+            "Featured a labeled staged project photograph."
+            if photos and staged
+            else (
+                "Featured sourced project photography."
+                if photos
+                else f"Linked the business gallery (“{work[0]['label']}”)."
+            )
+        )
+    if local_photo:
+        in_page.append("Used a labeled Burbank neighborhood photograph for local context.")
+    if reviews:
+        in_page.append("Linked the public review profile.")
+    if services:
+        in_page.append(f"Added {services[0].lower()} to the estimate choices.")
+    intro = "Have a project in mind? Start with the surfaces you want painted and the timing you have in mind."
+    if services:
+        intro = f"Planning {services[0].lower()}? Outline the surfaces and finish you have in mind before discussing an estimate."
+    elif work and phone:
+        intro = "Explore the project photos, then call to talk through the surfaces, colors and timing you have in mind."
+    html = Template((ASSETS / "painter.html").read_text()).substitute(
+        theme=theme["theme"],
+        font=embedded_file(f"fonts/{theme['font']}.woff2"),
+        weight=theme["weight"],
+        font_license=(ASSETS / "fonts" / (theme["font"] + "-LICENSE.txt"))
+        .read_text()
+        .replace("--", "—"),
+        name=escape(name),
+        city=escape(city),
+        logo=logo_html,
+        contact=contact,
+        hero_photo=hero_photo,
+        alt=escape(alt),
+        source_note=(
+            "Fictional business · Sample website by SiteScout"
+            if staged
+            else f"Independent design preview by SiteScout for {escape(name)}"
+        ),
+        credit=credit,
+        intro=escape(intro),
+        category=escape(service_name),
+        record=record,
+        gallery=(
+            source_link(work[0]["url"], work[0]["label"], "hero-proof")
+            if work and not fixture_url(work[0]["url"])
+            else ('<a href="#work" class="hero-proof">View project photos ↘</a>' if photos else "")
+        ),
+        work_nav='<a href="#work">Photos & profiles</a>' if work_html else "",
+        sections=(service_html + work_html if variant == "Atelier" else work_html + service_html),
+        details=details,
+        contact_note=(
+            "Call to discuss your estimate."
+            if phone
+            else ("Email to discuss your estimate." if email else "")
+        ),
+    )
+    evidence = dict.fromkeys(
+        [c["evidence_id"] for c in claims]
+        + [x["evidence_id"] for group in profile.values() for x in group]
+    )
+    notes = []
+    if not photos:
+        notes.append(
+            "The public gallery stays at its source."
+            if work
+            else "No verified project gallery was available."
+        )
+    if not reviews:
+        notes.append("No customer review excerpt was verified.")
+    return {
+        "asset_note": " ".join(notes),
+        "html": html,
+        "variant": variant,
+        "features": features,
+        "claims": claims,
+        "section": "#estimate",
+        "handoff": " ".join(in_page),
+        "evidence_ids": list(evidence),
+    }
 
 
 def angles_for(lead, q, preview):
+    """Offer a small, auditable choice of openings; each starts from a checked observation."""
     sources = evidence_for(lead, q)
     if not sources:
         return []
-    name, city = display_name(lead["name"]), lead["city"]
-    angles = []
-
-    def add(key, label, observation, opening, eids, priority):
-        angles.append(
-            {
-                "id": key,
-                "label": label,
-                "observation": observation,
-                "opening": opening,
-                "evidence_ids": list(dict.fromkeys(["registry", *eids])),
-                "priority": priority,
-            }
-        )
-
+    city = lead["city"]
+    features = set(preview["features"])
     ids = [i for i in q.get("issue_evidence_ids", []) if i in sources]
     issue = q.get("issue") or ""
-    # Only quote an audit observation directly echoed by a cited source.
-    if q["website_status"] == "has_site" and ids and 0 < len(issue) <= 200:
-        match = [i for i in ids if normalized(issue) in normalized(sources[i]["text"])]
-        if match and not re.search(r"https?://|@|[<>\n]", issue):
-            if re.search(r"\bHTTP (404|410)\b", issue) and "two checks" in issue.lower():
-                observation = "The contact or estimate link returned a missing-page response both times I checked it."
-            else:
-                observation = issue.rstrip(".") + "."
-            add(
-                "site",
-                "An observed site issue",
-                issue,
-                f"I took a look at the {name} website. {observation} I built a concept where visitors can try a short painting-project planner.",
-                match,
-                3,
+    key, label = "local", "A simpler way to ask about a job"
+    finding = f"I came across your business while looking at painters in {city}."
+    priority = 1
+    if q["website_status"] == "has_site" and ids:
+        checked = [i for i in ids if issue and normalized(issue) in normalized(sources[i]["text"])]
+        if checked and re.search(r"\bHTTP (404|410)\b", issue, re.I):
+            where = "estimate" if re.search("estimate|quote", issue, re.I) else "contact"
+            finding += (
+                f" I tried the {where} link on your site twice and landed on a missing page both times."
             )
-    social = q.get("social")
-    social_ids = [
-        eid for eid, src in sources.items() if social and src.get("url") == social and web_url(social)
-    ]
-    if q["website_status"] == "no_site_found" and social_ids:
-        host = urlsplit(social).hostname.lower()
-        brand = (
-            "Instagram"
-            if "instagram.com" in host
-            else "Facebook"
-            if "facebook.com" in host
-            else "social"
-        )
-        finding = f"I found the public {brand} profile for {name}, but couldn’t verify a separate business website in the sources I checked."
-        add(
-            "social",
-            "An established public profile",
-            social,
-            finding + " I put together a concept with a color palette and a project planner.",
-            social_ids,
-            3,
-        )
-    if q["website_status"] == "no_site_found" and len(ids) >= 2:
-        # Keep the concrete inquiry barrier in every branch, including directory-only leads.
-        disabled = next(
-            (
-                i
-                for i in ids
-                if re.search(
-                    r"(?:has not|hasn[’']t) enabled messaging|(?:messaging|online requests?) (?:is |are )?(?:disabled|unavailable)",
-                    sources[i]["text"],
-                    re.I,
+            key, label, ids, priority = "site", "A customer’s estimate path", checked, 3
+    elif q["website_status"] == "no_site_found":
+        social = q.get("social")
+        social_ids = [
+            i for i, src in sources.items() if social and src.get("url") == social and web_url(social)
+        ]
+        profiles = list(dict.fromkeys(social_ids + ids))
+        for i in profiles:
+            host = (urlsplit(sources[i].get("url", "")).hostname or "").removeprefix("www.")
+            platform = {
+                "yelp.com": "Yelp",
+                "instagram.com": "Instagram",
+                "facebook.com": "Facebook",
+            }.get(host)
+            if platform:
+                finding = f"I came across your {platform} page while looking at painters in {city}. I looked for a separate place to ask about an estimate and couldn’t find one."
+                key, label, ids, priority = (
+                    "social" if social_ids else "profile",
+                    "From a public profile to an estimate",
+                    profiles,
+                    3,
                 )
-            ),
-            "",
+                break
+        else:
+            if len(profiles) >= 2:
+                finding += " I looked for a place to ask about an estimate and couldn’t find one in the listings I checked."
+                key, label, priority = "profile", "From a listing to an estimate", 3
+    angle_ids = {}
+    for feature in ("phone", "email"):
+        angle_ids[feature] = [c["evidence_id"] for c in preview["claims"] if c["kind"] == feature]
+    work_ids = [item["evidence_id"] for item in evidence_profile(q, sources)["work_links"]]
+    if "Business gallery link" in features and "Published phone number" in features:
+        benefit = (
+            "I put a project photo and your phone number up front, so someone who likes the work can call about a job."
+            if "Sourced project photography" in features
+            else "I made a page that links to your photos and puts your number up front, so someone who likes the work can call about a job."
         )
-        if disabled or not angles:
-            if disabled:
-                domain = (urlsplit(sources[disabled].get("url", "")).hostname or "").removeprefix(
-                    "www."
-                )
-                brand = {
-                    "yelp.com": "Yelp",
-                    "facebook.com": "Facebook",
-                    "instagram.com": "Instagram",
-                }.get(domain, domain or "public directory")
-                finding = f"I came across {name} on {brand}. The listing says messaging isn’t enabled there, and I couldn’t verify a separate estimate page in the sources I checked."
-            else:
-                finding = f"I found public listings for {name} in {city}, but couldn’t verify a business-owned estimate page in the sources I checked."
-            angles.clear()
-            add(
-                "profile",
-                "Public estimate inquiry path",
-                q.get("issue") or finding,
-                finding + " I made a concept where a visitor can try a short project planner.",
-                ids,
-                3,
-            )
-    primary = angles[0] if angles else None
-    if primary and primary["id"] == "site":
-        finding = f"I tried the contact link on the {name} website. {observation}"
-    elif not primary:
-        finding = f"I found {name} in the public contractor listings for {city}."
-    shared_ids = primary["evidence_ids"] if primary else []
+        used = work_ids + angle_ids["phone"]
+    elif "Published phone number" in features:
+        benefit = "I made a page with your number up front so someone planning a repaint can call you directly."
+        used = angle_ids["phone"]
+    elif "Published business email" in features:
+        benefit = (
+            "I made a page with your email up front so someone planning a repaint can get in touch."
+        )
+        used = angle_ids["email"]
+    else:
+        benefit = "I put together a page where someone can jot down the details of a paint job before talking with you."
+        used = []
+
+    def angle(key, label, benefit, refs, priority):
+        return {
+            "id": key,
+            "label": label,
+            "observation": issue or finding,
+            "opening": f"{finding}\n\n{benefit}",
+            "evidence_ids": list(dict.fromkeys(["registry", *ids, *refs])),
+            "priority": priority,
+        }
+
+    choices = [angle(key, label, benefit, used, priority)]
     service = next((c for c in preview["claims"] if c["kind"] == "service"), None)
     if service:
-        value = service["text"]
-        add(
-            "specialty",
-            "A documented painting specialty",
-            value,
-            f"{finding} I sketched a website concept that gives {value.lower()} a visible place and lets visitors plan a project.",
-            [*shared_ids, service["evidence_id"]],
-            2,
+        value = service["text"].lower()
+        choices.append(
+            angle(
+                "specialty",
+                "A documented service",
+                f"I made a page that puts {value} up front and gives people room to describe the job they have in mind.",
+                [service["evidence_id"]],
+                2,
+            )
         )
-    add(
-        "local",
-        "An easier project inquiry",
-        f"{name} · {city}",
-        f"{finding} I made a website concept with a simple project planner so a visitor can put their first ideas in writing.",
-        shared_ids,
-        1,
-    )
-    add(
-        "palette",
-        "A color-led introduction",
-        f"{name} · {city}",
-        f"{finding} I made a website concept with an interactive palette so visitors can explore a direction before discussing a project.",
-        shared_ids,
-        1,
-    )
-    return angles
+    if key != "local":
+        second_benefit = "I put together a site idea where someone can write out what they want painted before asking you for an estimate."
+        alternate_refs = []
+        if work_ids and "Published phone number" in features:
+            second_benefit = "I made a page where people can find your photos, write down what they’d like painted and call you to talk it through."
+            alternate_refs = work_ids + angle_ids["phone"]
+        choices.append(
+            angle(
+                "local",
+                "A simpler way to ask about a job",
+                second_benefit,
+                alternate_refs,
+                1,
+            )
+        )
+    return choices
 
 
 def ask(model, tag, instructions, data):
@@ -353,21 +544,14 @@ def ranked(candidates, votes):
 
 
 def assemble(lead, choice, preview_url):
-    subject = {
-        "site": "A project-planner idea",
-        "specialty": "A website idea for your painting services",
-        "social": "A website concept for your business",
-        "profile": "A website idea for estimate inquiries",
-        "local": "A painting website concept",
-        "palette": "A color palette for your website concept",
-    }[choice["id"]]
     name = display_name(lead["name"])
+    subject = f"A website idea for {name}"
     body = (
         f"Hi {name} team,\n\n{choice['opening']}\n\n"
-        f"Here’s the independent design preview: {preview_url}\n\n"
+        f"Here’s the preview: {preview_url}\n\n"
         f"{INVITATIONS[choice.get('invitation', 'permission')]}\n\nAbraham"
     )
-    return f"{name} — {subject[0].lower() + subject[1:]}", body
+    return subject, body
 
 
 def write_pitch(lead, qualification, preview, model, feedback="", *, branch=True):
@@ -411,6 +595,7 @@ def write_pitch(lead, qualification, preview, model, feedback="", *, branch=True
         "subject": subject,
         "body": body,
         "angle": best["label"],
+        "opening": best["opening"],
         "revision": bool(feedback),
         "angle_id": best["id"],
         "invitation": best["invitation"],
@@ -430,6 +615,32 @@ def review(lead, qualification, preview, pitch, model):
         checks["Rendered concept matches cited business facts"] = rebuilt["html"] == preview.get(
             "html"
         ) and rebuilt["claims"] == preview.get("claims")
+        checks["Handoff reflects the business evidence used on the page"] = all(
+            rebuilt[k] == preview.get(k) for k in ("features", "handoff", "section", "evidence_ids")
+        )
+        checks["Homeowner can describe a project in their own words"] = (
+            '<textarea id="scope"' in rebuilt["html"]
+        )
+        contacts = [c for c in rebuilt["claims"] if c["kind"] == "phone"]
+        if contacts:
+            number = re.sub(r"\D", "", contacts[0]["text"])
+            checks["Published phone matches the header and estimate actions"] = (
+                rebuilt["html"].count(f'href="tel:+1{number}"') >= 2
+            )
+        profile = evidence_profile(qualification, evidence_for(lead, qualification))
+        facts = [c for c in rebuilt["claims"] if c["kind"] in {"phone", "email", "area", "service"}]
+        checks["The concept has a business-specific contact, service or portfolio source"] = bool(
+            facts or profile["work_links"] or profile["media"] or profile["review_links"]
+        )
+        if profile["work_links"]:
+            checks["The preview links to the cited business gallery"] = all(
+                (
+                    'id="work"' in rebuilt["html"]
+                    if fixture_url(item["url"])
+                    else escape(item["url"], quote=True) in rebuilt["html"]
+                )
+                for item in profile["work_links"]
+            )
         href = str(preview.get("url", ""))
         checks["Assigned preview link is present"] = bool(
             href
@@ -449,7 +660,7 @@ def review(lead, qualification, preview, pitch, model):
             and assemble(lead, {**choice, "invitation": invitation}, href)
             == (pitch.get("subject"), pitch.get("body"))
             and 'id="brief-button"' in preview.get("html", "")
-            and 'id="colors"' in preview.get("html", "")
+            and '<textarea id="scope"' in preview.get("html", "")
         )
     except (KeyError, ValueError, TypeError):
         checks["Qualified identity and evidence"] = False
@@ -466,7 +677,7 @@ def review(lead, qualification, preview, pitch, model):
     response = ask(
         model,
         "STUDIO_REVIEW",
-        'Review this email against the cited business evidence and actual website features. Generic invitations are acceptable only when the real business and locality are evidenced. A sample local-only planner is not a working booking or quote submission. Reject ungrounded defect claims, promises, negative claims about having no site, and false affiliations. Return {"passed":true|false,"feedback":"short reason"}.',
+        'Review this email against the cited business evidence and actual website features. Generic invitations are acceptable only when the real business and locality are evidenced. The free-text estimate notes are prepared locally. A published business phone or email on the site is a real manual contact path. A gallery may be a direct link to the matched public profile. A draft offering to set up the concept is an invitation. Reject ungrounded defect claims, promises, negative claims about having no site, and false affiliations. Return {"passed":true|false,"feedback":"short reason"}.',
         {
             "pitch": pitch["body"],
             "evidence": cited,

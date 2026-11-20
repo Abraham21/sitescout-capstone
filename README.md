@@ -2,7 +2,7 @@
 
 SiteScout is a research assistant for an independent web designer. It discovers licensed painting businesses in the Los Angeles area, checks whether customers can reach them online, and prepares a website concept and a personalized outreach draft when the evidence supports one. Abraham decides whether to make contact.
 
-**For a first look**, open the operator desk, select **Saved replay**, and play a recorded run. A fresh clone includes a three-business synthetic recording with real reviewed drafts, two distinct hosted websites and the source observations behind each decision. Playback and the embedded previews work without credentials. The prepared Mac also has a **Featured live run** from real public sources.
+**For a first look**, open the operator desk, choose **Start live showcase** on the prepared Mac or **Saved replay** for an existing recording. A fresh clone includes a three-business synthetic recording with real reviewed drafts, two distinct hosted websites and the source observations behind each decision. Playback and the embedded previews work without credentials. The prepared Mac also has a **Featured live run** from real public sources.
 
 ## Open the desk
 
@@ -27,13 +27,13 @@ uv pip install -r requirements.txt
 
 | Operator control | What actually happens |
 | --- | --- |
-| Featured live run | Opens a completed real run with a verified hosted preview. Select **Play this run** for its recorded timeline. |
+| Featured live run | Opens a completed real run with a verified hosted preview. Select **Replay saved run** for its recorded timeline, or **Start live showcase** for fresh research. |
 | Live discovery | Selects unseen actual licenses, searches the web, and inspects current public pages. A batch can legitimately end entirely in holds and skips. |
-| Curated live showcase | Rechecks a preselected pair of actual licenses against **current** sources. Outcomes can change. This is the quickest way to show fresh research and the full workflow on the prepared Mac. |
+| Curated live showcase | Rechecks a preselected set of actual licenses against **current** sources. Outcomes can change. This is the quickest way to show fresh research and the full workflow on the prepared Mac. |
 | Demo fixtures | Uses frozen synthetic search and page snapshots with deterministic qualification. With model and hosting configured, it writes, reviews and publishes anew. Without hosting, eligible concepts remain available in the local Preview tab. |
 | Saved replay | Plays stored timestamps in order. Move the event slider to pause and inspect. Playback incurs no inference or publication cost. |
 
-Select a business to inspect the four tabs. **Evidence** shows sources and the qualification decision. **Website preview** opens the saved layout or verified public URL. **Agent trace** shows tool events, feedback and repair attempts. In **Outreach draft**, the operator can edit and copy a reviewed message. A public phone or social profile routes the lead to **Manual contact**. Dismissed businesses are excluded from future discovery. SiteScout has no email delivery integration.
+Select a business to follow its four agent handoffs. Open the researcher’s source, jump to the resulting section of the verified site, read the writer’s opening, and inspect the reviewer’s checks. Recorded playback reveals each result at the event that produced it. A held candidate may have a directory link and repeated availability checks to verify manually. Below the handoffs, **Evidence** shows sources and the qualification decision. **Website preview** opens the saved layout or verified public URL. **Agent trace** shows tool events, feedback and repair attempts. In **Outreach draft**, the operator can edit and copy a reviewed message. A public phone or social profile routes the lead to **Manual contact**. Dismissed businesses are excluded from future discovery. SiteScout has no email delivery integration.
 
 ## Read the code
 
@@ -55,8 +55,9 @@ flowchart LR
 | File | Where to look |
 | --- | --- |
 | [research.py](research.py) | `discover` filters the public California CSLB file. `qualify` matches identities, checks possible sites and their estimate links, and retrieves evidence for the model. |
+| [business_profile.py](business_profile.py) | Verifies the type and size of first-party images and keeps the source for each photo, logo, gallery and review link. |
 | [studio.py](studio.py) | `build_preview` fills the painter template. `write_pitch` compares grounded openings. `review` rebuilds the HTML, verifies the claims and asks Gemini for a separate judgment. |
-| [assets/painter.html](assets/painter.html) | The responsive template contains two visual directions, a color palette and an interactive project brief. The brief stays in the visitor’s browser. The [painter skill](.agents/skills/painter-preview/SKILL.md) explains which facts and images may appear. |
+| [assets/painter.html](assets/painter.html) | The mobile layouts emphasize verified services, a tap-to-call number when available, work samples or links, and free-text estimate notes that the visitor can copy. Notes stay in the browser. The [painter skill](.agents/skills/painter-preview/SKILL.md) explains which facts and images may appear. |
 | [services.py](services.py), [publication.py](publication.py) | The Gemini and Exa calls, followed by direct upload to Cloudflare Pages and a check of the HTML actually served. |
 | [storage.py](storage.py), [autopilot.py](autopilot.py) | SQLite stores events, results, spending reservations and operator edits. macOS launchd schedules one batch per day when enabled. |
 | [app.py](app.py), [evaluation.py](evaluation.py) | The Streamlit operator desk and the reproducible evaluation commands. |
@@ -65,10 +66,10 @@ flowchart LR
 
 1. Discovery filters active, unexpired C-33 licenses in Glendale, Burbank, Pasadena and Los Angeles. The four cities alternate in a batch. Only business fields used for research are retained. The filtered registry is cached for a day. [CSLB data portal](https://www.cslb.ca.gov/OnlineServices/DataPortal/)
 2. The qualifier searches by identity, cross-checks by phone or license as needed, and opens plausible first-party sites. A third-party license mirror never counts as the owner’s site. A verified site with a working published phone can pass the contact check. Repeated missing-page responses from an estimate link can establish a specific defect.
-3. A social or directory presence can establish an opportunity when independent identity-matched sources support a real contact gap and two searches fail to identify an owned estimate site. The draft describes what was checked. Weak evidence goes on hold. Instruction-like source text can block the case.
+3. A social or directory presence can establish an opportunity when independent identity-matched sources support a real contact gap and two searches fail to identify an owned estimate site. When evidence is thin, a third search checks for a business profile with an outbound website or portfolio link. An unavailable linked domain gets a second check. The record keeps the listing, host observations and any mismatch for manual verification. Weak evidence goes on hold. Instruction-like source text can block the case.
 4. **RAG** uses SQLite full-text search over a versioned evidence set for one business. Name, locality, contact and service queries retrieve passages. Gemini may extract explicitly cited services or flag a contradiction. A deterministic check requires the extracted wording to occur in the cited text.
 5. The writer uses bounded **tree-of-thought-style search** when it has competing observations. It compares possible opening angles, shortlists up to two, and compares the resulting pitches. The trace shows inspectable alternatives and evidence IDs. Gemini Flash is the sole cloud model to keep the implementation small. The course project has too few independently labeled examples to justify fine-tuning; local inference is a future comparison.
-6. The reviewer validates the actual preview and the draft. A failed review can send the lead back through the builder and writer twice. Cloudflare receives only the approved static preview. A content fingerprint must match at the public address before a draft enters the contact queue. Photos are labeled stock, and the preview identifies itself as an independent design. [Asset credits](assets/CREDITS.md)
+6. The reviewer validates the actual preview and the draft. A failed review can send the lead back through the builder and writer twice. Cloudflare receives only the approved static preview. A content fingerprint must match at the public address before a draft enters the contact queue. Verified first-party project images are resized, embedded and linked to their source. Directory photos or reviews can appear as links to the matched profile. Local or licensed design photography carries its own credit. The page identifies itself as an independent concept. [Asset credits](assets/CREDITS.md)
 
 ### Enable fresh research and hosting
 
@@ -84,7 +85,7 @@ Copy `.env.example` to `.env` **only on a new checkout**. On the prepared Mac, u
 For deployment, install a supported Node.js release (the prepared Mac uses Node 26) and run `npm ci` beside `package-lock.json`. Node is only needed for Wrangler uploads. Cloudflare supplies the shareable `pages.dev` addresses. The desk binds to localhost. Preview links are unlisted with a no-index directive and anyone with a link can open them. An operator can remove deployments from the preview project’s Deployments page in Cloudflare.
 
 ```sh
-.venv/bin/python pipeline.py --mode showcase --limit 2
+.venv/bin/python pipeline.py --mode showcase --limit 3
 .venv/bin/python pipeline.py --mode live --limit 10
 ```
 
@@ -92,15 +93,18 @@ On macOS, **Daily autopilot** registers a 9:00 AM local launchd job for ten unse
 
 ## Evaluation and reproducibility
 
-On 15 authored synthetic cases with known labels, the deterministic qualifier matched all 15 expected routes. It held eight cases, skipped three, qualified three and blocked one. It labeled none of six known websites missing. Retrieval recovered all 12 authored decisive passages in both arms, using 5,073 characters with FTS versus 10,719 with full context. This benchmark measures regression behavior on visible examples. [Fixture results](evaluation/results.json)
+One operator independently judged the first release on five selected real businesses. Website ownership agreed on **5/5** and the proposed action on **4/5**. The one draft needed editing. A directory link supplied by the operator exposed a follow-up the original search missed. That input and a request for more useful sites drove the redesign. Feedback on the revised sites has yet to be collected. [Operator evaluation](evaluation/operator-review.json)
 
-In a two-case paid writing comparison, direct generation took one writing call and branching took two. Branching selected the observed broken estimate link on one case. All four drafts passed the deterministic checks. With identical passages, Gemini sometimes disagreed with itself about the social case. Human pitch preference and sales conversion remain unmeasured. [Paired results](evaluation/paired-pitches.json) · [Initial pilot](evaluation/initial-paired-pilot.json)
 
-| Actual recorded run | Output | Elapsed¹ | Search + inference² |
+On 15 authored synthetic cases with known labels, the deterministic qualifier matched all 15 expected routes. It held eight cases, skipped three, qualified three and blocked one. It labeled none of six known websites missing. Retrieval recovered all 12 authored decisive passages in both arms, using 5,148 characters with FTS versus 10,960 with full context. This benchmark measures regression behavior on visible examples. [Fixture results](evaluation/results.json)
+
+In the revised two-case paid writing comparison, both approaches selected the same opening in both cases. Direct writing took one call per case (2.51–2.60 seconds). The branching approach took two calls (4.04–5.18 seconds). The ten-call study, including the qualification comparison, cost $0.006831. The small study does not establish a preference for branching. [Paired results](evaluation/paired-pitches.json) · [Initial pilot](evaluation/initial-paired-pilot.json)
+
+| Revised recorded run | Output | Elapsed¹ | Search + inference² |
 | --- | --- | ---: | ---: |
-| Ordinary discovery, ten actual contractors | 3 healthy-site skips, 7 holds | 6.5 s | $0.1190 |
-| Selected live showcase, two actual contractors | 1 reviewed manual-contact draft and verified site, 1 skip | 29.6 s | $0.0231 |
-| Frozen rehearsal, three synthetic contractors | 1 reviewed email, 1 manual contact, 1 skip, 2 verified sites | 12.2 s | $0.0026 |
+| Ordinary discovery, ten unseen actual contractors | 1 healthy-site skip, 9 holds | 15.1 s | $0.1680 |
+| Curated live showcase, three actual contractors | 1 reviewed manual-contact draft with a verified site, 1 hold with a directory-linked domain to check, 1 skip | 16.4 s | $0.0445 |
+| Frozen rehearsal, three synthetic contractors | 1 reviewed email, 1 manual contact, 1 skip, 2 verified sites | 17.9 s | $0.0029 |
 
 ¹ From the first through the last recorded event with a warm registry. Internet latency varies. ² Exa-reported search costs plus inference estimated from provider token usage. A first calibration pass misidentified license directories as owned sites. Strengthening the ownership check changed six records from skip to hold in the ten-record retest. The [recorded run measurements](evaluation/observed-runs.json) contain event times, provider call counts and outcomes. The curated example demonstrates feasibility. The samples are too small to predict daily yield or throughput at 100 businesses per day.
 
@@ -109,6 +113,8 @@ uv pip install pytest==9.2.0
 .venv/bin/python -m pytest -q
 .venv/bin/python evaluation.py --fixtures
 ```
+
+Browser checks verified a visible tap-to-call header and free-text estimate notes on all three revised hosted sites. Preparing and copying the description made zero HTTP requests. The previous real preview had neither feature. The renderer preserved the original source for a photo from a verified contractor portfolio in a separate media test. That business’s working contact path produced a skip. [Browser and media checks](evaluation/preview-checks.json)
 
 The tests and fixture benchmark need no live service. Optional `--paired-pitches` makes metered Gemini calls and writes a new pilot. `--blind-cards` assembles two local HTML forms from five unique real records after discovery and showcase runs. Complete the routes form before the draft form. Each form downloads a JSON response file. Run `evaluation.py --score-blind PATH_TO_ANSWERS` for each response. The rating key stays in the operator’s private data directory.
 

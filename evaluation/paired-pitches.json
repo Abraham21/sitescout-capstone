@@ -2,15 +2,15 @@
   "population": "Two predeclared synthetic painting cases, each tried once per condition. Human preference remains unmeasured.",
   "method": "The qualifier reads the two retrieval contexts. A separate writing experiment uses the same frozen, deterministically qualified fixture for both writers regardless of qualifier abstention. Direct uses one Gemini writing call; the tree prunes angles first. Evidence, model, template choices, URL, and final code checks are shared. Order alternates by case. Code checks exclude the separate production model-review availability gate.",
   "model": "gemini-3.8-flash",
-  "run_id": "eval-e91b725041",
+  "run_id": "eval-57d95a8d4d",
   "usage": [
     {
       "service": "Gemini",
       "state": "reported",
       "calls": 10,
-      "dollars": 0.006096,
-      "input_tokens": 5108,
-      "output_tokens": 604
+      "dollars": 0.006831,
+      "input_tokens": 5868,
+      "output_tokens": 648
     }
   ],
   "errors": [],
@@ -19,12 +19,12 @@
       "case": "social-estimates",
       "retrieval": {
         "fts": {
-          "status": "qualified",
+          "status": "hold",
           "website_status": "no_site_found",
           "selected_passages": 3,
           "available_passages": 3,
           "selected_chars": 441,
-          "context_sha256": "925c103fcec2644f8457c4731ac007d16e2a522eb4bbcdfadbe99db36e1bf5f5",
+          "context_sha256": "3cbc33d834bf663aec5155c41ca7577afeb133217abb00b7100bbd5d011a97a5",
           "expected_url_in_selection": true,
           "expected_passage_in_selection": true,
           "extracted_facts": {
@@ -47,7 +47,7 @@
           "selected_passages": 3,
           "available_passages": 3,
           "selected_chars": 441,
-          "context_sha256": "925c103fcec2644f8457c4731ac007d16e2a522eb4bbcdfadbe99db36e1bf5f5",
+          "context_sha256": "3cbc33d834bf663aec5155c41ca7577afeb133217abb00b7100bbd5d011a97a5",
           "expected_url_in_selection": true,
           "expected_passage_in_selection": true,
           "extracted_facts": {
@@ -68,18 +68,23 @@
       "writing": {
         "direct": {
           "calls": 1,
-          "seconds": 2.14,
+          "seconds": 2.51,
           "mode_returned": "direct",
           "angle": "specialty",
           "invitation": "feedback",
-          "subject": "Copper Finch Painting — a website idea for your painting services",
-          "body": "Hi Copper Finch Painting team,\n\nI found the public Instagram profile for Copper Finch Painting, but couldn’t verify a separate business website in the sources I checked. I sketched a website concept that gives interior painting a visible place and lets visitors plan a project.\n\nHere’s the independent design preview: https://preview.example/social-estimates\n\nDoes this feel right for your business? If so, I can set it up for you.\n\nAbraham",
+          "subject": "A website idea for Copper Finch Painting",
+          "body": "Hi Copper Finch Painting team,\n\nI came across your Instagram page while looking at painters in Glendale. I looked for a separate place to ask about an estimate and couldn’t find one.\n\nI made a page that puts interior painting up front and gives people room to describe the job they have in mind.\n\nHere’s the preview: https://preview.example/social-estimates\n\nWhat would you change to make it feel more like your business?\n\nAbraham",
           "evidence_ids": [
             "registry",
-            "e1"
+            "e1",
+            "e2"
           ],
           "code_checks": {
             "Rendered concept matches cited business facts": true,
+            "Handoff reflects the business evidence used on the page": true,
+            "Homeowner can describe a project in their own words": true,
+            "Published phone matches the header and estimate actions": true,
+            "The concept has a business-specific contact, service or portfolio source": true,
             "Assigned preview link is present": true,
             "Citations belong to the selected observation": true,
             "Pitch uses only evidenced claims and working features": true
@@ -88,23 +93,28 @@
         },
         "tree": {
           "calls": 2,
-          "seconds": 4.06,
+          "seconds": 4.04,
           "mode_returned": "two-depth",
           "angle": "specialty",
           "invitation": "permission",
-          "subject": "Copper Finch Painting — a website idea for your painting services",
-          "body": "Hi Copper Finch Painting team,\n\nI found the public Instagram profile for Copper Finch Painting, but couldn’t verify a separate business website in the sources I checked. I sketched a website concept that gives interior painting a visible place and lets visitors plan a project.\n\nHere’s the independent design preview: https://preview.example/social-estimates\n\nIf you like this direction, would you like me to set it up for you?\n\nAbraham",
+          "subject": "A website idea for Copper Finch Painting",
+          "body": "Hi Copper Finch Painting team,\n\nI came across your Instagram page while looking at painters in Glendale. I looked for a separate place to ask about an estimate and couldn’t find one.\n\nI made a page that puts interior painting up front and gives people room to describe the job they have in mind.\n\nHere’s the preview: https://preview.example/social-estimates\n\nWould a site like this be useful for you? I’d be happy to set it up.\n\nAbraham",
           "evidence_ids": [
             "registry",
-            "e1"
+            "e1",
+            "e2"
           ],
           "code_checks": {
             "Rendered concept matches cited business facts": true,
+            "Handoff reflects the business evidence used on the page": true,
+            "Homeowner can describe a project in their own words": true,
+            "Published phone matches the header and estimate actions": true,
+            "The concept has a business-specific contact, service or portfolio source": true,
             "Assigned preview link is present": true,
             "Citations belong to the selected observation": true,
             "Pitch uses only evidenced claims and working features": true
           },
-          "runner_up": "local"
+          "runner_up": "social"
         }
       }
     },
@@ -114,10 +124,10 @@
         "full": {
           "status": "qualified",
           "website_status": "has_site",
-          "selected_passages": 11,
-          "available_passages": 11,
-          "selected_chars": 6687,
-          "context_sha256": "3b1aae1bb68fe6ef1f1de85a21b23bb3fe62d5af25e85d7bbe24a69383763ae8",
+          "selected_passages": 13,
+          "available_passages": 13,
+          "selected_chars": 6928,
+          "context_sha256": "e44e074c68aa5ac77c3ca8b1306fbd2bba0f17b012955dba3a2f8c20eb5750d2",
           "expected_url_in_selection": true,
           "expected_passage_in_selection": true,
           "extracted_facts": {
@@ -137,10 +147,10 @@
         "fts": {
           "status": "qualified",
           "website_status": "has_site",
-          "selected_passages": 4,
-          "available_passages": 11,
-          "selected_chars": 1438,
-          "context_sha256": "5a1728a3cdc3049fcbaf462fad0e5f578edee69eb00a5594a772d8b1d7e363e1",
+          "selected_passages": 5,
+          "available_passages": 13,
+          "selected_chars": 1513,
+          "context_sha256": "e2ceb698023830d9c5a44c15efdcd8a5825147b6badc364d17ed2e4a97368931",
           "expected_url_in_selection": true,
           "expected_passage_in_selection": true,
           "extracted_facts": {
@@ -161,18 +171,24 @@
       "writing": {
         "tree": {
           "calls": 2,
-          "seconds": 4.11,
+          "seconds": 5.18,
           "mode_returned": "two-depth",
           "angle": "site",
           "invitation": "permission",
-          "subject": "Linen Leaf Painting — a project-planner idea",
-          "body": "Hi Linen Leaf Painting team,\n\nI took a look at the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I built a concept where visitors can try a short painting-project planner.\n\nHere’s the independent design preview: https://preview.example/broken-estimate\n\nIf you like this direction, would you like me to set it up for you?\n\nAbraham",
+          "subject": "A website idea for Linen Leaf Painting",
+          "body": "Hi Linen Leaf Painting team,\n\nI came across your business while looking at painters in Pasadena. I tried the estimate link on your site twice and landed on a missing page both times.\n\nI put a project photo and your phone number up front, so someone who likes the work can call about a job.\n\nHere’s the preview: https://preview.example/broken-estimate\n\nWould a site like this be useful for you? I’d be happy to set it up.\n\nAbraham",
           "evidence_ids": [
             "registry",
-            "e10"
+            "e10",
+            "e11"
           ],
           "code_checks": {
             "Rendered concept matches cited business facts": true,
+            "Handoff reflects the business evidence used on the page": true,
+            "Homeowner can describe a project in their own words": true,
+            "Published phone matches the header and estimate actions": true,
+            "The concept has a business-specific contact, service or portfolio source": true,
+            "The business’s gallery is reachable from the preview": true,
             "Assigned preview link is present": true,
             "Citations belong to the selected observation": true,
             "Pitch uses only evidenced claims and working features": true
@@ -181,24 +197,29 @@
         },
         "direct": {
           "calls": 1,
-          "seconds": 3.55,
+          "seconds": 2.6,
           "mode_returned": "direct",
-          "angle": "specialty",
-          "invitation": "walkthrough",
-          "subject": "Linen Leaf Painting — a website idea for your painting services",
-          "body": "Hi Linen Leaf Painting team,\n\nI tried the contact link on the Linen Leaf Painting website. The contact or estimate link returned a missing-page response both times I checked it. I sketched a website concept that gives exterior painting a visible place and lets visitors plan a project.\n\nHere’s the independent design preview: https://preview.example/broken-estimate\n\nWould you like me to walk you through the design and what setting it up would involve?\n\nAbraham",
+          "angle": "site",
+          "invitation": "permission",
+          "subject": "A website idea for Linen Leaf Painting",
+          "body": "Hi Linen Leaf Painting team,\n\nI came across your business while looking at painters in Pasadena. I tried the estimate link on your site twice and landed on a missing page both times.\n\nI put a project photo and your phone number up front, so someone who likes the work can call about a job.\n\nHere’s the preview: https://preview.example/broken-estimate\n\nWould a site like this be useful for you? I’d be happy to set it up.\n\nAbraham",
           "evidence_ids": [
             "registry",
             "e10",
-            "e1"
+            "e11"
           ],
           "code_checks": {
             "Rendered concept matches cited business facts": true,
+            "Handoff reflects the business evidence used on the page": true,
+            "Homeowner can describe a project in their own words": true,
+            "Published phone matches the header and estimate actions": true,
+            "The concept has a business-specific contact, service or portfolio source": true,
+            "The business’s gallery is reachable from the preview": true,
             "Assigned preview link is present": true,
             "Citations belong to the selected observation": true,
             "Pitch uses only evidenced claims and working features": true
           },
-          "runner_up": "site"
+          "runner_up": "specialty"
         }
       }
     }
