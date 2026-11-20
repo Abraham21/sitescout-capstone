@@ -288,6 +288,17 @@ def fetch_page(url):
     if status != 200 or "html" not in content_type:
         return page
     soup = BeautifulSoup(body, "html.parser")
+    page["business_nodes"] = business_profile.business_nodes(soup)
+    page["quotes"] = business_profile.quoted_customers(soup)
+    # On this publisher, article-level OG images belong to the individual gallery.
+    if host(url) == "local.yahoo.com" and soup.select_one("#business-photo-grid"):
+        page["listing_photos"] = list(
+            dict.fromkeys(
+                m["content"]
+                for m in soup.select('meta[property="og:image"][content]')
+                if re.fullmatch(r"https://s\.yimg\.com/bj/[a-f0-9]+/[a-f0-9]+\.jpg", m["content"])
+            )
+        )[:12]
     for tag in soup(["script", "style", "noscript", "template"]):
         tag.decompose()
     page.update(
@@ -643,7 +654,7 @@ def read_directory_links(lead, records, fetch, report):
             records[url] = details
 
 
-def attach_work(page, result, add, fetch, read_image):
+def attach_work(lead, page, result, add, fetch, read_image):
     """Use only a confirmed business site and its same-site gallery for inline project imagery."""
     base = page["url"]
     profile = result["profile"]
@@ -681,42 +692,168 @@ def attach_work(page, result, add, fetch, read_image):
             "observation",
         )
         profile[key].append({"url": target, "source_url": target, "label": label, "evidence_id": ref})
+    for source in (linked_pages.get("review_links"), page):
+        if source:
+            quotes = list(source.get("quotes", []))
+            for node in source.get("business_nodes", []):
+                if words(node["name"]) == words(lead["name"]):
+                    quotes.extend(business_profile.reviews_from(node))
+            attach_testimonials(quotes, source["url"], "Company website", profile, add)
+    candidates = []
+    for source in (linked_pages.get("work_links"), page):
+        if source:
+            for image in source.get("images", []):
+                asset = image["asset_url"]
+                if host(asset) == host(base) or domain_in(
+                    asset, ("wixstatic.com", "squarespace-cdn.com", "wp.com")
+                ):
+                    candidates.append((source["url"], image))
+    embed_photos(candidates, profile, add, read_image)
+
+
+def attach_testimonials(rows, source, platform, profile, add):
+    saved = profile["testimonials"]
+    for row in rows:
+        quote, author = row.get("quote", ""), row.get("author", "")
+        if not (
+            isinstance(quote, str)
+            and 12 <= len(quote) <= 260
+            and isinstance(author, str)
+            and 1 <= len(author) <= 70
+        ):
+            continue
+        joined = f"{author} on {platform}: {quote}"
+        if (
+            INJECTION.search(joined)
+            or clean_text(joined) != joined
+            or EMAIL.search(joined)
+            or phones(joined)
+            or any(item["quote"] == quote for item in saved)
+        ):
+            continue
+        if len(saved) >= 4:
+            break
+        ref = add(source, joined, "source")
+        saved.append(
+            {
+                "quote": quote,
+                "author": author,
+                "source_url": source,
+                "platform": platform,
+                "evidence_id": ref,
+            }
+        )
+
+
+def embed_photos(candidates, profile, add, read_image):
+    """One verified logo and up to six distinct project images, with their original source pages."""
     if not read_image:
         return
-    known = set()
+    media = profile["media"]
+    seen = {item["asset_url"] for item in media}
     attempts = 0
-    for source in (linked_pages.get("work_links"), page):
-        if not source:
+    for source, image in candidates:
+        asset, kind = image.get("asset_url", ""), image.get("kind")
+        if (
+            kind not in ("project", "logo")
+            or not safe_url(asset)
+            or not asset.startswith("https://")
+            or asset in seen
+        ):
             continue
-        for image in source.get("images", []):
-            url, kind = image["asset_url"], image["kind"]
-            if len(known) == 2 or attempts >= 4:
-                return
-            same_site = host(url) == host(base) or domain_in(
-                url, ("wixstatic.com", "squarespace-cdn.com", "wp.com", "images.squarespace-cdn.com")
+        if sum(item["kind"] == kind for item in media) >= (1 if kind == "logo" else 6):
+            continue
+        alt = clean_text(image["alt"])[:140]
+        if not alt or INJECTION.search(alt):
+            continue
+        if attempts >= 8:
+            break
+        seen.add(asset)
+        attempts += 1
+        encoded = read_image(asset, kind)
+        if not encoded or any(item["url"] == encoded for item in media):
+            continue
+        ref = add(
+            source,
+            f"Image from the verified business gallery or masthead. Description: {alt}",
+            "source",
+        )
+        entry = {
+            "url": encoded,
+            "kind": kind,
+            "asset_url": asset,
+            "source_url": source,
+            "alt": alt,
+            "evidence_id": ref,
+        }
+        if image.get("credit") and safe_url(image.get("credit_url", "")):
+            entry.update(credit=image["credit"], credit_url=image["credit_url"])
+        media.append(entry)
+
+
+def gallery_pages(urls):
+    pages = []
+    for url in urls:
+        if host(url) == "local.yahoo.com" and (
+            match := re.fullmatch(r"(/info-\d+-[\w-]+)/*(?:;.*)?", urlsplit(url).path)
+        ):
+            pages.append("https://local.yahoo.com" + match[1] + "/")
+    return list(dict.fromkeys(pages))[:2]
+
+
+def attach_listing(lead, pages, profile, add, fetch, read_image):
+    # Search snippets can point to a gallery. Independently match the actual publisher's
+    # structured business identity before using any photo or public customer review.
+    for canonical in pages:
+        page = fetch(canonical)
+        if (
+            page.get("status") != 200
+            or page.get("url", "").rstrip("/") != canonical.rstrip("/")
+            or INJECTION.search(page.get("text", ""))
+        ):
+            continue
+        for node in page.get("business_nodes", []):
+            address = node.get("address")
+            city = address.get("addressLocality", "") if isinstance(address, dict) else ""
+            node_url = node.get("url") or node.get("@id")
+            if (
+                not isinstance(node_url, str)
+                or node_url.rstrip("/") != canonical.rstrip("/")
+                or words(str(city)) != words(lead["city"])
+                or identity(lead, f"{node['name']} {node.get('telephone', '')}") != 2
+            ):
+                continue
+            attach_testimonials(
+                business_profile.reviews_from(node), canonical, "Yahoo Local", profile, add
             )
-            if kind in known or not same_site or not safe_url(url) or not url.startswith("https://"):
+            urls_on_page = page.get("listing_photos", [])
+            node_images = node.get("image", [])
+            if isinstance(node_images, str):
+                node_images = [node_images]
+            # Require the matched entity's primary image to also occur in the gallery.
+            if not isinstance(node_images, list) or not any(
+                url in urls_on_page for url in node_images if isinstance(url, str)
+            ):
                 continue
-            attempts += 1
-            if INJECTION.search(image["alt"]):
-                continue
-            encoded = read_image(url, kind)
-            if encoded:
-                known.add(kind)
-                alt = clean_text(image["alt"])[:140]
-                ref = add(source["url"], f"Image caption on the verified business page: {alt}", "source")
-                profile["media"].append(
+            approved = lead.get("photo_captions") or {}
+            ordered = list(dict.fromkeys([u for u in approved if u in urls_on_page] + urls_on_page))
+            images = [
+                (
+                    canonical,
                     {
-                        "url": encoded,
-                        "source_url": source["url"],
-                        "asset_url": url,
-                        "alt": alt,
-                        "evidence_id": ref,
-                        "kind": kind,
-                    }
+                        "asset_url": u,
+                        "kind": "project",
+                        "alt": approved.get(u)
+                        or f"{node['name']} gallery photo {urls_on_page.index(u) + 1}",
+                        "credit": "Yahoo Local",
+                        "credit_url": canonical,
+                    },
                 )
-                if image.get("credit") and safe_url(image.get("credit_url", "")):
-                    profile["media"][-1].update(credit=image["credit"], credit_url=image["credit_url"])
+                for u in ordered
+                if re.fullmatch(r"https://s\.yimg\.com/bj/[a-f0-9]+/[a-f0-9]+\.jpg", u)
+            ]
+            embed_photos(images, profile, add, read_image)
+            return
 
 
 def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add):
@@ -769,7 +906,9 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add):
         re.IGNORECASE,
     )
     if identity(lead, body) != 2 or not owns_domain or not owner_voice(page) or demo:
-        unresolved = "A candidate domain has insufficient independent evidence of first-party ownership."
+        unresolved = (
+            "A candidate domain has insufficient independent evidence of first-party ownership."
+        )
         add(final_url, unresolved, "assessment")
         return "hold", unresolved
     result.update(website=final_url, website_status="has_site", _owned_page=page)
@@ -859,7 +998,7 @@ def qualify(
         "email": "",
         "social": "",
         "phone": phone,
-        "profile": {"work_links": [], "review_links": [], "media": []},
+        "profile": {"work_links": [], "review_links": [], "media": [], "testimonials": []},
     }
 
     def add(url, text, kind="source"):
@@ -873,9 +1012,24 @@ def qualify(
         owned_page = result.pop("_owned_page", None)
         if status != "hold" or result["website_status"] == "has_site":
             result.pop("follow_up", None)
-        if status == "qualified" and owned_page:
+        if status == "qualified":
             reader = image_reader or (None if fetcher else fetch_image)
-            attach_work(owned_page, result, add, fetch, reader)
+            if owned_page:
+                attach_work(lead, owned_page, result, add, fetch, reader)
+            profile = result["profile"]
+            if not any(item["kind"] == "project" for item in profile["media"]):
+                pages = gallery_pages([*(lead.get("source_hints") or []), *records])
+                # Use the spare third search only when a known gallery merits a closer look.
+                if not pages and profile["work_links"] and lookups < 3:
+                    report("Looking for the business’s published gallery.")
+                    try:
+                        hits = search(
+                            f'site:local.yahoo.com/info "{lead["name"]}" {lead["city"]} "{phone}" photos'
+                        )
+                        pages = gallery_pages(str(hit.get("url", "")) for hit in hits)
+                    except (OSError, RuntimeError, ValueError):
+                        report("The optional gallery lookup was unavailable.")
+                attach_listing(lead, pages, profile, add, fetch, reader)
         index = ":memory:" if fetcher is not None else runtime_dir() / "research.sqlite"
         selected = ranking(lead, evidence, retrieval, index=index)
         result.update(

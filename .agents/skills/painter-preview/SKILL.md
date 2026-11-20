@@ -1,18 +1,14 @@
 ---
 name: painter-preview
-description: Turn one qualified painting business’s sourced facts, business media and contact path into an independent website concept and conversational outreach.
+description: Build a painter’s portfolio, estimate form and outreach from the qualified business’s own evidence.
 ---
 
-# Painter preview
+Start with the qualified business and its identity-matched registry record. Keep source IDs when carrying verified services, images, area and contacts from research into the portable HTML. The builder renders already-fetched evidence.
 
-Start with one qualified business and its own registry record, identity-matched source URLs and evidence IDs. Read the source once in research and render with `studio.build_preview`. Keep the builder free of network calls.
+Apply Scrollcraft’s photographic composition, natural scrolling, mobile art direction and reduced-motion guidance. Choose an editorial room layout for interior work or a more graphic, architectural layout for exteriors. Keep the business name intact across screen sizes. Prioritize a verified project image and logo. Credit photographs at their source. Neighborhood or illustrative photography needs a clear label. A visitor can pick a color sampled directly from the displayed photograph as a reference for the project.
 
-A homeowner needs to recognize the painter, see the work they can substantiate and reach the business. Put the real name, locality and cited specialty on the first screen. A verified business phone belongs beside the identity and again at the estimate. Every visitor can write their own project description and copy it before personally choosing how to make contact. The concept keeps those notes in the browser.
+Build an onsite portfolio from the verified photographs. When more than one photo is available, open the gallery on a different image than the hero and provide previous, next and thumbnail controls. Put any additional public gallery links in the business details. Include a review only with the named author, source URL and exact excerpt visible in the evidence. Label all staged photos and sample reviews in fictional rehearsals.
 
-Apply Scrollcraft’s visual and mobile principles to the available evidence. Interior specialties use an editorial room composition. Exterior specialties use strong sign-painter typography and an architectural image. A sourced project photograph takes precedence over the illustrated designs. A matched business logo can accompany its name. Identify regional architecture as a neighborhood photograph and stock as inspiration. The source list and font notices are in `assets/CREDITS.md`.
+Show the published phone prominently and repeat it in the estimate section. Link verified specialties to the matching form choice. Use the locality for the title, description and relevant service headings. Distinguish a registry location from a verified service area. The estimate form accepts sample contact details and a project description. In preview mode it validates locally and confirms that nothing was sent. A live intake connection requires the owner’s setup.
 
-Ground each portfolio link or media item in its exact business-page evidence. Leave directory galleries and reviews on their supported source URLs. In rehearsal, stage a rights-cleared image and label both the company and the credit as fictional or illustrative. Keep fictional gallery destinations inside the page.
-
-Write as Abraham to a person who runs a painting business. Name what the researcher actually observed, explain the concrete improvement the owner can see, share the preview and invite a reply. Preserve uncertainty about a missing site. A linked gallery and a locally embedded project image are different delivered features. Record why the builder took its approach in the handoff, and show the exact opening chosen by the pitch writer.
-
-The reviewer rebuilds the page and checks citations, the phone, the free-text notes, the public gallery, and the words in the pitch before publication. A registry-only identity without a corroborated contact, specialty or portfolio source needs more research.
+Write as Abraham to the business owner. Mention one observed detail, the improvement the owner can try on the page, the preview link and a friendly invitation. The reviewer checks the page, evidence, contact details and what the email promises before publication.

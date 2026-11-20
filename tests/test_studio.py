@@ -113,7 +113,7 @@ def test_fallback_label_and_prepublication_review():
         {**pitch, "evidence_ids": ["other"]},
     ]:
         assert not review(LEAD, QUALIFIED, page, changed, None)["passed"]
-    changed_page = {**page, "html": page["html"].replace('id="brief-button"', 'id="removed"')}
+    changed_page = {**page, "html": page["html"].replace('id="request-button"', 'id="removed"')}
     assert not review(LEAD, QUALIFIED, changed_page, pitch, None)["passed"]
     assert not review(
         LEAD, QUALIFIED, page, pitch, lambda _: {"passed": False, "feedback": "Recheck."}
@@ -166,7 +166,9 @@ def test_every_angle_keeps_the_specific_finding_and_a_failed_review_stays_held_o
     }
     pitch = write_pitch(LEAD, q, {**build_preview(LEAD, q), "url": "/p/a"}, None)
     assert all(
-        "couldn’t find one" in a["opening"] and "social1" in a["evidence_ids"]
+        "your Instagram page" in a["opening"]
+        and "turned off" not in a["opening"]
+        and "social1" in a["evidence_ids"]
         for a in pitch["planned_angles"]
     )
 
@@ -270,6 +272,33 @@ def test_synthetic_portfolio_keeps_photo_visible_and_its_gallery_link_local():
     page = build_preview(case["lead"], q)
     soup = BeautifulSoup(page["html"], "html.parser")
     assert soup.select_one(".hero-art img")["src"].startswith("data:image/jpeg;base64,")
-    assert "staged" in soup.select_one(".hero-art figcaption").get_text().lower()
+    assert "staged" in soup.select_one(".hero-credit .source").get_text().lower()
     assert soup.select_one(".hero-proof")["href"] == "#work" and soup.select_one("#work img")
     assert not any(".example/" in a.get("href", "") for a in soup.select("a"))
+
+    assert len(soup.select("#work [data-slide]")) == 3
+    assert len(soup.select("#reviews [data-slide]")) == 2
+    assert "fictional customer" in soup.select_one("#reviews").get_text()
+    assert soup.select_one("[data-color]")["href"] == "#estimate"
+    assert "Preview estimate request form" in page["features"]
+    service = soup.select_one("a[data-service]")["data-service"]
+    assert service in [option.text for option in soup.select("#project-type option")]
+
+
+def test_testimonial_requires_quote_and_reviewer_in_the_original_source():
+    source = "https://example.org/services"
+    item = {
+        "author": "Alex",
+        "quote": "We loved the results.",
+        "evidence_id": "e1",
+        "source_url": source,
+    }
+    q = {**QUALIFIED, "profile": {"testimonials": [item]}}
+    assert "Attributed customer reviews" not in build_preview(LEAD, q)["features"]
+    q["evidence"] = [
+        {**src, "text": "Alex: We loved the results."} if src["id"] == "e1" else src
+        for src in QUALIFIED["evidence"]
+    ]
+    assert "Attributed customer reviews" in build_preview(LEAD, q)["features"]
+    q["profile"]["testimonials"][0] = {**item, "author": "Someone else"}
+    assert "Attributed customer reviews" not in build_preview(LEAD, q)["features"]

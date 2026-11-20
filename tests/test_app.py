@@ -177,3 +177,50 @@ class OperatorDeskTest(unittest.TestCase):
             self.assertEqual(runner.call_args.kwargs["mode"], "showcase")
             app.run()
             self.assertEqual(runner.call_count, 1)
+
+    def test_replay_board_tracks_all_ten_from_discovery_without_future_results(self):
+        from bs4 import BeautifulSoup
+        import pipeline
+
+        with (
+            tempfile.TemporaryDirectory() as folder,
+            patch.dict(
+                "os.environ",
+                {
+                    "SITESCOUT_DATA_DIR": folder,
+                    "PYTHON_DOTENV_DISABLED": "1",
+                    "GOOGLE_API_KEY": "",
+                    "EXA_API_KEY": "",
+                    "CLOUDFLARE_API_TOKEN": "",
+                },
+            ),
+        ):
+            run_id = pipeline.run_batch(limit=10, mode="demo")
+            events = storage.events(run_id)
+            discovered = next(
+                i
+                for i, e in enumerate(events, 1)
+                if e["stage"] == "Discover" and e["status"] == "completed"
+            )
+            first_started = next(i for i, e in enumerate(events, 1) if e.get("lead_id"))
+            app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py"))
+            app.query_params["replay"] = run_id
+            with patch("time.sleep"):
+                app.run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.selectbox(key="saved_run").value, run_id)
+
+            def board():
+                markup = next(
+                    h.value for h in app.get("html") if '<section class="ss-batch"' in h.value
+                )
+                return BeautifulSoup(markup, "html.parser")
+
+            self.assertEqual(board().find(role="status").get_text(), "10 of 10 finished")
+            app.slider(key=f"cursor_{run_id}").set_value(discovered).run()
+            self.assertEqual(len(board().select("tbody tr")), 10)
+            self.assertEqual({td.text for td in board().select("tbody td:last-child")}, {"Waiting"})
+            self.assertFalse(board().select("a, .done"))
+            app.slider(key=f"cursor_{run_id}").set_value(first_started).run()
+            self.assertEqual(len(board().select(".ss-status.active")), 1)
+            self.assertIn("9 waiting", board().find(role="status").get_text())

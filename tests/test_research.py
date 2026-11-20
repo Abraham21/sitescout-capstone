@@ -353,3 +353,83 @@ def test_bundled_fictional_gallery_is_labeled_and_has_no_external_media_dependen
     assert item["kind"] == "project" and "Staged" in item["alt"] and "Pexels" in item["credit"]
     assert item["url"].startswith("data:image/jpeg;base64,")
     assert business_profile.fixture_image({"x": "../.env"}, "x", "project") == ""
+
+
+@pytest.mark.parametrize("phone,expected", [("(818) 555-0101", 2), ("(213) 555-0177", 0)])
+def test_qualified_lead_discovers_and_matches_a_gallery_before_importing_it(
+    monkeypatch, phone, expected
+):
+    """A normal discovery run can find real gallery media without operator-provided asset URLs."""
+    case = CASES[0]
+    lead = case["lead"]
+    page_url = "https://local.yahoo.com/info-123-copper-finch-glendale/"
+    photos = ["https://s.yimg.com/bj/aaaa/aaaa01.jpg", "https://s.yimg.com/bj/bbbb/bbbb02.jpg"]
+    quote = "The freshly painted trim looks wonderful."
+    node = {
+        "@type": "HousePainter",
+        "name": lead["name"],
+        "url": page_url,
+        "telephone": phone,
+        "address": {"addressLocality": lead["city"]},
+        "image": photos[:1],
+        "review": {"@type": "Review", "author": {"name": "A. R."}, "reviewBody": quote},
+    }
+    html = (
+        '<div id="business-photo-grid"></div>'
+        + "".join(
+            f'<meta property="og:image" content="{photo}">'
+            for photo in photos + ["https://other.example/ad.jpg"]
+        )
+        + f'<script type="application/ld+json">{json.dumps(node)}</script>'
+    )
+    monkeypatch.setattr(
+        research, "read_public", lambda *args: (page_url, 200, "text/html", html.encode())
+    )
+    queries = []
+
+    def search(query):
+        queries.append(query)
+        if "site:local.yahoo.com" in query:
+            return [{"url": page_url, "title": "Paint gallery"}]
+        return [
+            {
+                **case["results"][0],
+                "url": "https://www.yelp.com/biz/copper-finch",
+                "text": lead["name"] + " " + lead["phone"] + ". Messaging is disabled. 9 photos.",
+            },
+            case["results"][1],
+        ]
+
+    q = research.qualify(
+        lead, None, search, fetcher=research.fetch_page, image_reader=lambda url, kind: url
+    )
+    assert len(queries) == 3 and q["status"] == "qualified"
+    assert [item["asset_url"] for item in q["profile"]["media"]] == photos[:expected]
+    reviews = q["profile"]["testimonials"]
+    assert len(reviews) == int(bool(expected))
+    if expected:
+        evidence = next(item for item in q["evidence"] if item["id"] == reviews[0]["evidence_id"])
+        assert evidence["url"] == page_url and quote in evidence["text"] and "A. R." in evidence["text"]
+
+
+def test_first_party_work_and_customer_quotes_keep_their_sources():
+    import business_profile
+    from bs4 import BeautifulSoup
+
+    html = '<section id="testimonials"><blockquote>Lovely new door.<cite>F. Lee</cite></blockquote></section><blockquote>An unrelated quotation.</blockquote>'
+    assert business_profile.quoted_customers(BeautifulSoup(html, "html.parser")) == [
+        {"author": "F. Lee", "quote": "Lovely new door."}
+    ]
+    case = CASES[1]
+    q = research.qualify(
+        case["lead"],
+        None,
+        lambda _: case["results"],
+        fetcher=case["pages"].__getitem__,
+        image_reader=lambda url, kind: business_profile.fixture_image(case["image_files"], url, kind),
+    )
+    assert len(q["profile"]["media"]) == 3
+    for quote in q["profile"]["testimonials"]:
+        assert "fictional customer" in quote["author"]
+        source = next(e for e in q["evidence"] if e["id"] == quote["evidence_id"])
+        assert source["url"] == quote["source_url"] and quote["quote"] in source["text"]

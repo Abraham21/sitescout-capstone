@@ -27,4 +27,6 @@ The routing score prints system–human agreement with a numerator and denominat
 
 ## Browser check
 
-With the desk open on a completed revised preview, run `node tests/browser-preview.cjs` from the project root. It opens the embedded site, follows its estimate link, types a project description and checks the resulting brief. This optional check uses Playwright and Chromium. If needed, install them with `npm install --no-save --package-lock=false playwright` and `npx playwright install chromium`, or set `CHROME_BIN` to an installed Chrome executable.
+With a current preview open in the desk, run `node tests/browser-preview.cjs` from the project root. The browser opens the embedded site, tries an empty estimate request, fills in a valid request and checks that contact details stay in the browser. Pass the standalone preview URL as the first argument to also check for split words in the business headline and page overflow at eight widths from 320 to 1920 pixels.
+
+This optional check uses Playwright and Chromium. If needed, install them with `npm install --no-save --package-lock=false playwright` and `npx playwright install chromium`, or set `CHROME_BIN` to an installed Chrome executable.

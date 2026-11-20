@@ -173,6 +173,84 @@
           "output_tokens": 286
         }
       ]
+    },
+    {
+      "release": "afternoon owner-preview revision",
+      "run_id": "389d9384d762",
+      "selection": "Three preselected real painters; fresh operator dashboard showcase with an identity-matched gallery and a directory hint",
+      "started_at": "2026-11-20T22:25:42.013+00:00",
+      "elapsed_seconds": 17.943,
+      "outcomes": {
+        "skip": 1,
+        "hold": 1,
+        "manual": 1
+      },
+      "hosted_verified": 1,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 6,
+          "dollars": 0.042,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        {
+          "service": "Gemini",
+          "state": "reported",
+          "calls": 4,
+          "dollars": 0.002376,
+          "input_tokens": 2473,
+          "output_tokens": 139
+        }
+      ]
+    },
+    {
+      "release": "afternoon owner-preview revision",
+      "run_id": "306e9f3a9de8",
+      "selection": "Ten previously unseen licensed contractors in ordinary live discovery",
+      "started_at": "2026-11-20T22:22:34.890+00:00",
+      "elapsed_seconds": 22.66,
+      "outcomes": {
+        "hold": 9,
+        "skip": 1
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 29,
+          "dollars": 0.203,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "release": "afternoon owner-preview revision",
+      "run_id": "a82816daca0d",
+      "selection": "Ten synthetic businesses from frozen research cases processed by the full workflow",
+      "started_at": "2026-11-20T22:24:30.972+00:00",
+      "elapsed_seconds": 21.728,
+      "outcomes": {
+        "skip": 2,
+        "manual": 2,
+        "hold": 4,
+        "blocked": 1,
+        "ready": 1
+      },
+      "hosted_verified": 3,
+      "provider_usage": [
+        {
+          "service": "Gemini",
+          "state": "reported",
+          "calls": 13,
+          "dollars": 0.006604,
+          "input_tokens": 5500,
+          "output_tokens": 661
+        }
+      ]
     }
   ]
 }

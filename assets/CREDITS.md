@@ -12,4 +12,8 @@ The renderer labels neighborhood photographs, illustrative stock and sourced bus
 
 [Barlow Condensed](https://github.com/google/fonts/tree/main/ofl/barlowcondensed) and [DM Serif Text](https://github.com/google/fonts/tree/main/ofl/dmseriftext) use the SIL Open Font License. Each portable HTML document includes the license of its embedded face. The unmodified font files and their notices are in [fonts](fonts/).
 
-Business gallery links open the matched publisher’s page. When the qualifier verifies a first-party project image or logo, the renderer embeds the bounded image and links the project caption to the original source.
+The real Paintastic showcase uses photos from its [Yahoo Local business gallery](https://local.yahoo.com/info-234005761-paintastic-painting-burbank/). The publisher identifies the Burbank business by its registered phone. The showcase orders six of the nine available photographs and describes the visible subjects. SiteScout checks the source again during live discovery and embeds resized copies for the preview.
+
+The fictional Linen Leaf rehearsal uses the credited California entry, sunlit stucco and green-room photographs above. Its two customer quotes are authored examples labeled as fictional.
+
+For other businesses, SiteScout records the original source page and image address for each matched photo or logo. A review excerpt must retain its exact wording, author and source.

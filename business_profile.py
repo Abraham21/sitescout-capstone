@@ -2,6 +2,7 @@
 
 import base64
 import io
+import json
 import re
 import warnings
 from pathlib import Path
@@ -10,8 +11,77 @@ from urllib.parse import urljoin, urlsplit
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 
+BUSINESS_TYPES = {
+    "LocalBusiness",
+    "ProfessionalService",
+    "HousePainter",
+    "HomeAndConstructionBusiness",
+    "GeneralContractor",
+    "Organization",
+}
+
+
+def business_nodes(soup):
+    """Read a publisher's business records before scripts are removed from its page."""
+    records = []
+    for tag in soup.select('script[type="application/ld+json"]')[:20]:
+        try:
+            obj = json.loads(tag.string or "")
+        except (ValueError, RecursionError):
+            continue
+        nodes = obj.get("@graph", [obj]) if isinstance(obj, dict) else obj
+        if not isinstance(nodes, list):
+            continue
+        for node in nodes:
+            if not isinstance(node, dict) or not isinstance(node.get("name"), str):
+                continue
+            kinds = node.get("@type", [])
+            if isinstance(kinds, str):
+                kinds = [kinds]
+            if isinstance(kinds, list) and any(
+                isinstance(k, str) and k in BUSINESS_TYPES for k in kinds
+            ):
+                records.append(node)
+                if len(records) == 12:
+                    return records
+    return records
+
+
+def reviews_from(node):
+    """Keep complete, short, attributed reviews attached to this particular business."""
+    reviews = node.get("review", [])
+    rows = []
+    for review in (reviews if isinstance(reviews, list) else [reviews])[:12]:
+        if not isinstance(review, dict) or review.get("@type") != "Review":
+            continue
+        subject = review.get("itemReviewed")
+        if subject and (not isinstance(subject, dict) or subject.get("name") != node["name"]):
+            continue
+        author = review.get("author", "")
+        author = author.get("name") if isinstance(author, dict) else author
+        quote = review.get("reviewBody")
+        if isinstance(quote, str) and isinstance(author, str):
+            rows.append({"quote": " ".join(quote.split()), "author": " ".join(author.split())})
+    return rows
+
+
+def quoted_customers(soup):
+    rows = []
+    region = re.compile(r"testimonial|customer.review", re.I)
+    for quote in soup.find_all("blockquote", limit=20):
+        section = quote.find_parent(id=region) or quote.find_parent(class_=region)
+        credit = quote.find("cite") or (
+            quote.parent.find("figcaption") if quote.parent.name == "figure" else None
+        )
+        if section and credit:
+            author_text = set(credit.stripped_strings)
+            words = " ".join(s for s in quote.stripped_strings if s not in author_text)
+            rows.append({"quote": words, "author": credit.get_text(" ", strip=True)})
+    return rows[:6]
+
+
 def listing_profile(profile, url, text, evidence_id):
-    """Search results can establish a public gallery; its photos stay on the publisher."""
+    """Keep observed links to a business’s gallery or review profile for source attribution."""
     parts = urlsplit(url)
     domain = (parts.hostname or "").removeprefix("www.")
     platforms = {
@@ -110,7 +180,10 @@ def small_raster(body, kind):
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(body)) as original:
                 width, height = original.size
-                if original.format not in {"JPEG", "PNG", "WEBP", "AVIF"} or width * height > 16_000_000:
+                if (
+                    original.format not in {"JPEG", "PNG", "WEBP", "AVIF"}
+                    or width * height > 16_000_000
+                ):
                     return ""
                 if kind == "project" and (width < 250 or height < 140):
                     return ""
@@ -120,6 +193,11 @@ def small_raster(body, kind):
                 canvas.paste(display, mask=display.getchannel("A"))
                 output = io.BytesIO()
                 canvas.save(output, format="JPEG", quality=82, optimize=True)
+                # Keep high-noise photos within the renderer’s 900k-character data URI limit.
+                if output.tell() > 660_000:
+                    canvas.thumbnail((900, 675))
+                    output = io.BytesIO()
+                    canvas.save(output, format="JPEG", quality=75, optimize=True)
         return "data:image/jpeg;base64," + base64.b64encode(output.getvalue()).decode("ascii")
     except (
         UnidentifiedImageError,

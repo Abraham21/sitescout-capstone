@@ -85,6 +85,19 @@ button[kind=primary]:focus-visible,.ss-chain a:focus-visible{outline:3px solid #
 .ss-card p{font-size:.92rem;line-height:1.43;margin:.25rem 0 .65rem}.ss-card a,.ss-card summary{color:#195840;font-weight:650;font-size:.8rem}
 .ss-card summary{cursor:pointer}.ss-card details p{white-space:pre-line}.ss-card ul{padding-left:1.05rem;font-size:.83rem}
 .ss-context{padding:.55rem .8rem;background:#f1f5f2;border-radius:6px;font-size:.83rem;color:#3a5141}
+.ss-batch{margin:.6rem 0 1.1rem;color:#20372a}.ss-batch header{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.ss-batch h2{font:500 1.4rem Georgia,serif;margin:.3rem 0}.ss-batch header small{font-size:.8rem;color:#476152}
+.ss-batch table{width:100%;border-collapse:collapse;font-size:.84rem}.ss-batch th,.ss-batch td{padding:.35rem .45rem;text-align:center;border-bottom:1px solid #dce4dd}
+.ss-batch thead th{font-size:.72rem;font-weight:600;color:#506458;background:#f1f5f1}.ss-batch tr>:first-child,.ss-batch tr>:last-child{text-align:left}
+.ss-batch th[scope=row]{width:40%;font-weight:620;overflow-wrap:anywhere}.ss-batch td:last-child{width:18%;font-size:.78rem;font-weight:600}
+.ss-batch summary{cursor:pointer}.ss-batch details p{font-size:.8rem;line-height:1.4;font-weight:400;color:#4c6255;margin:.4rem 0 .1rem}
+.ss-step{display:inline-grid;place-items:center;width:1.12rem;height:1.12rem;border-radius:50%;font:700 .74rem/1 sans-serif;color:#7c8a7e}
+.ss-step.done{color:#146649;background:#dfefe4}.ss-step.working{color:#195849;background:#d9eee4;outline:2px solid #508d71;outline-offset:1px}
+.ss-step.stopped{background:#f8ebd1;color:#81560c}.ss-batch tbody tr:has(.working){background:#f5faf6}
+.ss-status{display:inline-flex;align-items:center;gap:.4rem;line-height:1.3}.ss-status.active::before{content:'';border:2px solid #a5c8b7;border-top-color:#195849;width:.75rem;height:.75rem;box-sizing:border-box;border-radius:50%;animation:ss-spin 1s linear infinite}
+@keyframes ss-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.ss-status.active::before{animation:none}}
+.ss-batch summary:focus-visible{outline:2px solid #27704d;outline-offset:2px}
+@media(max-width:830px){.ss-batch .stage-col{display:none}.ss-batch th[scope=row]{width:62%}.ss-batch td:last-child{width:auto}.ss-batch header{gap:.25rem}}
 @media(max-width:1150px){.stMainBlockContainer{padding-inline:1.6rem}.ss-chain{grid-template-columns:repeat(2,minmax(0,1fr))}.ss-card:nth-child(2)::after{display:none}}
 @media(max-width:700px){.stMainBlockContainer{padding:4.2rem 1rem 1rem}.ss-chain{grid-template-columns:minmax(0,1fr);gap:.5rem}.ss-card:not(:last-child)::after{display:none}.ss-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ss-metric{padding:.43rem}.ss-event{grid-template-columns:4rem 4rem 1fr}}
 </style>
@@ -261,20 +274,121 @@ def handoff_chain(events, lead=None, *, synthetic=False):
         )
 
 
+def batch_board(events, leads=(), *, interrupted=False):
+    """Build each row from events already observed. Stored results are only passed after completion."""
+    names = {}
+    activity = {}
+    for event in events:
+        if event["stage"] == "Discover":
+            for candidate in event.get("handoff", {}).get("candidates", []):
+                names[candidate["id"]] = candidate["name"]
+        lead_id = event.get("lead_id")
+        if not lead_id:
+            continue
+        names[lead_id] = event["lead_name"]
+        steps = activity.setdefault(lead_id, {})
+        if event["stage"] == "Review" and event["status"] == "repair":
+            for step in ("Build", "Write", "Review", "Publish"):
+                steps.pop(step, None)
+        steps[event["stage"]] = event
+        steps["latest"] = event
+    records = {lead["id"]: lead for lead in leads}
+    names.update({lead_id: lead["name"] for lead_id, lead in records.items()})
+    if not names:
+        return
+    stages = {
+        "Qualify": "Research",
+        "Build": "Build",
+        "Write": "Write",
+        "Review": "Review",
+        "Publish": "Publish",
+    }
+    verbs = {
+        "Qualify": "Researching",
+        "Build": "Building site",
+        "Write": "Writing pitch",
+        "Review": "Reviewing",
+        "Publish": "Publishing",
+    }
+    rows = []
+    done = working = 0
+    for lead_id, name in names.items():
+        steps = activity.get(lead_id, {})
+        latest = steps.get("latest", {})
+        stage = latest.get("stage")
+        terminal = steps.get("Queue", {})
+        lead = records.get(lead_id, {})
+        outcome = lead.get("status") or terminal.get("handoff", {}).get("outcome")
+        finished = bool(terminal) or outcome in QUEUE_ORDER
+        active = bool(stage and not finished and not interrupted)
+        working += int(active)
+        done += int(finished)
+        state = OUTCOMES.get(outcome) if finished else None
+        state = state or STAGE_LABELS.get(terminal.get("status"))
+        if not state:
+            state = "Interrupted" if interrupted else verbs.get(stage, "Waiting")
+            if active and latest.get("status") == "repair":
+                state = "Revising"
+        message = latest.get("message") or state
+        if finished:
+            message = (
+                (lead.get("qualification") or {}).get("reason")
+                or steps.get("Qualify", {}).get("message")
+                or message
+            )
+        preview = lead.get("preview") or {}
+        public_url = (
+            preview.get("url")
+            if preview.get("published")
+            else steps.get("Publish", {}).get("handoff", {}).get("url")
+        )
+        business = f"<details><summary>{escape(display_name(name))}</summary><p>{escape(message)}</p>{link(public_url, 'Open website preview')}</details>"
+        cells = []
+        for step, label in stages.items():
+            status = steps.get(step, {}).get("status", "")
+            if status == "completed":
+                kind, mark, title = "done", "✓", "Completed"
+            elif status in ("started", "info", "repair") and active and step == stage:
+                kind, mark, title = "working", "•", "In progress"
+            elif status in ("held", "failed", "blocked"):
+                kind, mark, title = "stopped", "!", STAGE_LABELS[status]
+            else:
+                kind, mark, title = "", "–", "Not reached"
+            cells.append(
+                f'<td class="stage-col" aria-label="{label}: {title}"><span class="ss-step {kind}" title="{label}: {title}">{mark}</span></td>'
+            )
+        rows.append(
+            f'<tr><th scope="row">{business}</th>{"".join(cells)}<td><span class="ss-status {"active" if active else ""}">{escape(state)}</span></td></tr>'
+        )
+    waiting = len(names) - working - done
+    summary = f"{done} of {len(names)} finished"
+    if interrupted and waiting:
+        summary += f" · {waiting} interrupted"
+    elif working or waiting:
+        summary += f" · {working} working · {waiting} waiting"
+    headings = "".join(f'<th scope="col" class="stage-col">{name}</th>' for name in stages.values())
+    st.html(
+        f'<section class="ss-batch" aria-label="Batch activity"><header><h2>Batch activity</h2><small role="status">{summary}</small></header>'
+        f'<table aria-label="Business progress by stage"><thead><tr><th scope="col">Business</th>{headings}<th scope="col">Status</th></tr></thead><tbody>{"".join(rows)}</tbody></table></section>'
+    )
+
+
 def show_activity(events, *, synthetic=False):
-    current = events[-1]
-    # Follow one building lead when several workers emit interleaved events.
+    batch_board(events)
+    # Keep the detail on an active builder until it finishes, then follow the next worker.
+    ended = {e["lead_id"] for e in events if e["stage"] == "Queue" and e.get("lead_id")}
+    active = [e for e in events if e.get("lead_id") and e["lead_id"] not in ended]
     focus = next(
-        (e["lead_id"] for e in events if e["stage"] == "Build" and e.get("lead_id")),
-        current.get("lead_id"),
+        (e["lead_id"] for e in active if e["stage"] == "Build"),
+        active[-1]["lead_id"] if active else events[-1].get("lead_id"),
     )
     selected = [e for e in events if e.get("lead_id") == focus] if focus else []
     if selected:
         st.subheader(display_name(selected[-1]["lead_name"]))
         handoff_chain(selected, synthetic=synthetic)
     else:
-        st.subheader("Discovering businesses")
-    st.caption("Latest batch events")
+        st.caption("Discovering businesses")
+    st.caption("Latest events")
     timeline(events[-3:])
 
 
@@ -305,8 +419,7 @@ def run_batch(mode, limit):
             show_activity(seen, synthetic=mode == "demo")
 
     try:
-        with st.spinner("Recording pipeline activity…", show_time=True):
-            run_id = pipeline.run_batch(limit=limit, mode=mode, on_event=on_event)
+        run_id = pipeline.run_batch(limit=limit, mode=mode, on_event=on_event)
     except Exception as error:
         st.error(f"The batch stopped. {error}")
         return
@@ -439,7 +552,7 @@ def preview_panel(lead):
         });
         </script>"""
         html = html.replace("</body>", navigation + "</body>")
-        wrapper = f'<style>*{{box-sizing:border-box}}body{{margin:0}}iframe{{width:100%;height:505px;border:0}}</style><iframe title="Business website preview" sandbox="allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox" srcdoc="{escape(html, quote=True)}"></iframe>'
+        wrapper = f'<style>*{{box-sizing:border-box}}body{{margin:0}}iframe{{width:100%;height:505px;border:0}}</style><iframe title="Business website preview" sandbox="allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox" srcdoc="{escape(html, quote=True)}"></iframe>'
         st.iframe(wrapper, height=510, alt="Saved business website preview")
     elif not url:
         st.caption("This lead has no website preview.")
@@ -544,8 +657,9 @@ def workspace(run, replay=False):
         st.session_state["play_run"] = run_id
 
     with heading:
+        status = "" if replay else " · " + run["status"].replace("_", " ")
         st.caption(
-            f"{'Saved replay' if replay else 'Saved result'} · {mode} · {origin} · {date} PT · {run['status'].replace('_', ' ')}"
+            f"{'Saved replay' if replay else 'Saved result'} · {mode} · {origin} · {date} PT{status}"
         )
     with action:
         if events and not replay:
@@ -582,6 +696,7 @@ def workspace(run, replay=False):
         pipeline.leads(run_id, replay=replay), key=lambda item: QUEUE_ORDER.get(item["status"], 7)
     )
     metrics(leads)
+    batch_board(events, leads, interrupted=run["status"] in ("failed", "interrupted", "superseded"))
     if leads:
         queue, business = st.columns([1, 2], gap="medium")
         with queue:
@@ -629,6 +744,13 @@ def workspace(run, replay=False):
 
 def main():
     runs = sorted(pipeline.list_runs(), key=lambda item: item.get("started_at", ""), reverse=True)
+    requested_replay = st.query_params.get("replay")
+    if requested_replay and requested_replay != st.session_state.get("opened_replay"):
+        if any(r["id"] == requested_replay for r in runs):
+            st.session_state.update(
+                data_source="replay", saved_run=requested_replay, play_run=requested_replay
+            )
+        st.session_state["opened_replay"] = requested_replay
     verified = [
         r
         for r in runs
@@ -679,7 +801,14 @@ def main():
                 )
                 chosen = choices[saved]
         else:
-            limit = st.number_input("Businesses per batch", min_value=1, max_value=10, value=3)
+            maximum = min(10, len(pipeline.showcase_entries())) if mode == "showcase" else 10
+            limit = st.number_input(
+                "Businesses per batch",
+                min_value=1,
+                max_value=maximum,
+                value=10 if mode == "live" else min(3, maximum),
+                key=f"limit_{mode}",
+            )
             if mode == "showcase":
                 st.caption("Fresh research on a preselected list of actual contractors.")
             if mode == "live":

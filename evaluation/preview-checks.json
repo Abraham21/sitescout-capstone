@@ -51,5 +51,48 @@
     "source": "https://bhprofessionalpainting.com/portfolio/",
     "caption": "Beautiful Transformation- Highland Park, CA",
     "decoded_jpeg_bytes": 119388
+  },
+  "afternoon_owner_preview": {
+    "walkthrough": "The operator would withhold the morning Paintastic site. The previews in this section were generated after that feedback.",
+    "method": "Chromium opened all four verified URLs. At 320, 390, 768, 1024, 1280, 1440, 1531 and 1920 CSS pixels the business headline kept complete words and the document fit its viewport. The same check caught a split word at 1920 on the earlier Paintastic site. In each new form an empty submission failed validation and a sample request showed local confirmation without a network submission. The public and embedded versions of Paintastic both passed. Every gallery image decoded and next navigation wrapped back to the opening photograph.",
+    "source": "https://local.yahoo.com/info-234005761-paintastic-painting-burbank/",
+    "results": [
+      {
+        "id": "1084086",
+        "name": "PAINTASTIC PAINTING",
+        "url": "https://p-91f877da9e084322fd.sitescout-previews-ec8f1c9e.pages.dev",
+        "host_status": 200,
+        "phone": "tel:+18184347440",
+        "onsite_project_photos": 6,
+        "sourced_review_blocks": 0
+      },
+      {
+        "id": "900002",
+        "name": "LINEN LEAF PAINTING",
+        "url": "https://p-de2d5a233370464052.sitescout-previews-ec8f1c9e.pages.dev",
+        "host_status": 200,
+        "phone": "tel:+18185550102",
+        "onsite_project_photos": 3,
+        "sourced_review_blocks": 2
+      },
+      {
+        "id": "900013",
+        "name": "PLUM HILL PAINTING",
+        "url": "https://p-21643f8514cf6b3efa.sitescout-previews-ec8f1c9e.pages.dev",
+        "host_status": 200,
+        "phone": "tel:+18185550113",
+        "onsite_project_photos": 0,
+        "sourced_review_blocks": 0
+      },
+      {
+        "id": "900001",
+        "name": "Copper Finch Painting",
+        "url": "https://p-983fca916423a1e369.sitescout-previews-ec8f1c9e.pages.dev",
+        "host_status": 200,
+        "phone": "tel:+18185550101",
+        "onsite_project_photos": 0,
+        "sourced_review_blocks": 0
+      }
+    ]
   }
 }

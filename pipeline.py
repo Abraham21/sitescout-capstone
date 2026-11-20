@@ -204,6 +204,7 @@ def run_lead(run_id, lead, domain, emit, case=None):
             "Queue",
             {"hold": "held", "skip": "skipped", "blocked": "blocked"}.get(status, "completed"),
             message,
+            {"outcome": status},
         )
         return {"status": status, "channel": channel}
 
@@ -238,7 +239,7 @@ def run_lead(run_id, lead, domain, emit, case=None):
         # Never queue a draft as ready after a tool failure.
         record.update(status="error", error=str(exc)[:700])
         storage.save_lead(run_id, record)
-        note("Queue", "failed", record["error"])
+        note("Queue", "failed", record["error"], {"outcome": "error"})
     return record
 
 
@@ -299,9 +300,13 @@ def run_batch(limit=3, mode="live", on_event=None):
                 for entry in showcase_entries():
                     license_id = entry["id"]
                     if license_id in active and license_id not in dismissed:
-                        candidates.append(
-                            {**active[license_id], "source_hints": entry.get("source_hints", [])}
-                        )
+                        candidate = {
+                            **active[license_id],
+                            "source_hints": entry.get("source_hints", []),
+                        }
+                        if entry.get("photo_captions"):
+                            candidate["photo_captions"] = entry["photo_captions"]
+                        candidates.append(candidate)
                 candidates = candidates[: int(limit)]
                 progress(
                     "Selected active licenses from the curated list. Optional operator-supplied links are leads to check."
@@ -312,9 +317,16 @@ def run_batch(limit=3, mode="live", on_event=None):
             winners = [r for r in rows if r["expected"]["status"] == "qualified"]
             others = [r for r in rows if r["expected"]["status"] != "qualified"]
             ordered = winners[:2] + others[:1] + winners[2:] + others[1:]
-            cases = {row["lead"]["id"]: row for row in ordered}
-            candidates = [row["lead"] for row in ordered[: int(limit)]]
-        emit("Discover", "completed", f"{len(candidates)} businesses selected.")
+            # Two evaluation scenarios can describe the same business. A batch processes it once.
+            for row in ordered:
+                cases.setdefault(row["lead"]["id"], row)
+            candidates = [row["lead"] for row in list(cases.values())[: int(limit)]]
+        emit(
+            "Discover",
+            "completed",
+            f"{len(candidates)} businesses selected.",
+            handoff={"candidates": [{"id": lead["id"], "name": lead["name"]} for lead in candidates]},
+        )
         domain = (
             publication.ensure_project()
             if candidates and os.environ.get("CLOUDFLARE_API_TOKEN")

@@ -1,5 +1,25 @@
 [
-  {"id": "1084086"},
-  {"id": "1163406", "source_hints": ["https://www.houzz.com/professionals/general-contractors/brush-roll-and-beyond-pfvwus-pf~26654007"]},
-  {"id": "1122494"}
+  {
+    "id": "1084086",
+    "source_hints": [
+      "https://local.yahoo.com/info-234005761-paintastic-painting-burbank/"
+    ],
+    "photo_captions": {
+      "https://s.yimg.com/bj/da5a/da5aec7592e44b9908a4d62c5292ac89.jpg": "Cream two-story façade with an arched entry",
+      "https://s.yimg.com/bj/0048/0048aa3aedc4e0d9ece72e46bff6ea30.jpg": "Double front doors framed by cream stucco",
+      "https://s.yimg.com/bj/ec74/ec74050bf65b6ee5e5ce1c790df7d4d1.jpg": "White interior walls and floor protection",
+      "https://s.yimg.com/bj/0adb/0adb47d635acf0a274544da7206a28ce.jpg": "Ornamental black iron gate",
+      "https://s.yimg.com/bj/7611/7611e498db48725883414c2dea28a2ac.jpg": "Gabled home and sunlit front garden",
+      "https://s.yimg.com/bj/9d9b/9d9bc2d7cdcd1806c8d5460fe2b36bc9.jpg": "White roofline and black balcony railing"
+    }
+  },
+  {
+    "id": "1163406",
+    "source_hints": [
+      "https://www.houzz.com/professionals/general-contractors/brush-roll-and-beyond-pfvwus-pf~26654007"
+    ]
+  },
+  {
+    "id": "1122494"
+  }
 ]

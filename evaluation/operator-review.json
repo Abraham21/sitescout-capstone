@@ -15,5 +15,11 @@
   "draft_readiness": {
     "edit": 1
   },
-  "interpretation": "Website ownership agreement and next-action agreement measure this selected packet only. The original draft required editing. No human rating of the redesign has been collected."
+  "interpretation": "Website ownership agreement and next-action agreement measure this selected packet only. The original draft required editing.",
+  "subsequent_walkthrough": {
+    "version": "November 20 morning Paintastic concept",
+    "method": "Qualitative operator walkthrough after the blind packet. No business owner was contacted.",
+    "outcome": "The operator considered the outreach message acceptable and would withhold the website.",
+    "feedback": "The headline split a word. The operator wanted real work pictured on the page, a larger contact number, a realistic estimate form, and a way to watch several leads progress together."
+  }
 }
