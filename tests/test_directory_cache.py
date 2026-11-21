@@ -10,6 +10,19 @@ from unittest.mock import MagicMock
 import research
 
 
+def test_city_catalog_reuses_listing_addresses_from_later_pages(tmp_path, monkeypatch):
+    monkeypatch.setattr(research, "CACHE", tmp_path / "registry.json")
+    monkeypatch.setattr(research, "catalog_page", lambda *_: ([], None))
+    yesterday = date.today() - timedelta(days=1)
+    for city in ("Pasadena", "Glendale"):
+        url = f"https://local.yahoo.com/info-123-cypress-painting-{city.lower()}/"
+        cards = [{"name": "Cypress Painting", "url": url, "phone": "outdated"}]
+        research._directory_snapshot(research.catalog_url(city) + "10/", yesterday, [cards, None])
+    assert research.city_catalog("Glendale") == [
+        ("Cypress Painting", "https://local.yahoo.com/info-123-cypress-painting-glendale/")
+    ]
+
+
 def test_gallery_scan_reaches_last_photo_and_refreshes_a_truncated_snapshot(tmp_path, monkeypatch):
     monkeypatch.setattr(research, "CACHE", tmp_path / "registry.json")
     url = "https://local.yahoo.com/info-123-cypress-painting-test-city/"

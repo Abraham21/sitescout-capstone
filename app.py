@@ -384,7 +384,7 @@ def batch_board(events, leads=(), *, focused_id=None, interrupted=False, route, 
     desk_views.business_links(key=board_key, on_business_change=inspect_row, data=markup)
 
 
-def show_activity(events, run_id, *, replay=False, synthetic=False, cursor=None):
+def show_activity(events, run_id, *, replay=False, synthetic=False, cursor=None, follow_first=False):
     # Only the visible prefix can disclose a business, stage, or link.
     names = {}
     for event in events:
@@ -399,9 +399,11 @@ def show_activity(events, run_id, *, replay=False, synthetic=False, cursor=None)
         active[-1]["lead_id"] if active else (events[-1].get("lead_id") if events else None),
     )
     key = f"follow_{run_id}"
-    if st.session_state.get(key) not in names:
+    if names and key not in st.session_state:
+        st.session_state[key] = next(iter(names)) if follow_first else ""
+    elif st.session_state.get(key) and st.session_state[key] not in names:
         st.session_state[key] = ""
-    focus = st.session_state[key] or automatic
+    focus = st.session_state.get(key) or automatic
     batch_board(events, focused_id=focus, route={"replay" if replay else "run": run_id}, cursor=cursor)
     if names:
         st.selectbox(
@@ -697,7 +699,7 @@ def workspace(run, replay=False):
     )
     if run["status"] == "running":
         st.markdown("**Discovery is running**")
-        show_activity(events, run_id, synthetic=synthetic)
+        show_activity(events, run_id, synthetic=synthetic, follow_first=run["mode"] == "showcase")
         return
     if events:
         cursor_key = f"cursor_{run_id}"
@@ -767,6 +769,9 @@ def workspace(run, replay=False):
     selected_key = f"inspect_{run_id}"
     if records and st.session_state.get(selected_key) not in records:
         followed = st.session_state.get(f"follow_{run_id}")
+        if followed not in records and run["mode"] == "showcase":
+            roster = next((e["handoff"]["candidates"] for e in events if e.get("handoff", {}).get("candidates")), [])
+            followed = next((candidate["id"] for candidate in roster if candidate["id"] in records), None)
         st.session_state[selected_key] = followed if followed in records else next(iter(records))
     batch_board(
         events,
@@ -1114,9 +1119,9 @@ def main():
             st.button(
                 "Start live showcase",
                 on_click=launch,
-                args=("showcase", 3),
+                args=("showcase", None),
                 disabled=not pipeline.showcase_available() or bool(active),
-                help="Start with three known real licenses and research them afresh.",
+                help="Follow Color-Me-Custom and three other licensed painters through fresh research and review.",
             )
         with b:
             st.button(

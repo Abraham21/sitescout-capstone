@@ -4,7 +4,7 @@ SiteScout is a research assistant for an independent web designer. It discovers 
 
 **Open the operator desk** to see real businesses ready to contact, their verified preview links and the published ways to reach them. **Run discovery** starts live research. **Runs** lets you inspect a batch, play its recording, or try the ten-business rehearsal. **How it works** plays one business’s recorded path through the graph. A new checkout includes a fictional rehearsal that works without API keys.
 
-For the presentation on the prepared Mac, [play the Orange County batch from discovery](http://127.0.0.1:8501/?replay=c2b2a6384c70&at=1), then [advance through Color-Me-Custom’s handoffs](http://127.0.0.1:8501/?view=workflow&run=c2b2a6384c70&business=595143). The [original business record](http://127.0.0.1:8501/?run=c2b2a6384c70&business=595143) shows the eight retrieved passages and the draft. A [later recheck](https://p-0802103d19d41a1766.sitescout-previews-ec8f1c9e.pages.dev/) found the business logo in its gallery.
+For the presentation on the prepared Mac, open [Runs](http://127.0.0.1:8501/?view=runs) → **Run options → Start live showcase** to follow Color-Me-Custom through fresh research. To inspect the original Orange County decisions, [replay the saved batch](http://127.0.0.1:8501/?replay=c2b2a6384c70&at=1) or [advance through Color-Me-Custom’s recorded handoffs](http://127.0.0.1:8501/?view=workflow&run=c2b2a6384c70&business=595143). The [original business record](http://127.0.0.1:8501/?run=c2b2a6384c70&business=595143) shows the eight retrieved passages and the draft. A [later recheck](https://p-0802103d19d41a1766.sitescout-previews-ec8f1c9e.pages.dev/) found the business logo in its gallery.
 
 An earlier discovery trial produced a reviewed phone follow-up for a Long Beach painter. The [current JMN concept](https://p-50cddcce849716ddb3.sitescout-previews-ec8f1c9e.pages.dev) shows six project photos and four independently attributed reviews. Open the [ten real businesses on the prepared Mac](http://127.0.0.1:8501/?run=6372a8b0d5db). [BE Painting](https://p-dc3948d7e16d9df62f.sitescout-previews-ec8f1c9e.pages.dev) shows the business’s logo, five project photos and two attributed Google reviews. [Tony Castaneda](https://p-9405c26f8241177248.sitescout-previews-ec8f1c9e.pages.dev) shows five Instagram project photos with links to the original posts. For a predictable walkthrough, use the [fictional ten-business rehearsal](http://127.0.0.1:8501/?replay=3fb08b205b01).
 
@@ -35,7 +35,7 @@ uv pip install -r requirements.txt
 | Runs | Choose a recorded batch or follow a running one. Select a business in the activity list or use **Inspect business**. Business rows switch the detail panel in place. The URL keeps the selection for sharing or reloading. Up to three businesses can be in progress. |
 | How it works | Pick a business and play, step back or advance through its actual handoffs, including a skipped lead, a reviewer hold or a repair when present in the selected run. |
 
-**Run discovery** starts with painters who received a dated customer review, then verifies their licenses and researches their websites. Under **Runs → Run options**, the live showcase researches three known real licenses from scratch, the rehearsal exercises ten fictional cases, and Daily autopilot controls the Mac’s schedule. A saved replay uses historical decisions and drafts. You can select and copy its text. Current reviewed drafts can be edited from the contact queue.
+**Run discovery** starts with painters who received a dated customer review, then verifies their licenses and researches their websites. Under **Runs → Run options**, the live showcase starts with Color-Me-Custom and three other real licenses. It looks up their current registry records, checks any supplied listing, and runs the same qualification, build, writing and review steps as fresh discovery. The rehearsal exercises ten fictional cases, and Daily autopilot controls the Mac’s schedule. A saved replay uses historical decisions and drafts. You can select and copy its text. Current reviewed drafts can be edited from the contact queue.
 
 Open a business to see the research decision above its draft and preview. **Website preview** shows how it was customized. **Research & RAG** shows the research passages and which ones retrieval selected or the qualifier cited. **Agent trace** retains the handoffs and reviewer feedback. A person chooses whether and how to send each message.
 
@@ -92,7 +92,7 @@ Copy `.env.example` to `.env` **only on a new checkout**. On the prepared Mac, u
 For deployment, install a supported Node.js release (the prepared Mac uses Node 26) and run `npm ci` beside `package-lock.json`. Node is only needed for Wrangler uploads. Cloudflare supplies the shareable `pages.dev` addresses. Live discovery reads the county’s active C-33 workbook from the [CSLB county data portal](https://www.cslb.ca.gov/OnlineServices/DataPortal/ListByCounty). SiteScout caches each county separately. If a later refresh fails, it checks expiration dates in the most recent successful snapshot. The bundled rehearsal works offline without that download. The desk binds to localhost. Preview links are unlisted with a no-index directive and anyone with a link can open them. An operator can remove deployments from the preview project’s Deployments page in Cloudflare.
 
 ```sh
-.venv/bin/python pipeline.py --mode showcase --limit 3
+.venv/bin/python pipeline.py --mode showcase
 .venv/bin/python pipeline.py --mode live --limit 10
 .venv/bin/python pipeline.py --mode live --market Orange --limit 10
 .venv/bin/python pipeline.py --recheck PREVIOUS_REAL_RUN_ID
@@ -133,7 +133,7 @@ The ranked cohort recheck found three manual-contact opportunities in 29 seconds
 | Morning recorded run | Output | Elapsed¹ | Search + inference² |
 | --- | --- | ---: | ---: |
 | Ordinary discovery, ten unseen actual contractors | 1 healthy-site skip, 9 holds | 15.1 s | $0.1680 |
-| Curated live showcase, three actual contractors | 1 reviewed manual-contact draft with a verified site, 1 hold with a directory-linked domain to check, 1 skip | 16.4 s | $0.0445 |
+| Earlier curated live showcase, three actual contractors | 1 reviewed manual-contact draft with a verified site, 1 hold with a directory-linked domain to check, 1 skip | 16.4 s | $0.0445 |
 | Frozen rehearsal, three synthetic contractors | 1 reviewed email, 1 manual contact, 1 skip, 2 verified sites | 17.9 s | $0.0029 |
 
 ¹ From the first through the last recorded event with a warm registry. Internet latency varies. ² Exa-reported search costs plus inference estimated from provider token usage. A first calibration pass misidentified license directories as owned sites. Strengthening the ownership check changed six records from skip to hold in the ten-record retest. The [recorded run measurements](evaluation/observed-runs.json) contain event times, provider call counts and outcomes. The curated example demonstrates feasibility. The samples are too small to predict daily yield or throughput at 100 businesses per day.

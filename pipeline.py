@@ -248,7 +248,10 @@ def run_lead(run_id, lead, domain, emit, case=None):
     return record
 
 
-def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=(), market=None):
+def run_batch(limit=None, mode="live", on_event=None, *, recheck=None, licenses=(), market=None):
+    showcase = showcase_entries() if mode == "showcase" and not recheck else []
+    if limit is None:
+        limit = len(showcase) if showcase else 3
     if mode not in {"live", "showcase", "demo"} or not 1 <= int(limit) <= 30:
         raise ValueError("Choose live, showcase or demo and a batch size between 1 and 30.")
     storage.initialize()
@@ -289,6 +292,8 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=(),
                 raise ValueError("Each selected license must belong to the recorded batch.")
             listings = {key: listings[key] for key in licenses}
         mode = "recheck"
+    elif showcase:
+        listings = {row["id"]: (row.get("directory_url"), None, row.get("city", "Los Angeles")) for row in showcase}
     lock = (storage.runtime_dir() / "batch.lock").open("a")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -345,28 +350,27 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=(),
                 by_phone = activity_intake.registry_phone_index(active.values())
                 dismissed = storage.dismissed_ids()
                 candidates = []
-                ids = [entry["id"] for entry in showcase_entries()] if mode == "showcase" else listings
-                for license_id in ids:
+                for license_id, (source, activity, _) in listings.items():
                     if license_id in active and license_id not in dismissed:
                         lead = {**active[license_id], **research_hints.get(license_id, {})}
                         # Revisit the public listing discovery originally found. The qualifier
                         # reads it anew and matches its current business name, locality and phone.
-                        source, activity, _ = listings.get(license_id, (None, None, None))
                         if source:
                             canonical = research.gallery_pages([source])
                             if canonical:
                                 lead = {**lead, "directory_url": canonical[0]}
                                 if activity:
                                     lead["activity"] = json.loads(activity)
-                                    if lead["activity"].get("listing_city"):
-                                        current = activity_intake.recent_profile(canonical[0], date.today())
-                                        match = activity_intake.match_profile(current, by_phone) if current else None
-                                        if not match or match["id"] != license_id:
-                                            lead.pop("directory_url")
-                                        else:
-                                            lead["activity"] = current["activity"].copy()
-                                            if research.words(current["city"]) != research.words(lead["city"]):
-                                                lead["activity"]["listing_city"] = current["city"].strip().title()
+                                if showcase or lead.get("activity", {}).get("listing_city"):
+                                    current = activity_intake.recent_profile(canonical[0], date.today())
+                                    match = activity_intake.match_profile(current, by_phone) if current else None
+                                    if match and match["id"] == license_id:
+                                        lead["activity"] = current["activity"].copy()
+                                        if research.words(current["city"]) != research.words(lead["city"]):
+                                            lead["activity"]["listing_city"] = current["city"].strip().title()
+                                    elif not showcase:
+                                        lead.pop("directory_url")
+                                        lead.pop("activity", None)
                         candidates.append(lead)
                 candidates = candidates[: int(limit)]
                 progress(
@@ -463,7 +467,7 @@ if __name__ == "__main__":
     parser.add_argument("--mode", choices=["demo", "showcase", "live"], default="demo")
     parser.add_argument("--market", choices=research.MARKETS, help="County for fresh discovery. Defaults to the desk's setting.")
     parser.add_argument(
-        "--limit", type=int, help="Maximum businesses (default 3, or the full batch when rechecking)."
+        "--limit", type=int, help="Maximum businesses (default 3 for discovery/demo; full roster for showcase or recheck)."
     )
     parser.add_argument(
         "--recheck",
@@ -485,7 +489,7 @@ if __name__ == "__main__":
         run = run_batch(
             10
             if args.daily
-            else (args.limit if args.limit is not None else (30 if args.recheck else 3)),
+            else (30 if args.recheck and args.limit is None else args.limit),
             "live" if args.daily else args.mode,
             lambda event: print(event["stage"], event["message"], flush=True),
             recheck=args.recheck, licenses=args.licenses, market=args.market,

@@ -1,11 +1,21 @@
 [
   {
-    "id": "1084086"
+    "id": "595143",
+    "city": "Lake Forest",
+    "directory_url": "https://local.yahoo.com/info-169320351-color-me-custom-painting-lake-forest/"
   },
   {
-    "id": "1163406"
+    "id": "1084086",
+    "city": "Burbank",
+    "directory_url": "https://local.yahoo.com/info-234005761-paintastic-painting-burbank/"
   },
   {
-    "id": "1122494"
+    "id": "1163406",
+    "city": "Glendale",
+    "directory_url": "https://local.yahoo.com/info-28649917-brush-roll-beyond-glendale/"
+  },
+  {
+    "id": "1122494",
+    "city": "Glendale"
   }
 ]

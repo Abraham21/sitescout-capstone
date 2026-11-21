@@ -1424,14 +1424,16 @@ def gallery_pages(urls):
     return list(dict.fromkeys(pages))[:2]
 
 
+def catalog_url(city):
+    slug = city.lower().replace(" ", "-")
+    return f"https://local.yahoo.com/consumer-services/home-and-garden-services/painting-services/ca/{slug}/"
+
+
 def catalog_page(city, day, number):
     """Return public painter cards and the next page published by this local directory."""
-    section = (
-        "/consumer-services/home-and-garden-services/painting-services/ca/"
-        + city.lower().replace(" ", "-")
-        + "/"
-    )
-    url = "https://local.yahoo.com" + section + (f"{number}/" if number > 1 else "")
+    root = catalog_url(city)
+    section = urlsplit(root).path
+    url = root + (f"{number}/" if number > 1 else "")
     saved = _directory_snapshot(url, day)
     if saved is not None:
         return tuple(saved)
@@ -1466,14 +1468,21 @@ def catalog_page(city, day, number):
 
 
 def city_catalog(city):
-    found = []
     page = 1
     for _ in range(4):
-        cards, page = catalog_page(city, date.today(), page)
-        found.extend((card["name"], card["url"]) for card in cards)
+        _, page = catalog_page(city, date.today(), page)
         if not page:
             break
-    return found
+    # Earlier discovery may have already found the painter on a later page. Reuse
+    # only the listing address. Its identity and contact details are checked again.
+    with _directory_cache() as db:
+        rows = db.execute("SELECT data FROM pages WHERE url GLOB ?", (catalog_url(city) + "*",))
+        candidates = {}
+        for (data,) in rows:
+            cards, _ = json.loads(data)
+            for card in cards:
+                candidates[card["url"]] = card["name"]
+        return [(name, url) for url, name in candidates.items()]
 
 
 def trade_name(name):
@@ -1675,6 +1684,26 @@ def listing_record(lead, url, page):
     return text, has_work
 
 
+def conflicting_listing_phone(lead, url, page):
+    """A canonical card with the exact local trade name can explain why its portfolio was withheld."""
+    registered = phones(lead.get("phone") or "")
+    if (not registered or page.get("status") != 200 or page.get("url", "").rstrip("/") != url.rstrip("/")
+            or INJECTION.search(page.get("text", ""))):
+        return ""
+    for node in page.get("business_nodes", []):
+        address = node.get("address")
+        if (not isinstance(address, dict) or words(str(address.get("addressLocality") or "")) != words(lead["city"])
+                or words(str(address.get("addressRegion") or "")) not in {"", "ca", "california"}
+                or trade_name(str(node.get("name") or "")) != trade_name(lead["name"])
+                or str(node.get("url") or node.get("@id") or "").rstrip("/") != url.rstrip("/")):
+            continue
+        numbers = phones(str(node.get("telephone") or ""))
+        if len(numbers) == 1 and numbers.isdisjoint(registered):
+            digits = numbers.pop()
+            return f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+    return ""
+
+
 def http_observation(page):
     code = page.get("status")
     if code == 200 and not page.get("text"):
@@ -1764,6 +1793,22 @@ def named_site_operator(lead, page, url):
                 and phones(lead["phone"]) & phones(str(node.get("telephone") or ""))):
             return node["name"]
     return ""
+
+
+def out_of_state_profile(lead, domain, number, hits):
+    """Require a separately published profile tying the other phone, domain and office together."""
+    for hit in hits:
+        url, text = str(hit.get("url") or ""), str(hit.get("text") or "")
+        title = str(hit.get("title") or "")
+        if (not safe_url(url) or domain_in(url, (domain,)) or domain.endswith("." + host(url))
+                or not names_business(lead, title) or INJECTION.search(title + " " + text)
+                or published_license(lead, text) or phones(text) != {number}
+                or {host(site) for site in listing_websites(text)} != {domain}):
+            continue
+        address = re.search(r"\bAddress\s*:\s*[^\n]{1,155},\s*([A-Z]{2})\s+\d{5}\b", text)
+        if address and address[1] in US_STATES_OUTSIDE_CA and not re.search(r"\b(?:CA|California)\b", text):
+            return url, US_STATES_OUTSIDE_CA[address[1]]
+    return None
 
 
 def other_operator(lead, page, fetch):
@@ -1939,6 +1984,14 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
             }
         if page.get("status") in {403, 429} and source and source.get("matched"):
             result["follow_up"]["restricted_owner"] = True
+        if not source and domain not in corroborated and branded(lead, url) and isinstance(other_results, dict):
+            indexed = " ".join(t for u, t in other_results.items() if host(u) == domain)
+            numbers = phones(indexed)
+            registered = phones(lead.get("phone", ""))
+            if (len(numbers) == 1 and registered and not registered & numbers
+                    and not published_license(lead, indexed) and not INJECTION.search(indexed)
+                    and any(email.lower().endswith("@" + domain) for email in EMAIL.findall(indexed))):
+                result["follow_up"]["other_phone"] = numbers.pop()
         return "hold", unresolved
     # A similar domain spelling alone can point to a painter in a different jurisdiction.
     contact_body = contact_text(page)
@@ -2181,6 +2234,7 @@ def qualify(
         f"Listing city: {lead['city']}. Listed business phone: {phone or 'unavailable'}.",
     }
     evidence = [registry]
+    listing_conflict = {}
     facts = {
         "services": ["Painting and decorating"],
         "city": lead["city"],
@@ -2213,6 +2267,13 @@ def qualify(
     def finish(status, reason):
         from storage import runtime_dir
 
+        if status == "hold" and listing_conflict and result["website_status"] == "unsure":
+            reason = listing_conflict["reason"]
+            previous = result.get("follow_up", {})
+            if previous.get("reason"):
+                reason += " " + previous["reason"]
+            refs = list(dict.fromkeys(listing_conflict["evidence_ids"] + previous.get("evidence_ids", [])))
+            result["follow_up"] = {**previous, **listing_conflict, "reason": reason, "evidence_ids": refs}
         if status == "hold" and result.get("directory_rate_limited"):
             reason += " Yahoo Local temporarily limited access to the business listing."
         owned_page = result.pop("_owned_page", None)
@@ -2395,6 +2456,8 @@ def qualify(
             for name, url in city_catalog(lead["city"])
             if trade_name(name) == trade_name(lead["name"])
         ]
+    if not urls:
+        urls = gallery_pages(u for u, text in records.items() if names_business(lead, text))
     if len(urls) == 1:
         url = urls[0]
         catalog_pages[url] = fetch(url) if fetcher else directory_page(url, date.today())
@@ -2403,6 +2466,14 @@ def qualify(
             add(url, "Yahoo Local returned HTTP 429. Current listing details were unavailable.", "observation")
             report("The directory is limiting requests. Checking the other available sources.")
         text, has_listed_work = listing_record(lead, url, catalog_pages[url])
+        if not text and (listed := conflicting_listing_phone(lead, url, catalog_pages[url])):
+            reason = (f"The same-name {lead['city']} listing gives {listed}. CSLB lists {phone} for license "
+                      f"{lead['id']}. Confirm that this listing belongs to the license holder before using its reviews or photos.")
+            ref = add(url, reason, "observation")
+            listing_conflict = {"source_url": url, "reason": reason, "evidence_ids": ["registry", ref]}
+            for hit in list(records):
+                if gallery_pages([hit]) == [url]:
+                    del records[hit]
         if text:
             verified_listing_url = url
             listed_city = (lead.get("activity") or {}).get("listing_city")
@@ -2592,6 +2663,11 @@ def qualify(
     unresolved = ""
     pending_site = None
     verified_active = bool(activity_ref and verified_listing_url == lead.get("directory_url"))
+    # An undated gallery still substantiates a portfolio when an independent profile confirms the painter.
+    if verified_listing_url and not portfolio_refs and sum(match == 2 for match, _ in directory.values()) >= 2:
+        _, photos = matched_listing(lead, verified_listing_url, catalog_pages[verified_listing_url])
+        if len(photos) >= 2:
+            portfolio_refs.append(next(e["id"] for e in evidence if e["url"] == verified_listing_url))
 
     def candidate_priority(url):
         path = urlsplit(url).path.rstrip("/").casefold()
@@ -2623,6 +2699,23 @@ def qualify(
         inspected.add(domain)
         report("Reading a candidate website and checking its public contact path.")
         outcome = inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, records, dns_check)
+        follow_up = result.get("follow_up", {})
+        other_phone = follow_up.get("other_phone")
+        if lookups < 3 and other_phone and follow_up.get("url") == url and outcome and outcome[0] == "hold":
+            lookups += 1
+            report("Checking whether the candidate website’s published phone belongs to an out-of-state namesake.")
+            number = f"({other_phone[:3]}) {other_phone[3:6]}-{other_phone[6:]}"
+            try:
+                hits = search(f'{lead["name"]} "{number}" business address city state contractor profile')
+            except (OSError, RuntimeError, ValueError):
+                hits = []
+            other = out_of_state_profile(lead, domain, other_phone, hits)
+            if other:
+                add(url, f"The indexed company website publishes {number}, a different business phone.", "assessment")
+                add(other[0], f"A separate business profile lists {domain}, {number} and an office in {other[1]}. "
+                    "This candidate belongs to a different operator.", "assessment")
+                result.pop("follow_up")
+                outcome = None
         if outcome is None:
             # This domain proved to be a directory or a different contractor.
             credible_domains.discard(domain)
@@ -2757,7 +2850,7 @@ def qualify(
         if disabled_inbox:
             issue = f"The matching {disabled_inbox} profile says messaging is disabled. {lookups} targeted searches found no verified business-owned estimate page."
         elif portfolio_refs and not contact_gap:
-            issue = f"The matched local listing shows the business’s painting services and customer work. {lookups} targeted searches found no verified business-owned estimate page."
+            issue = f"The matched local listing documents the painter’s work. {lookups} targeted searches found no verified business-owned estimate page."
         if activity_ref:
             refs.append(activity_ref)
             if not disabled_inbox:

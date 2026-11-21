@@ -196,6 +196,32 @@ def test_recheck_refetches_current_registry_and_public_intake_listing(isolated, 
     assert "directory_url" not in received[-1]
 
 
+def test_showcase_looks_up_both_counties_and_checks_activity_on_the_seed_listing(isolated, monkeypatch):
+    listing = "https://local.yahoo.com/info-123-grove-painting-lake-forest/"
+    orange = {"id": "101", "city": "Lake Forest", "name": "Grove Painting", "phone": "949-555-0144"}
+    la = {"id": "202", "city": "Burbank", "name": "Lime Painting"}
+    roster = [{"id": "101", "city": "Lake Forest", "directory_url": listing}, {"id": "202", "city": "Burbank"}]
+    registered = {"Orange": [orange], "Los Angeles": [la]}
+    mark = {"listing_url": listing, "date": "2026-11-19", "type": "customer_review"}
+    monkeypatch.setenv("EXA_API_KEY", "unused")
+    monkeypatch.setenv("GOOGLE_API_KEY", "unused")
+    monkeypatch.delenv("CLOUDFLARE_API_TOKEN", raising=False)
+    monkeypatch.setattr(pipeline, "showcase_entries", lambda: roster)
+    monkeypatch.setattr(pipeline.research, "discover", lambda n, seen, progress, market: registered[market])
+    monkeypatch.setattr(pipeline.activity_intake, "recent_profile", lambda *_: {**orange, "activity": mark})
+    received = {}
+
+    def collect(run, lead, *args):
+        received[lead["id"]] = lead
+        return {"status": "hold"}
+
+    monkeypatch.setattr(pipeline, "run_lead", collect)
+    run = pipeline.run_batch(mode="showcase")
+    assert received == {"101": {**orange, "directory_url": listing, "activity": mark}, "202": la}
+    selection = next(e for e in storage.events(run) if e["stage"] == "Discover" and e["status"] == "completed")
+    assert [candidate["id"] for candidate in selection["handoff"]["candidates"]] == ["101", "202"]
+
+
 def test_handoff_records_use_real_artifacts_and_only_publish_exposes_the_hosted_url(
     isolated, monkeypatch
 ):

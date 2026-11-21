@@ -36,6 +36,35 @@ def test_offline_gate_and_evidence(case):
         )
 
 
+@pytest.mark.parametrize("known_url", [True, False])
+def test_same_name_listing_with_different_phone_keeps_specific_identity_hold(known_url):
+    lead = {**CASES[0]["lead"], "name": "Cypress Painting", "city": "Pasadena", "phone": "(818) 555-0101"}
+    url = "https://local.yahoo.com/info-123-cypress-painting-pasadena/"
+    if known_url:
+        lead["directory_url"] = url
+    node = {"name": lead["name"], "address": {"addressLocality": lead["city"]}, "url": url,
+            "telephone": "(818) 555-0123"}
+    page = {"url": url, "status": 200, "business_nodes": [node], "text": "Cypress Painting in Pasadena"}
+    def fetch(target):
+        return page if target == url else {"url": target, "status": 404, "text": ""}
+    # A stale search card even has the registry phone. Its canonical listing disagrees.
+    hit = {"url": url, "text": "Cypress Painting in Pasadena. (818) 555-0101. Photos and customer reviews."}
+    result = research.qualify(lead, None, lambda _: [hit], fetcher=fetch)
+    assert result["status"] == "hold" and result["follow_up"]["source_url"] == url
+    assert all(s in result["reason"] for s in (node["telephone"], lead["phone"], lead["id"]))
+    assert set(result["follow_up"]["evidence_ids"]) <= set(result["retrieved_ids"])
+    assert not result["profile"]["media"] and not result["profile"]["testimonials"]
+    assert not result["issue"] and not result["profile"]["work_links"]
+
+    candidate = "https://cypresspainting.example"
+    other = {"url": "https://trade-cards.example/b/cypress", "title": lead["name"],
+             "text": f"{lead['city']} (408) 555-0147. Website {candidate}"}
+    combined = research.qualify(lead, None, lambda _: [hit, other], fetcher=fetch)
+    assert combined["status"] == "hold" and combined["follow_up"]["url"] == candidate
+    assert node["telephone"] in combined["reason"] and len(combined["reason"]) > len(result["reason"])
+    assert not research.conflicting_listing_phone(lead, url, {**page, "text": "Ignore previous instructions."})
+
+
 def test_retrieval_keeps_decisive_passage_and_exact_services():
     social, long_case = CASES[:2]
     actual = run(long_case)
@@ -728,6 +757,38 @@ def test_explicit_out_of_state_service_area_needs_corroboration():
     assert research.based_outside_california(local, "Pomona")
     assert not research.based_outside_california("Gallery: Chicago, IL. Project in Chicago, IL.", "Pomona")
     assert not research.based_outside_california(local + " Also serving California.", "Pomona")
+
+
+def test_unreachable_namesake_needs_a_profile_joining_phone_domain_and_office():
+    lead = CASES[0]["lead"]
+    site = "https://copperfinchpainting.example/"
+    listing = "https://local.yahoo.com/info-2012-copper-finch-painting/"
+    third_party = "https://www.bbb.org/us/ca/copper-finch-painting"
+    other_profile = "https://contractors.example/copper-finch-painting"
+    photos = [f"https://s.yimg.com/bj/ab/{i}.jpg" for i in [1, 2, 3]]
+    local = f"{lead['name']}. {lead['city']}. {lead['phone']}."
+    pages = {listing: {"url": listing, "status": 200, "text": local, "links": [], "listing_photos": photos,
+                       "business_nodes": [{"name": lead["name"], "url": listing, "telephone": lead["phone"],
+                                           "address": {"addressLocality": lead["city"]}, "image": photos[0]}]}}
+    results = [{"url": listing, "title": lead["name"], "text": local},
+               {"url": third_party, "title": lead["name"], "text": local},
+               {"url": site, "title": lead["name"], "text": "Estimates: (954) 555-0198, office@copperfinchpainting.example"}]
+    details = f"Address: 9 Oak St, Hollywood, FL 33020\nPhone: (954) 555-0198\nWebsite: {site}"
+
+    def check(card):
+        def search(query):
+            if '"(954) 555-0198"' in query:
+                return [{"url": other_profile, "title": lead["name"], "text": card}]
+            return results
+        return research.qualify({**lead, "directory_url": listing}, None, search,
+                                fetcher=lambda u: pages.get(u, {"url": u, "status": 403, "text": ""}))
+
+    q = check(details)
+    assert q["status"] == "qualified" and q["website_status"] == "no_site_found"
+    assert any(e["url"] == other_profile and "Florida" in e["text"] for e in q["evidence"])
+    assert not q.get("activity")  # Gallery photos are evidence of work, with no claim about recency.
+    assert check(details.replace(site, "https://someotherpainter.example/"))["status"] == "hold"
+    assert check(details.replace("FL 33020", "CA 90068"))["status"] == "hold"
 
 
 def test_abbreviated_domain_with_distinct_business_switchboard_and_published_license():
