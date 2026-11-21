@@ -35,8 +35,8 @@
         "matched": 12,
         "total": 12
       },
-      "selected_passages": 39,
-      "selected_chars": 5555,
+      "selected_passages": 40,
+      "selected_chars": 5723,
       "qualified_selected_chars": 2558
     },
     "full": {
@@ -72,7 +72,7 @@
         "total": 12
       },
       "selected_passages": 56,
-      "selected_chars": 12059,
+      "selected_chars": 12145,
       "qualified_selected_chars": 8665
     }
   },
@@ -488,10 +488,10 @@
       "fts": {
         "status": "hold",
         "website_status": "unsure",
-        "selected_passages": 1,
+        "selected_passages": 2,
         "available_passages": 2,
-        "selected_chars": 147,
-        "context_sha256": "7cf30a5a0183f90c976bb1af119615e5ab6f1335ceb119815401e891c18538ab",
+        "selected_chars": 315,
+        "context_sha256": "f72eec935e551d16d98e722b57cb9d4a6942c84f21d686b56a7ba9482aaca157",
         "expected_url_in_selection": null,
         "expected_passage_in_selection": null
       },
@@ -500,8 +500,8 @@
         "website_status": "unsure",
         "selected_passages": 2,
         "available_passages": 2,
-        "selected_chars": 229,
-        "context_sha256": "199a7afe768235c621ba5d612b0294ae908007657e7d21ab533016e4a221bb5e",
+        "selected_chars": 315,
+        "context_sha256": "f72eec935e551d16d98e722b57cb9d4a6942c84f21d686b56a7ba9482aaca157",
         "expected_url_in_selection": null,
         "expected_passage_in_selection": null
       }
