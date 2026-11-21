@@ -39,6 +39,7 @@ OUTCOMES = {
     "error": "Failed",
     "running": "In progress",
 }
+CONTACT_GROUPS = {"ready": "Ready to contact", "contacted": "Contacted", "dismissed": "Dismissed"}
 QUEUE_ORDER = {"ready": 0, "manual": 1, "hold": 2, "blocked": 3, "error": 4, "skip": 5, "dismissed": 6}
 STAGE_LABELS = {
     "started": "Working",
@@ -586,6 +587,20 @@ def evidence_panel(lead, *, synthetic=False):
     desk_views.retrieval_view(lead, synthetic=synthetic)
 
 
+def record_contact_action(run_id, lead_id, action):
+    try:
+        storage.set_contact_action(run_id, lead_id, action)
+    except ValueError as error:
+        st.toast(str(error))
+        return
+    notice = {
+        "contacted": "Marked contacted. You can find this business under Contacted.",
+        "dismissed": "Moved to Dismissed. You can restore it there.",
+        "restore": "Restored. The latest research determines whether this business is ready to contact.",
+    }
+    st.toast(notice[action])
+
+
 def lead_panel(lead, run_id, events, replay, *, synthetic=False, from_queue=False):
     qualification = lead.get("qualification") or {}
     review = lead.get("review") or {}
@@ -619,11 +634,27 @@ def lead_panel(lead, run_id, events, replay, *, synthetic=False, from_queue=Fals
         ["Outreach draft", "Website preview", "Research & RAG", "Agent trace"]
     )
     with draft:
-        message_panel(lead, run_id, replay, synthetic=synthetic)
-        if not replay and lead["status"] in ("ready", "manual", "hold"):
-            if st.button("Dismiss lead", key=f"dismiss_{run_id}_{lead['id']}"):
-                pipeline.dismiss(run_id, lead["id"])
-                st.rerun()
+        action = storage.contact_action(lead["id"]) if not replay and not synthetic else {}
+        message_panel(lead, run_id, replay or bool(action), synthetic=synthetic)
+        if action:
+            stamp = local_time(action["changed_at"]) if action["changed_at"] else ""
+            st.caption(" · ".join(filter(None, (CONTACT_GROUPS[action["state"]], stamp))))
+            st.button("Restore lead", key=f"restore_{run_id}_{lead['id']}", on_click=record_contact_action,
+                      args=(action["run_id"], lead["id"], "restore"),
+                      help="Make the business eligible for the queue again if its latest draft is approved.")
+        elif not replay and lead["status"] in ("ready", "manual", "hold"):
+            with st.container(horizontal=True):
+                if not synthetic and lead["status"] in ("ready", "manual"):
+                    st.button("Mark contacted", key=f"contacted_{run_id}_{lead['id']}", on_click=record_contact_action,
+                              args=(run_id, lead["id"], "contacted"),
+                              help="Use this after emailing, calling, or messaging the business yourself.")
+                if synthetic:
+                    st.button("Dismiss rehearsal lead", key=f"dismiss_{run_id}_{lead['id']}",
+                              on_click=pipeline.dismiss, args=(run_id, lead["id"]))
+                else:
+                    st.button("Dismiss lead", key=f"dismiss_{run_id}_{lead['id']}", on_click=record_contact_action,
+                              args=(run_id, lead["id"], "dismissed"),
+                              help="Move this business to Dismissed and skip future rechecks until you restore it.")
     with preview:
         desk_views.customization_notes(lead)
         preview_panel(lead)
@@ -689,17 +720,23 @@ def workspace(run, replay=False):
     )
     if intake:
         with st.expander(f"How discovery chose {intake['selected']} businesses"):
+            if intake.get("source_limited"):
+                st.caption("Yahoo Local temporarily limited requests. These counts cover the listings available that day.")
             st.write(
-                f"SiteScout found {intake['recent_profiles']} painter profiles with a Yelp review "
-                f"in the past year. Of those, {intake['unique_active_license_matches']} matched one "
+                f"SiteScout searched Yahoo Local’s city painting directories and found {intake['recent_profiles']} "
+                f"profiles with a dated Yelp review in the past year. Of those, {intake['unique_active_license_matches']} matched one "
                 f"active painting license by phone, city and name. {intake['eligible_unseen']} were new."
             )
             if "priority_candidates" in intake:
-                st.caption(
-                    "Discovery checks listed links for missing pages and looks for painters without a listed site. "
-                    "Within those groups it prioritizes listings that request estimates by phone or message, "
-                    "then work photos and recent reviews. The researcher independently checks ownership and contact."
-                )
+                signals = [
+                    f"{intake['unseen_without_listed_website']} without a website link",
+                    f"{intake['unseen_with_missing_link']} with a link returning a missing page",
+                ]
+                if "unseen_with_launch_page_and_gallery" in intake:
+                    signals.append(f"{intake['unseen_with_launch_page_and_gallery']} with a launch page and project photos")
+                st.caption("New matches included " + ", ".join(signals) + ".")
+                if intake["priority_candidates"] < intake["selected"]:
+                    st.caption("To fill this batch, SiteScout also researched painters who already listed a website.")
             else:
                 st.caption("Profiles without a listed website came first, followed by the most recent review.")
     elif run["mode"] == "live" and any(
@@ -755,9 +792,19 @@ def workspace(run, replay=False):
 
 
 def show_contacts(runs):
-    queue = storage.contact_queue()
-    st.header("Ready to contact")
+    def change_group():
+        st.session_state.pop("contact", None)
+        set_location(group=st.session_state.queue_group)
+
+    st.header("Contact queue")
+    group = st.segmented_control("Business status", list(CONTACT_GROUPS), format_func=CONTACT_GROUPS.get,
+                                 default="ready", key="queue_group", required=True, on_change=change_group)
+    queue = storage.contact_queue(group)
     if not queue:
+        if group != "ready":
+            st.info("Businesses you mark contacted will appear here." if group == "contacted"
+                    else "Businesses you dismiss will appear here.")
+            return
         st.info(
             "Reviewed businesses and their websites will appear here after discovery finds a contact opportunity."
         )
@@ -773,17 +820,20 @@ def show_contacts(runs):
         return
     cards = []
     for lead in queue:
-        url = "?" + urlencode({"contact": lead["id"]}) + "#business-detail"
+        url = "?" + urlencode({"contact": lead["id"], "group": group}) + "#business-detail"
+        when = local_time(lead["changed_at"]) if lead["changed_at"] else ""
+        detail = " · ".join(filter(None, (lead["city"], when)))
+        open_label = "Open draft" if lead["preview_url"] else "Open business"
         name = escape(display_name(lead["name"]))
         destinations = [link(lead["preview_url"], "Website preview")]
         if web_url(lead.get("website")):
             destinations.append(link(lead["website"], "Current site"))
         links = "".join([*destinations, *contact_links(lead)])
         cards.append(
-            f'<article class="ss-lead"><div><h3>{name}</h3><small>{escape(lead["city"] or "")}</small></div>'
-            f'<div class="ss-contacts">{links}</div><a class="ss-draft-link" href="{escape(url, quote=True)}" target="_self">Open draft →</a></article>'
+            f'<article class="ss-lead"><div><h3>{name}</h3><small>{escape(detail)}</small></div>'
+            f'<div class="ss-contacts">{links}</div><a class="ss-draft-link" href="{escape(url, quote=True)}" target="_self">{open_label} →</a></article>'
         )
-    st.html('<section class="ss-queue" aria-label="Ready to contact">' + "".join(cards) + "</section>")
+    st.html(f'<section class="ss-queue" aria-label="{CONTACT_GROUPS[group]}">' + "".join(cards) + "</section>")
     lead = next((row for row in queue if row["id"] == st.session_state.get("contact")), None)
     if lead:
         record = next((l for l in pipeline.leads(lead["run_id"]) if l["id"] == lead["id"]), None)
@@ -832,7 +882,7 @@ def read_location(runs):
     st.session_state.opened_location = query
     if not query:
         st.session_state.pop("contact", None)
-        st.session_state.view = "Contact queue"
+        st.session_state.update(view="Contact queue", queue_group="ready")
         return
     if query.get("view") == "runs":
         st.session_state.view = "Runs"
@@ -840,8 +890,12 @@ def read_location(runs):
     if query.get("view") == "workflow":
         st.session_state.view = "How it works"
         return
-    if "contact" in query:
-        st.session_state.update(view="Contact queue", contact=query["contact"])
+    if "contact" in query or "group" in query:
+        contact = query.get("contact")
+        action = storage.contact_action(contact) if contact else {}
+        group = action.get("state") or query.get("group", "ready")
+        st.session_state.update(view="Contact queue", contact=contact,
+                                queue_group=group if group in CONTACT_GROUPS else "ready")
         return
     run_id = query.get("replay") or query.get("run")
     if run_id not in {r["id"] for r in runs}:

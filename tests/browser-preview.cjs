@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
-async function checkHeadline(page) {
+async function checkLayout(page) {
   for (const width of [320, 390, 768, 1024, 1280, 1440, 1531, 1920]) {
     await page.setViewportSize({width, height: 900});
     const result = await page.locator('h1').evaluate(async heading => {
@@ -23,6 +23,20 @@ async function checkHeadline(page) {
       return {broken, overflow: document.documentElement.scrollWidth > innerWidth};
     });
     assert.deepEqual(result, {broken: [], overflow: false}, 'Headline or page overflow at ' + width);
+    const reviews = page.locator('.review-card');
+    const count = await reviews.count();
+    if (count) {
+      const visible = Math.min(count, width <= 700 ? 1 : 2);
+      const fullCards = await reviews.evaluateAll(cards => {
+        const rail = cards[0].parentElement.getBoundingClientRect();
+        return cards.filter(card => {
+          const bounds = card.getBoundingClientRect();
+          return bounds.left >= rail.left - 1 && bounds.right <= rail.right + 1;
+        }).length;
+      });
+      assert.equal(fullCards, visible, 'Reviews should fit as whole cards at ' + width);
+      await page.locator('#reviews .slide-controls').waitFor({state: count > visible ? 'visible' : 'hidden'});
+    }
   }
 }
 
@@ -67,7 +81,7 @@ async function main() {
     if (url) {
       const response = await page.goto(url);
       assert.equal(response.status(), 200);
-      await checkHeadline(page);
+      await checkLayout(page);
     } else {
       await page.goto(process.env.SITESCOUT_DESK_URL || 'http://127.0.0.1:8501');
       const draft = page.getByRole('link', {name: 'Open draft →'}).first();

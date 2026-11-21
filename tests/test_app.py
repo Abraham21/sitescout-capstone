@@ -110,7 +110,14 @@ class OperatorDeskTest(unittest.TestCase):
             app.query_params["contact"] = "test"
             app.run()
             app.button(key="dismiss_test-run_test").click().run()
-            self.assertEqual(storage.leads("test-run")[0]["status"], "dismissed")
+            self.assertEqual(storage.leads("test-run")[0]["status"], "ready")
+            self.assertEqual([row["id"] for row in storage.contact_queue("dismissed")], ["test"])
+            app.segmented_control(key="queue_group").set_value("dismissed").run()
+            app.query_params.update({"contact": "test", "group": "dismissed"})
+            app.run()
+            app.button(key="restore_test-run_test").click().run()
+            self.assertFalse(storage.dismissed_ids())
+            self.assertEqual([r["id"] for r in storage.contact_queue()], ["test"])
 
     def test_real_contact_queue_uses_latest_evidence_and_all_confirmed_channels(self):
         with (
@@ -151,8 +158,40 @@ class OperatorDeskTest(unittest.TestCase):
                         for h in blocks
                     )
                 )
-            storage.save_lead("recheck", {**lead, "status": "hold"})
+            app.button(key="contacted_recheck_abc").click().run()
             self.assertEqual(storage.contact_queue(), [])
+            self.assertEqual([r["run_id"] for r in storage.contact_queue("contacted")], ["recheck"])
+            storage.new_run("later", "live")
+            storage.save_lead("later", {**lead, "status": "hold"})
+            storage.finish_run("later", "complete")
+            app.query_params.update({"contact": "abc", "group": "contacted"})
+            app.run()
+            self.assertEqual(app.segmented_control(key="queue_group").value, "contacted")
+            self.assertFalse(app.text_input)
+            self.assertTrue(storage.contact_action("abc")["changed_at"])
+            app.button(key="restore_recheck_abc").click().run()
+            self.assertFalse(app.exception)
+            self.assertEqual(storage.contact_queue("contacted"), [])
+            self.assertEqual(storage.contact_queue(), [])  # Latest research placed this business on hold.
+
+    def test_prior_dismissal_migrates_and_can_be_restored(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict("os.environ", {"SITESCOUT_DATA_DIR": folder}):
+            storage.initialize()
+            storage.new_run("old", "live")
+            storage.save_lead("old", {"id": "123", "name": "Legacy Painter", "status": "dismissed",
+                                      "original_status": "manual", "pitch": {"body": "Hello"},
+                                      "preview": {"url": "https://example.test/site", "published": True}})
+            storage.finish_run("old", "complete")
+            with storage.connect() as db:
+                db.execute("DROP TABLE contact_actions")
+                db.execute("PRAGMA user_version=0")
+            storage.initialize()
+            self.assertEqual(storage.dismissed_ids(), {"123"})
+            self.assertEqual(storage.contact_queue("dismissed")[0]["run_id"], "old")
+            storage.set_contact_action("old", "123", "restore")
+            storage.initialize()
+            self.assertEqual([row["id"] for row in storage.contact_queue()], ["123"])
+            self.assertEqual(storage.leads("old")[0]["status"], "manual")
 
     def test_recorded_handoffs_show_only_what_was_known_at_the_cursor(self):
         with (

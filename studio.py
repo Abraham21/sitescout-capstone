@@ -417,8 +417,8 @@ def reviews_section(reviews, staged):
         more = source_link(destination, label, "review-source")
     return (
         '<section class="reviews" id="reviews" data-slideshow aria-labelledby="reviews-title"><div class="wrap">'
-        '<div class="review-heading"><h2 id="reviews-title">Customer reviews</h2>'
-        f'{slide_controls(len(reviews), "review")}{more}</div>'
+        '<div class="review-heading"><div><h2 id="reviews-title">Customer reviews</h2>'
+        f'{more}</div>{slide_controls(len(reviews), "review")}</div>'
         f'<div class="review-stage" aria-label="Customer review cards">{"".join(slides)}</div></div></section>'
     )
 
@@ -759,7 +759,13 @@ def angles_for(lead, q, preview):
     priority = 1
     if q["website_status"] == "has_site" and ids:
         checked = [i for i in ids if issue and normalized(issue) in normalized(sources[i]["text"])]
-        if checked and re.search(r"\bHTTP (404|410)\b", issue, re.I):
+        if checked and q.get("site_issue") == "launch_portfolio":
+            headline = next((h for h in ("Launching Soon", "Coming Soon") if f"“{h}”" in issue), "")
+            if not headline or len(photo_ids) < 2:
+                return []
+            finding += f' I saw “{headline}” on your homepage and found your project photos on your listing.'
+            key, label, priority = "portfolio", "A portfolio for the upcoming site", 3
+        elif checked and re.search(r"\bHTTP (404|410)\b", issue, re.I):
             if q.get("site_issue") == "listed_homepage_disconnected":
                 finding += " I tried the website link on your business listing twice and got a domain-connection error both times."
             elif q.get("site_issue") == "listed_homepage_missing":
@@ -806,7 +812,10 @@ def angles_for(lead, q, preview):
     angle_ids = {}
     for feature in ("phone", "email"):
         angle_ids[feature] = [c["evidence_id"] for c in preview["claims"] if c["kind"] == feature]
-    if "Business gallery link" in features and "Published phone number" in features:
+    if key == "portfolio":
+        benefit = "I put together a preview that brings those projects onto one page, so people can see your work before asking about a job."
+        used = photo_ids[:2]
+    elif "Business gallery link" in features and "Published phone number" in features:
         benefit = (
             "I put your work right on the page, with your number up front so someone who likes the work can call about a job."
             if "Sourced project photography" in features
@@ -842,6 +851,8 @@ def angles_for(lead, q, preview):
         }
 
     choices = [angle(key, label, benefit, used, priority)]
+    if key == "portfolio":
+        return choices
     service = next((c for c in preview["claims"] if c["kind"] == "service"), None)
     if service:
         value = service["text"].lower()

@@ -86,17 +86,18 @@ nav{gap:clamp(1.3rem,3.3vw,3.3rem)}.nav-links{gap:clamp(1rem,2vw,2.4rem)}
 .photo-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:.55rem;align-items:start;padding:2px}
 .photo-strip button{width:100%;height:auto;aspect-ratio:1.1;padding:3px;border:1px solid transparent;background:transparent}.photo-strip button[aria-current="true"]{border-color:var(--ink)}.photo-strip img{width:100%;height:100%;object-fit:cover}
 .reviews{padding-block:var(--section);background:var(--wash)}
-.reviews .wrap,.services,.details{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:clamp(2rem,6vw,7rem)}
-.review-heading h2{font-size:clamp(2.2rem,4vw,3.8rem)}.review-heading .slide-controls{margin-top:1.3rem}
+.services,.details{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:clamp(2rem,6vw,7rem)}
+.review-heading{display:flex;align-items:end;justify-content:space-between;flex-wrap:wrap;gap:.8rem 1.4rem;margin-bottom:1.4rem}
+.review-heading h2{font-size:clamp(2.2rem,4vw,3.8rem)}
 .review-stage{display:flex;gap:1rem;position:relative;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:thin;scrollbar-color:var(--line) transparent;padding-bottom:.8rem}
-.review-source{display:inline-block;margin-top:1rem;font-size:.92rem;text-underline-offset:.23em}
-.review-card{flex:0 0 82%;scroll-snap-align:start;min-width:0;padding:clamp(1.2rem,3vw,2.4rem);border:1px solid var(--line);border-radius:1.2rem;background:var(--paper);box-shadow:0 8px 30px #23251e0a}
-.review-card:only-child{flex-basis:100%}.review-card:last-child:not(:only-child){margin-inline-end:18%}
+.review-source{display:inline-block;margin-top:.65rem;font-size:.92rem;text-underline-offset:.23em}
+.review-card{flex:0 0 calc((100% - 1rem) / 2);scroll-snap-align:start;min-width:0;padding:clamp(1.2rem,3vw,2.4rem);border:1px solid var(--line);border-top:3px solid var(--brand);border-radius:1rem;background:var(--paper)}
+.review-card:only-child{flex-basis:100%}
 .review-card figcaption{display:flex;gap:.8rem;align-items:center;margin-bottom:1rem}
 .review-card figcaption small{display:block;font-size:.8rem;line-height:1.4;color:var(--muted)}
 .review-avatar{display:grid;place-items:center;border-radius:50%;width:2.65rem;height:2.65rem;background:var(--deep);color:var(--paper);font-weight:700}
 .review-stars{display:block;color:#815300;letter-spacing:.12em;font-size:1.18rem;margin-bottom:.45rem}
-.review-card blockquote{font:400 clamp(1.1rem,1.65vw,1.48rem)/1.48 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;text-wrap:pretty}
+.review-card blockquote{max-width:55ch;font:400 clamp(1.1rem,1.65vw,1.48rem)/1.48 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;text-wrap:pretty}
 .estimate .email-contact{display:block;width:fit-content;margin-top:.7rem;color:var(--paper);overflow-wrap:anywhere}
 
 .services{align-items:start}.services h2 em{display:block;font-style:normal;color:var(--muted)}
@@ -134,7 +135,7 @@ dt{color:var(--muted)}dd{font-weight:600;text-align:right;overflow-wrap:anywhere
 .profiles a:hover{background:var(--wash)}.publisher-icon{width:1.16rem;height:1.16rem;display:grid;place-items:center}.publisher-icon svg{width:100%;height:100%;fill:currentColor}
 footer{border-top:1px solid var(--line);color:var(--muted);font-size:.78rem}
 footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:1.25rem;flex-wrap:wrap;padding-block:1.5rem}footer .signature{display:grid;gap:.15rem}
-@media(max-width:900px){.nav-links{gap:.9rem}.hero-actions{gap:1.15rem}.hero{min-height:430px}.reviews .wrap,.services,.details,.estimate .wrap{gap:2rem}.gallery-stage figcaption{font-size:.8rem}}
+@media(max-width:900px){.nav-links{gap:.9rem}.hero-actions{gap:1.15rem}.hero{min-height:430px}.services,.details,.estimate .wrap{gap:2rem}.gallery-stage figcaption{font-size:.8rem}}
 @media(max-width:700px){
  header{min-height:65px;gap:.55rem}header nav{flex:0 0 auto;max-width:52%}.brand-name{min-width:0;overflow-wrap:anywhere}.nav-links{display:none}.call{padding:.66rem .75rem;font-size:.91rem}.call span{display:none}
  .hero,.atelier .hero{display:flex;flex-direction:column;min-height:0;padding:0;gap:0}
@@ -144,13 +145,13 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:1
  .hero-art,.atelier .hero-art{height:clamp(250px,65vw,405px);min-height:0;padding:.8rem}
  .atelier .hero-art{margin:0 var(--pad) 1.1rem}
  .hero-credit .wrap{align-items:start;gap:.5rem;flex-wrap:wrap}.hero-credit .source{text-align:left}
- .reviews .wrap,.services,.details,.estimate .wrap{grid-template-columns:1fr;gap:1.4rem}.review-heading{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:.6rem}.review-heading .slide-controls{margin:0}.review-source{margin:0}.review-card{flex-basis:89%}.review-card:last-child:not(:only-child){margin-inline-end:11%}
+ .services,.details,.estimate .wrap{grid-template-columns:1fr;gap:1.4rem}.review-card{flex-basis:100%}
  .section-head{margin-bottom:1rem}.slide-controls{gap:.24rem}.slide-controls button{width:38px;height:38px}
  .gallery-wall:has(.photo-strip){display:block}.photo-strip{display:flex;gap:.4rem;overflow:auto;overscroll-behavior-x:contain}.photo-strip button{flex:none;width:clamp(52px,12vw,78px);aspect-ratio:1.18}.gallery-stage figcaption{align-items:start;gap:.7rem}.project-frame{height:clamp(220px,64vw,445px);padding:.45rem}
  .estimate h2{max-width:100%}.estimate .contact-prompt{margin:.65rem 0 .15rem}.estimate .call{font-size:1.72rem}
  footer .wrap{flex-wrap:wrap}
 }
-@media(max-width:420px){.section-head{flex-wrap:wrap}.fields{grid-template-columns:1fr;gap:.75rem}.brand{gap:.35rem}.concept-mark{width:1.65rem;height:1.85rem;font-size:1.25rem}.section-head h2{font-size:2.25rem}.review-heading{flex-wrap:wrap}.hero-credit .wrap{display:grid}.hero-credit .source{font-size:.68rem}}
+@media(max-width:420px){.section-head{flex-wrap:wrap}.fields{grid-template-columns:1fr;gap:.75rem}.brand{gap:.35rem}.concept-mark{width:1.65rem;height:1.85rem;font-size:1.25rem}.section-head h2{font-size:2.25rem}.hero-credit .wrap{display:grid}.hero-credit .source{font-size:.68rem}}
 @media(prefers-reduced-motion:no-preference){
  html{scroll-behavior:smooth}
  .hero-copy>.location,.hero-copy>.title-box,.hero-copy>.category,.hero-copy>.intro,.hero-actions{animation:rise .68s cubic-bezier(.2,.75,.25,1) both}
@@ -239,19 +240,26 @@ document.querySelectorAll('[data-slideshow]').forEach(section => {
   if (slides.length < 2) return;
   const strip = section.querySelector('.photo-strip');
   const rail = section.querySelector('.review-stage');
-  let current = 0;
-  function show(index) {
-    current = (index + slides.length) % slides.length;
-    if (rail) rail.scrollTo({left:slides[current].offsetLeft, behavior:reduceMotion.matches ? 'instant' : 'smooth'});
+  const controls = section.querySelector('.slide-controls');
+  const position = controls.querySelector('[data-position]');
+  let current = 0, visible = 1;
+  function updatePosition() {
+    const range = visible > 1 ? '–' + (current + visible) : '';
+    position.textContent = (current + 1) + range + ' / ' + slides.length;
+  }
+  function show(index, animate = true) {
+    const stops = slides.length - visible + 1;
+    current = (index + stops) % stops;
+    if (rail) rail.scrollTo({left:slides[current].offsetLeft, behavior:animate && !reduceMotion.matches ? 'smooth' : 'instant'});
     else slides.forEach((slide, i) => { slide.hidden = i !== current; });
-    section.querySelector('[data-position]').textContent = (current + 1) + ' / ' + slides.length;
+    updatePosition();
     if (strip) [...strip.children].forEach((button, i) => button.setAttribute('aria-current', i === current));
   }
   if (rail) rail.addEventListener('scrollend', () => {
-    const nearest = slides.reduce((a,b) =>
-      Math.abs(a.offsetLeft - rail.scrollLeft) <= Math.abs(b.offsetLeft - rail.scrollLeft) ? a : b);
-    current = slides.indexOf(nearest);
-    section.querySelector('[data-position]').textContent = (current + 1) + ' / ' + slides.length;
+    const stride = slides[1].offsetLeft - slides[0].offsetLeft;
+    if (!stride) return;
+    current = Math.max(0, Math.min(slides.length - visible, Math.round(rail.scrollLeft / stride)));
+    updatePosition();
   });
   if (strip) slides.forEach((slide, i) => {
     const button = document.createElement('button');
@@ -277,11 +285,11 @@ document.querySelectorAll('[data-slideshow]').forEach(section => {
       rotate.hidden = reduceMotion.matches;
       rotate.textContent = enabled ? 'Pause' : 'Play';
       rotate.setAttribute('aria-label', (enabled ? 'Pause' : 'Play') + ' ' + rotate.dataset.rotate + ' rotation');
-      const active = enabled && !reduceMotion.matches && inView && !document.hidden
+      const active = enabled && !controls.hidden && !reduceMotion.matches && inView && !document.hidden
         && !(matchMedia('(hover: hover)').matches && section.querySelector('.slide-controls:hover, .photo-strip:hover, .review-card:hover'))
         && !section.matches(':focus-within');
-      section.querySelector('[data-position]').setAttribute('aria-live', active ? 'off' : 'polite');
-      if (active) timer = setInterval(() => show(current + 1), rail ? 5500 : 7500);
+      position.setAttribute('aria-live', active ? 'off' : 'polite');
+      if (active) timer = setInterval(() => show(current + 1), rail ? 4800 : 7500);
     }
     rotate.addEventListener('click', () => { enabled = !enabled; updateRotation(); });
     for (const action of ['pointerover','pointerout','focusin','focusout'])
@@ -290,6 +298,13 @@ document.querySelectorAll('[data-slideshow]').forEach(section => {
     document.addEventListener('visibilitychange', updateRotation);
     new IntersectionObserver(([entry]) => { inView = entry.isIntersecting; updateRotation(); },
       {threshold:.2}).observe(section);
+    if (rail) new ResizeObserver(() => {
+      if (!slides[0].offsetWidth) return;
+      visible = Math.round(rail.clientWidth / slides[0].offsetWidth);
+      controls.hidden = visible >= slides.length;
+      show(Math.min(current, slides.length - visible), false);
+      updateRotation();
+    }).observe(rail);
     updateRotation();
   }
   show(0);

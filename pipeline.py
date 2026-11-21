@@ -425,11 +425,7 @@ def save_edit(run_id, lead_id, subject, body):
 
 
 def dismiss(run_id, lead_id):
-    def change(record):
-        record.setdefault("original_status", record["status"])
-        record["status"] = "dismissed"
-
-    storage.edit_lead(run_id, lead_id, change)
+    storage.set_contact_action(run_id, lead_id, "dismissed")
 
 
 if __name__ == "__main__":

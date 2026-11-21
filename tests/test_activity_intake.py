@@ -106,10 +106,25 @@ def test_broken_listing_beats_no_link_and_a_denied_site_is_not_a_defect(monkeypa
         profiles.append({**row, "listed_website": bool(url), "website_url": url, "contact_estimates": i == 2,
                          "activity": {"date": "2026-11-10", "listing_url": f"https://local.yahoo.com/info-{i}/"}})
     monkeypatch.setattr(research, "read_public", lambda url, *_: (url, 404 if "closed" in url else 403, "", b""))
-    intake.listed_link_missing.cache_clear()
+    intake.listed_site_signal.cache_clear()
     selected, counts = intake.select(profiles, licenses, set(), 4)
     assert [lead["id"] for lead in selected] == ["100", "102", "101", "103"]
     assert counts["priority_candidates"] == 3 and counts["unseen_with_missing_link"] == 1
+
+
+def test_listed_launch_page_needs_sourced_work_to_get_priority(monkeypatch):
+    rows = [{"id": str(i), "name": "Oak Painting", "city": "Downey", "phone": f"562-555-010{i}"} for i in (1, 2, 3)]
+    profiles = [{**row, "listed_website": True, "website_url": f"https://oak{row['id']}.example/",
+                 "gallery": row["id"] != "2", "activity": {"date": "2026-11-20", "listing_url": row["id"]}}
+                for row in rows]
+    def read(url, *args):
+        body = b"<h1>Launching Soon</h1>" if "oak3" not in url else b"<h1>Our work</h1><p>New services coming soon.</p>"
+        return url, 200, "text/html", body
+    monkeypatch.setattr(research, "read_public", read)
+    intake.listed_site_signal.cache_clear()
+    selected, counts = intake.select(profiles, rows, set(), 3)
+    assert selected[0]["id"] == "1"
+    assert counts["priority_candidates"] == counts["unseen_with_launch_page_and_gallery"] == 1
 
 
 def test_discovery_widens_even_if_listed_sites_would_fill_the_batch(monkeypatch, tmp_path):
@@ -129,3 +144,18 @@ def test_discovery_widens_even_if_listed_sites_would_fill_the_batch(monkeypatch,
     monkeypatch.setattr(research, "discover", lambda *args: [first, later])
     assert intake.discover(1, set())[0]["id"] == later["id"]
     assert calls == [None, {"Burbank": 4}]
+
+
+def test_partial_directory_uses_todays_earlier_evidence(monkeypatch, tmp_path):
+    monkeypatch.setenv("SITESCOUT_DATA_DIR", str(tmp_path))
+    lead = {"name": "Elm Painting", "city": "Downey", "phone": "562-555-0101", "id": "401"}
+    profile = {**lead, "listed_website": False, "activity": {"date": date.today().isoformat(), "listing_url": "elm"}}
+    window = {"profiles": [profile], "counts": {"recent_profiles": 1, "source_listings": 1}, "next_pages": {}}
+    monkeypatch.setattr(intake, "public_profiles", lambda *_: window)
+    monkeypatch.setattr(research, "discover", lambda *_: [lead])
+    assert intake.discover(1, set())[0]["id"] == "401"
+    window.update(profiles=[], source_limited=True, counts={"recent_profiles": 0, "source_listings": 0})
+    audit = {}
+    assert intake.discover(1, set(), audit=audit)[0]["id"] == "401"
+    assert audit["source_limited"] and audit["recent_profiles"] == 1
+    assert intake.discover(1, {"401"}) == []

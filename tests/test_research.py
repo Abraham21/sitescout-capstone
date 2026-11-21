@@ -1063,3 +1063,84 @@ def test_matching_logo_and_printed_domain_are_verified_before_the_build():
     logo = next(m for m in result["profile"]["media"] if m["kind"] == "logo")
     assert logo["evidence_id"] == result["printed_website"]["evidence_id"]
     assert any("Visual reading" in row["text"] for row in result["evidence"])
+
+
+def test_ownership_can_use_a_telephone_link_or_identity_on_the_linked_contact_page():
+    lead = CASES[0]["lead"]
+    home = "https://copperfinchpainting.example/"
+    target = home + "contact"
+    text = f"{lead['name']} in {lead['city']}. Learn about our work."
+    page = {"url": home, "status": 200, "title": lead["name"], "text": text, "links": []}
+    contact = {"url": target, "status": 200, "title": "Contact", "text": "", "has_form": True}
+    def inspect():
+        seen = []
+        def fetch(url):
+            seen.append(url)
+            return page if url == home else contact
+        result = {"email": ""}
+        status, _ = research.inspect_site(lead, home, set(), {}, result, fetch, lambda *args: "e1")
+        return status, seen
+    page["links"] = [{"text": "", "url": "tel:" + lead["phone"]}]
+    assert inspect() == ("skip", [home])
+    page["links"] = [{"text": "Book an estimate", "url": target}]
+    contact["text"] = f"{lead['name']} – phone (310) 555-0199. License #{lead['id']}. Contact us."
+    assert inspect() == ("skip", [home, target])
+    contact["text"] = f"{lead['name']} – phone {lead['phone']}. License #12345678."
+    assert inspect()[0] == "hold"
+    contact["url"] = "https://different.example/contact"
+    contact["text"] = f"Contact {lead['name']} at {lead['phone']}."
+    assert inspect()[0] == "hold"
+
+
+def test_a_launching_homepage_needs_a_matched_gallery_to_offer_a_portfolio():
+    from bs4 import BeautifulSoup
+    from studio import build_preview, write_pitch
+    lead = dict(CASES[0]["lead"], directory_url="https://local.yahoo.com/info-12345-copper-finch-painting/")
+    listing = lead["directory_url"]
+    home = "https://copperfinchpainting.example/"
+    photos = [f"https://s.yimg.com/bj/abcd/{n}.jpg" for n in [1, 2]]
+    profile = {"url": listing, "status": 200, "text": "", "links": [{"text": "Website", "url": home}],
+               "business_nodes": [{"name": lead["name"], "address": {"addressLocality": lead["city"]},
+                                   "telephone": lead["phone"], "url": listing, "image": photos[:1]}],
+               "listing_photos": photos}
+    announcement = "<h1>Launching Soon</h1><h1>LAUNCHING SOON!</h1><h2>Contact Us</h2>"
+    announcement += '<a href="https://policies.google.com/terms">Terms of Service</a>'
+    heading = research.launch_heading(BeautifulSoup(announcement, "html.parser"))
+    assert heading == "Launching Soon"
+    for extra in ['<nav><a href="/projects">Portfolio</a></nav>', "<h1>Our painting company</h1>"]:
+        assert not research.launch_heading(BeautifulSoup(announcement + extra, "html.parser"))
+    page = {"url": home, "status": 200, "title": "copperfinchpainting.example", "text": "Launching Soon. Contact us.",
+            "has_form": True, "launch_heading": heading}
+    def fetch(url):
+        return profile if url == listing else page
+    import base64
+    assets = Path(__file__).resolve().parents[1] / "assets"
+    images = {u:"data:image/jpeg;base64," + base64.b64encode((assets / f).read_bytes()).decode()
+              for u, f in zip(photos, ("green-room.jpg","white-stucco.jpg"))}
+    q = research.qualify(lead, None, lambda _: [], fetcher=fetch, image_reader=lambda u, _: images.get(u, ""))
+    assert q["status"] == "qualified" and q["site_issue"] == "launch_portfolio"
+    preview = {**build_preview(lead, q), "url": "/p/site"}
+    draft = write_pitch(lead, q, preview, None)
+    assert "Launching Soon" in draft["body"] and "projects onto one page" in draft["body"]
+    assert "missing" not in draft["body"] and "couldn’t find" not in draft["body"]
+    assert set(q["issue_evidence_ids"]) <= set(draft["evidence_ids"])
+    assert research.qualify(lead, None, lambda _: [], fetcher=fetch, image_reader=lambda *_: "")["status"] == "hold"
+    profile["listing_photos"] = []
+    assert research.qualify(lead, None, lambda _: [], fetcher=fetch)["status"] != "qualified"
+
+
+def test_registered_trade_site_with_signup_preserves_its_specific_hold():
+    lead = dict(CASES[0]["lead"], name="Jane Example DBA Copper Finch Painting")
+    url = "https://copperfinchpainting.example/"
+    directory = "https://www.yelp.com/biz/copper-finch-painting"
+    text = f"{lead['name']}, {lead['city']}, {lead['phone']}. Business website: {url}"
+    source = {"url": directory, "text": text}
+    weak = {"url": "https://example.org/unverified", "text": text}
+    def fetch(u):
+        if u == url:
+            return {"url": url, "status": 200, "title": "Copper Finch Painting",
+                    "text": "Copper Finch Painting. Subscribe. Sign up for our news."}
+        return {"url": u, "status": 200, "text": "Public contact listing"}
+    q = research.qualify(lead, None, lambda _: [source, weak], fetcher=fetch)
+    assert q["status"] == "hold" and "invites visitors to subscribe" in q["reason"]
+    assert q["follow_up"]["reason"] == q["reason"]

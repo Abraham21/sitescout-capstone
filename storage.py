@@ -49,7 +49,23 @@ def initialize():
                 dollars REAL, state TEXT, input_tokens INTEGER, output_tokens INTEGER,
                 created_at TEXT);
             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+            CREATE TABLE IF NOT EXISTS contact_actions (
+                lead_id TEXT PRIMARY KEY, run_id TEXT NOT NULL,
+                state TEXT NOT NULL CHECK(state IN ('contacted','dismissed')), changed_at TEXT);
         """)
+        if not db.execute("PRAGMA user_version").fetchone()[0]:
+            db.execute("BEGIN IMMEDIATE")
+            # Earlier desks stored dismissal inside the run. Keep the decision and restore the graph outcome.
+            db.execute("""
+                INSERT OR IGNORE INTO contact_actions(lead_id,run_id,state)
+                SELECT l.id,l.run_id,'dismissed' FROM leads l JOIN runs r ON r.id=l.run_id
+                WHERE r.mode IN ('live','showcase','recheck') AND l.data->>'$.status'='dismissed'
+                ORDER BY r.started_at DESC,r.rowid DESC""")
+            db.execute("""
+                UPDATE leads SET data=json_set(data,'$.status',coalesce(data->>'$.original_status','hold'))
+                WHERE data->>'$.status'='dismissed' AND run_id IN
+                      (SELECT id FROM runs WHERE mode IN ('live','showcase','recheck'))""")
+            db.execute("PRAGMA user_version=1")
 
 
 def new_run(run_id, mode):
@@ -125,8 +141,8 @@ def leads(run_id):
         ]
 
 
-def contact_queue():
-    """One current, released draft per real license. Leave the heavy preview HTML in SQLite."""
+def contact_queue(state="ready"):
+    """Show current released drafts or the specific run the operator acted on."""
     with connect() as db:
         return [
             dict(row)
@@ -135,18 +151,21 @@ def contact_queue():
               SELECT l.run_id,l.id,l.data,r.started_at,
                      row_number() OVER (PARTITION BY l.id ORDER BY r.started_at DESC,r.rowid DESC) AS n
               FROM leads l JOIN runs r ON r.id=l.run_id
-              WHERE r.mode IN ('live','showcase','recheck') AND r.status IN ('complete','complete_with_errors')
+              WHERE r.mode IN ('live','showcase','recheck') AND (
+                    r.status IN ('complete','complete_with_errors') OR
+                    EXISTS (SELECT 1 FROM contact_actions a WHERE a.lead_id=l.id AND a.run_id=l.run_id))
             )
-            SELECT id,run_id,started_at,data->>'$.name' AS name,data->>'$.city' AS city,
+            SELECT id,ranked.run_id,started_at,actions.changed_at,data->>'$.name' AS name,data->>'$.city' AS city,
                    data->>'$.channel' AS channel,data->>'$.preview.url' AS preview_url,
                    coalesce(nullif(data->>'$.email',''),data->>'$.qualification.email') AS email,
                    data->>'$.qualification.social' AS social, data->>'$.qualification.website' AS website,
                    coalesce(nullif(data->>'$.qualification.phone',''),data->>'$.phone') AS phone
-            FROM ranked WHERE n=1 AND data->>'$.status' IN ('ready','manual')
-              AND data->>'$.preview.published'=1 AND data->>'$.preview.url'!='' AND data->>'$.pitch.body'!=''
-              AND coalesce(data->>'$.preview.content_verified',1)=1
-              AND id NOT IN (SELECT id FROM leads WHERE data->>'$.status'='dismissed')
-            ORDER BY started_at DESC,name COLLATE NOCASE""")
+            FROM ranked LEFT JOIN contact_actions AS actions ON actions.lead_id=ranked.id
+            WHERE (:state='ready' AND n=1 AND actions.lead_id IS NULL AND data->>'$.status' IN ('ready','manual')
+                   AND data->>'$.preview.published'=1 AND data->>'$.preview.url'!='' AND data->>'$.pitch.body'!=''
+                   AND coalesce(data->>'$.preview.content_verified',1)=1)
+               OR (actions.state=:state AND actions.run_id=ranked.run_id)
+            ORDER BY coalesce(actions.changed_at, started_at) DESC,name COLLATE NOCASE""", {"state": state})
         ]
 
 
@@ -171,9 +190,42 @@ def dismissed_ids():
         return {
             row[0]
             for row in db.execute(
-                "SELECT DISTINCT id FROM leads WHERE json_extract(data,'$.status')='dismissed'"
+                "SELECT lead_id FROM contact_actions WHERE state='dismissed'"
             )
         }
+
+
+def contact_action(lead_id):
+    with connect() as db:
+        row = db.execute("SELECT * FROM contact_actions WHERE lead_id=?", (lead_id,)).fetchone()
+        return dict(row) if row else {}
+
+
+def set_contact_action(run_id, lead_id, state):
+    """Record an operator decision for the license and retain the run it came from."""
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        if state == "restore":
+            db.execute("DELETE FROM contact_actions WHERE lead_id=? AND run_id=?", (lead_id, run_id))
+            return
+        if state not in {"contacted", "dismissed"}:
+            raise ValueError("Choose contacted or dismissed.")
+        row = db.execute("""
+            SELECT r.mode, l.data->>'$.status' AS route,l.data->>'$.pitch.body' AS draft,
+                   l.data->>'$.preview.url' AS url, l.data->>'$.preview.published' AS published,
+                   coalesce(l.data->>'$.preview.content_verified',1) AS verified
+            FROM leads l JOIN runs r ON r.id=l.run_id WHERE l.run_id=? AND l.id=?""", (run_id, lead_id)).fetchone()
+        if row and row["mode"] == "demo" and state == "dismissed":
+            db.execute("""UPDATE leads SET data=json_set(data,'$.original_status',coalesce(data->>'$.original_status',
+                          data->>'$.status'),'$.status','dismissed') WHERE run_id=? AND id=?""", (run_id, lead_id))
+            return
+        if not row or row["mode"] not in {"live", "showcase", "recheck"} or row["route"] not in {"ready", "manual", "hold"}:
+            raise ValueError("Choose a live business with a reviewed decision.")
+        if state == "contacted" and (row["route"] == "hold" or not all(row[k] for k in ("draft", "url", "published", "verified"))):
+            raise ValueError("Only a released draft can be marked contacted.")
+        saved = db.execute("INSERT OR IGNORE INTO contact_actions VALUES(?,?,?,?)", (lead_id, run_id, state, now()))
+        if not saved.rowcount:
+            raise ValueError("This business already has a contact decision. Restore it before choosing again.")
 
 
 def add_event(event):
@@ -197,6 +249,8 @@ def edit_lead(run_id, lead_id, change):
         db.execute("BEGIN IMMEDIATE")
         if db.execute("SELECT 1 FROM runs WHERE id=? AND mode='sample'", (run_id,)).fetchone():
             raise ValueError("The bundled sample is a read-only recording.")
+        if db.execute("SELECT 1 FROM contact_actions WHERE run_id=? AND lead_id=?", (run_id, lead_id)).fetchone():
+            raise ValueError("Restore this lead before editing its archived draft.")
         row = db.execute("SELECT data FROM leads WHERE run_id=? AND id=?", (run_id, lead_id)).fetchone()
         if row is None:
             raise ValueError("This business is no longer in the run.")
