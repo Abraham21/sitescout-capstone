@@ -112,6 +112,8 @@ def listed_site_signal(url, today, business_name):
     final, status, mime, body = research.read_public(url, "text/html", limit)
     if research.host(final) != research.host(url):
         return ""
+    if research.expired_landing(url, final, status, mime, body, limit):
+        return "expired domain"
     if status in {404, 410}:
         return "missing page"
     if status == 0 and final == url and research.exact_brand_homepage(business_name, url):
@@ -120,6 +122,8 @@ def listed_site_signal(url, today, business_name):
             return "unresolved domain"
     if status == 200 and "html" in mime and not urlsplit(final).path.strip("/"):
         soup = BeautifulSoup(body[:limit], "html.parser")
+        if research.malformed_contact_link(soup):
+            return "malformed contact link"
         if len(body) <= limit and b"soon" in body.lower() and research.launch_heading(soup):
             return "launch page"
         for link in soup.select("a[href]"):
@@ -197,25 +201,24 @@ def select(profiles, licenses, seen, limit):
     unseen = [l for i, l in matched.items() if i not in seen]
     # Only probe identity-matched businesses, newest first, before buying any web searches.
     unseen.sort(key=lambda lead: (-date.fromisoformat(lead["activity"]["date"]).toordinal(), lead["id"]))
-    linked = [lead for lead in unseen if lead["website_url"]][:24]
+    linked = [lead for lead in unseen if lead["website_url"]][:48]
     with ThreadPoolExecutor(max_workers=6) as pool:
         today = date.today()
         probes = pool.map(lambda lead: listed_site_signal(lead["website_url"], today, lead["name"]), linked)
         for lead, signal in zip(linked, probes):
             lead["listed_site_signal"] = signal
-            lead["missing_link"] = signal in {"missing page", "unresolved domain"}
+            lead["missing_link"] = signal in {"missing page", "unresolved domain", "expired domain"}
     for lead in unseen:
         lead["priority"] = (
             not lead["listed_website"] or lead.get("missing_link", False)
-            or lead.get("listed_site_signal") == "broken estimate link"
+            or lead.get("listed_site_signal") in {"broken estimate link", "malformed contact link"}
             or (lead.get("listed_site_signal") == "launch page" and lead["gallery"])
         )
     # Stable sorting preserves review recency and the license-ID tiebreak within each group.
     unseen.sort(
         key=lambda lead: (
             not lead["priority"],
-            not (lead.get("missing_link", False) or lead.get("listed_site_signal") == "broken estimate link"),
-            lead["listed_website"],
+            not bool(lead.get("listed_site_signal")),
             not lead["contact_estimates"], not lead["gallery"],
         )
     )
@@ -224,7 +227,10 @@ def select(profiles, licenses, seen, limit):
         "previously_seen": len(matched) - len(unseen),
         "eligible_unseen": len(unseen),
         "priority_candidates": sum(lead["priority"] for lead in unseen),
+        "listed_sites_checked": len(linked),
+        "opportunities_on_listed_sites": sum(lead["priority"] and lead["listed_website"] for lead in unseen),
         "unseen_with_broken_estimate_link": sum(lead.get("listed_site_signal") == "broken estimate link" for lead in unseen),
+        "unseen_with_malformed_contact_link": sum(lead.get("listed_site_signal") == "malformed contact link" for lead in unseen),
         "unseen_with_launch_page_and_gallery": sum(lead.get("listed_site_signal") == "launch page" and lead["gallery"] for lead in unseen),
         "unseen_with_missing_link": sum(bool(lead.get("missing_link")) for lead in unseen),
         "unseen_without_listed_website": sum(not lead["listed_website"] for lead in unseen),
@@ -251,15 +257,17 @@ def discover(limit, seen, progress=None, *, audit=None, market="Los Angeles"):
         f"{len(profiles)} profiles found today have a dated review in the last 365 days. Checking active C-33 licenses."
     )
     selected, checks = select(profiles.values(), licenses, seen, limit)
-    if checks["priority_candidates"] < limit:
+    if checks["priority_candidates"] < limit or not checks["opportunities_on_listed_sites"]:
         location = json.loads(storage.setting("activity_catalog_position" + suffix, "{}"))
         starts = (
             location.get("next_pages")
             if location.get("date") == today.isoformat() and location.get("markets") == len(cities)
             else first.get("next_pages")
         )
-        for _ in range(2):
-            if not starts or checks["priority_candidates"] >= limit:
+        for window in range(2):
+            # A full batch of blank website fields still gets one more look for a concrete problem.
+            full = checks["priority_candidates"] >= limit
+            if limited or not starts or (full and (window or checks["opportunities_on_listed_sites"])):
                 break
             report(
                 "Reading more Yahoo Local painting listings for businesses with a missing link, a launch page or no listed website."
@@ -271,7 +279,7 @@ def discover(limit, seen, progress=None, *, audit=None, market="Los Angeles"):
             counts["recent_profiles"] = len(profiles)
             selected, checks = select(profiles.values(), licenses, seen, limit)
             starts = later["next_pages"] if later["next_pages"] != starts else {}
-            if not limited and checks["priority_candidates"] <= limit and later["counts"]["source_listings"]:
+            if not limited and later["counts"]["source_listings"]:
                 storage.set_setting(
                     "activity_catalog_position" + suffix,
                     json.dumps({"date": today.isoformat(), "markets": len(cities), "next_pages": starts}),
@@ -286,7 +294,7 @@ def discover(limit, seen, progress=None, *, audit=None, market="Los Angeles"):
     deferred = checks["eligible_unseen"] - checks["priority_candidates"]
     report(
         f"{checks['eligible_unseen']} unseen painters matched an active license. Selected {len(selected)} with a website opportunity signal. "
-        f"{deferred} had a listed site with no observed issue and remain eligible for future scans."
+        f"Screened {checks['listed_sites_checked']} listed websites. {deferred} painters without an opportunity signal remain eligible for future scans."
     )
     if audit is not None:
         audit.update(

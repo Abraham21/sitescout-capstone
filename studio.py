@@ -774,8 +774,14 @@ def angles_for(lead, q, preview):
                 return []
             finding += f' I saw “{headline}” on your homepage and found your project photos on your listing.'
             key, label, priority = "portfolio", "A portfolio for the upcoming site", 3
+        elif checked and q.get("site_issue") == "malformed_contact_link":
+            finding += " I noticed " + issue[:1].lower() + issue[1:]
+            key, label, priority = "site", "A fix for the contact link", 3
         elif checked and q.get("site_issue") == "listed_homepage_missing" and "NXDOMAIN" in issue:
             finding += " The website address on your business listing didn’t open when I checked."
+            key, label, priority = "site", "The website link on the listing", 3
+        elif checked and q.get("site_issue") == "listed_domain_expiry_notice":
+            finding += " I opened the website on your business listing twice and saw a domain-expiration notice both times."
             key, label, priority = "site", "The website link on the listing", 3
         elif checked and re.search(r"\bHTTP (404|410)\b", issue, re.I):
             if q.get("site_issue") == "listed_homepage_disconnected":

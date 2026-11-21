@@ -281,6 +281,9 @@ def listing_source(url):
     # Google Sites hosts business-owned websites; its paths are not Google Maps listings.
     if host(url) == "sites.google.com":
         return ""
+    # LocalSearch publishes a business listing at the root of each merchant subdomain.
+    if re.fullmatch(r"[a-z0-9-]+\.localsearch\.com", host(url)) and not urlsplit(url).path.strip("/"):
+        return "localsearch.com"
     return next((d for d in LISTINGS if domain_in(url, (d,))), "")
 
 
@@ -290,6 +293,8 @@ def directory_publisher(lead, url, text):
         return ""
     path = urlsplit(url).path.casefold()
     publisher = host(url)
+    if publisher == "sitevetter.com" and re.fullmatch(r"/contractor/[a-z]{2}/city/[a-z0-9-]+/top-rated/?", path):
+        return "This is a city directory displaying multiple businesses."
     if re.fullmatch(r"/comp/[a-z0-9-]+\.html/?", path) and (
         re.fullmatch(r"[a-z0-9-]+-[a-z]{2}\.superlocalfirm\.com", publisher)
         or ("all us companies" in text.casefold() and "add company" in text.casefold())
@@ -500,11 +505,62 @@ def launch_heading(soup):
     return headings.pop().title()
 
 
+def expired_landing(home, final, status, mime, body, limit):
+    """Read an explicit same-domain parking notice; never execute scripts or infer expiry from an empty page."""
+    if (status != 200 or "html" not in mime or host(home) != host(final)
+            or urlsplit(home).path.strip("/") or urlsplit(home).query):
+        return ""
+    # Some registrars serve an otherwise empty document with one literal on-load redirect.
+    # Read only its stated, same-host /lander destination, at most once.
+    if not urlsplit(final).path.strip("/") and len(body) < 8192 and b"/lander" in body:
+        soup = BeautifulSoup(body, "html.parser")
+        script = soup.find("script")
+        redirect = r"""\s*window\.onload\s*=\s*function\s*\(\s*\)\s*\{\s*(?:window\.)?location\.href\s*=\s*["']/lander/?["']\s*;?\s*\}\s*;?\s*"""
+        if (not soup.get_text(strip=True) and script and re.fullmatch(redirect, script.string or "")
+                and len(soup.find_all("script")) == 1):
+            final, status, mime, body = read_public(urljoin(final, "/lander"), "text/html", limit, within=host(home))
+    if (status != 200 or "html" not in mime or len(body) > limit or host(final) != host(home)
+            or urlsplit(final).path.rstrip("/") != "/lander" or b"expired" not in body.lower()):
+        return ""
+    soup = BeautifulSoup(body, "html.parser")
+    for tag in soup.select('script, style, noscript, template, head, [hidden], [aria-hidden="true"]'):
+        tag.decompose()
+    for tag in soup.find_all(style=re.compile(r"(?:display\s*:\s*none|visibility\s*:\s*hidden)", re.I)):
+        tag.decompose()
+    text = " ".join(soup.stripped_strings)
+    domain = re.escape(host(home))
+    if (not INJECTION.search(text) and re.search(r"\bthis domain(?: name)? (?:has expired|is expired)\b", text, re.I)
+            and re.search(r"\b(?:registration provider|registrar|renew (?:this|your) domain)\b", text, re.I)
+            and re.search(rf"(?<![\w.-])(?:www\.)?{domain}(?![\w.-])", text, re.I)):
+        return final
+    return ""
+
+
+def malformed_contact_link(soup):
+    """Describe a visible contact control with a destination that cannot perform its labeled action."""
+    for a in soup.select("a[href]")[:160]:
+        if a.has_attr("onclick") or any(p.has_attr("hidden") or p.get("aria-hidden") == "true"
+                                       for p in (a, *a.parents)):
+            continue
+        label = a.get_text(" ", strip=True) or str(a.get("aria-label") or a.get("title") or "")
+        href = a["href"].strip()
+        if re.search(r"\b(?:phone|call)\b", label, re.I) and re.fullmatch(r"mailto:[+\d(). -]+", unquote(href), re.I):
+            if len(re.sub(r"\D", "", href)) >= 7:
+                return "The phone link opens an email addressed to a telephone number."
+        if re.search(r"\b(?:estimate|quote)\b", label, re.I) and re.fullmatch(r"https?://#?", href, re.I):
+            return "The estimate link points to a web address with no destination."
+    return ""
+
+
 def fetch_page(url, within=""):
     """Read a bounded public HTML document and its labeled links and media."""
     requested_path = urlsplit(url).path.strip("/")
+    requested_url = url
     url, status, content_type, body = read_public(url, "text/html,application/xhtml+xml", 1_250_000, within)
     page = {"url": url, "status": status, "text": "", "links": [], "has_form": False}
+    parked = expired_landing(requested_url, url, status, content_type, body, 1_250_000)
+    if parked:
+        page["expiry_notice_url"] = parked
     if status == 404 and body:
         title = BeautifulSoup(body, "html.parser").title
         if title and title.get_text(strip=True).casefold() == "connectyourdomain error | wix.com":
@@ -528,6 +584,7 @@ def fetch_page(url, within=""):
         if len(instagram_links) == 1:
             page["instagram_url"] = instagram_links.pop()
     page["launch_heading"] = launch_heading(soup)
+    page["contact_link_issue"] = malformed_contact_link(soup)
     page["business_nodes"] = business_profile.business_nodes(soup)
     page["quotes"] = business_profile.quoted_customers(soup)
     if host(url) == "prosgrade.com" and page["business_nodes"]:
@@ -843,11 +900,14 @@ def extract_facts(lead, result, selected, model, photo_model=None):
                 media = result["profile"]["media"]
                 avatar = next((m for m in media if m["kind"] == "avatar"), None)
                 if avatar and not any(m["kind"] == "logo" for m in media):
-                    mark = photo_model(
-                        "Inspect this profile avatar as a candidate company logo. For a recognizable "
-                        "standalone logo return logo_photo = 1 and logo_name containing only the printed "
-                        "business name, omitting taglines. For a portrait, scene or partial watermark, "
-                        "leave both fields empty.", [avatar])
+                    try:
+                        mark = photo_model(
+                            "Inspect this profile avatar as a candidate company logo. For a recognizable "
+                            "standalone logo return logo_photo = 1 and logo_name containing only the printed "
+                            "business name, omitting taglines. For a portrait, scene or partial watermark, "
+                            "leave both fields empty.", [avatar])
+                    except (OSError, RuntimeError, ValueError, KeyError, IndexError):
+                        mark = None  # An unavailable optional check leaves this image out of the preview.
                     if isinstance(mark, dict):
                         apply_photo_choices(result["profile"], [avatar], mark, lead)
                 number = review.get("domain_photo")
@@ -1667,6 +1727,20 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
     code = page.get("status") or 0
     domain = host(url)
     exact_brand = exact_brand_homepage(lead["name"], urljoin(url, "/"))
+    parked = page.get("expiry_notice_url")
+    if (parked and source and source.get("verified_homepage") and source.get("phone_matched")
+            and result.get("activity") and branded(lead, url) and not urlsplit(url).path.strip("/")
+            and not urlsplit(url).query and host(parked) == domain):
+        first = add(parked, "The domain landing page displayed an expiry notice and named the listed domain.", "observation")
+        if fetch(url).get("expiry_notice_url") == parked:
+            statement = "The website on the matched business listing showed a domain-expiration notice on two checks."
+            second = add(parked, statement, "observation")
+            result.update(website=url, website_status="has_site", issue=statement, site_issue="listed_domain_expiry_notice",
+                          issue_evidence_ids=[source["id"], first, second])
+            return "qualified", statement
+        reason = "The listed website displayed an expiration notice once, but the second check did not confirm it."
+        result["follow_up"] = {"url": url, "source_url": source["url"], "reason": reason, "evidence_ids": [source["id"], first]}
+        return "hold", reason
     listed_home = (
         source and source.get("matched") and source.get("phone_matched") and exact_brand
         and source.get("target", "").rstrip("/") == url.rstrip("/")
@@ -1883,9 +1957,26 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
     for chunk in chunks[:24]:
         add(final_url, chunk)
     working_contact = bool(visible_phones or website_email or page.get("has_form"))
-    # A demonstrably broken quote CTA is actionable even if the owner also publishes a phone.
+
+    def confirmed_link_issue(candidate):
+        issue = candidate.get("contact_link_issue")
+        url = candidate.get("url", "")
+        if not issue or not safe_url(url) or host(url) != host(final_url):
+            return ""
+        repeat = fetch(url)
+        if (repeat.get("status") == 200 and repeat.get("url") == url and repeat.get("contact_link_issue") == issue
+                and not INJECTION.search(repeat.get("text", ""))):
+            ref = add(url, issue, "observation")
+            result.update(issue=issue, site_issue="malformed_contact_link", issue_evidence_ids=[ref])
+            return issue
+        return ""
+
+    if issue := confirmed_link_issue(page):
+        return "qualified", issue
+    # Inspect one same-site contact page even if the homepage has a working alternate.
+    contact_target = next((t for t, specific in targets.items() if not specific and host(t) == host(final_url)), "")
     for target, specific in sorted(targets.items(), key=lambda kv: not kv[1])[:3]:
-        if working_contact and not specific:
+        if working_contact and not specific and target != contact_target:
             continue
         contact = cached_contacts.get(target) or fetch(target)
         code = contact.get("status")
@@ -1896,7 +1987,9 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
                 "assessment",
             )
             return "blocked", "Instruction-like content detected in a candidate contact page."
-        if code in (404, 410) and fetch(target).get("status") == code:
+        if code == 200 and (issue := confirmed_link_issue(contact)):
+            return "qualified", issue
+        if code in (404, 410) and (specific or not working_contact) and fetch(target).get("status") == code:
             statement = f"The linked {'quote or estimate' if specific else 'contact'} page returned HTTP {code} on two checks."
             ref = add(target, statement, "observation")
             result.update(issue=statement, issue_evidence_ids=[ref])
@@ -2291,7 +2384,7 @@ def qualify(
                     listed_phones = phones(text)
                     phone_matched = match == 2 and bool(listed_phones & phones(phone))
                     old_target = listing_targets.get(host(linked), {})
-                    if old_target.get("canonical_homepage") or (old_target.get("phone_matched") and not phone_matched):
+                    if old_target.get("verified_homepage") or (old_target.get("phone_matched") and not phone_matched):
                         continue
                     canonical_link = url == verified_listing_url and linked in published_website_links(catalog_pages[url])
                     listing_targets[host(linked)] = {
@@ -2301,6 +2394,7 @@ def qualify(
                         "matched": match == 2,
                         "phone_matched": phone_matched,
                         "canonical_homepage": canonical_link and exact_brand_homepage(lead["name"], linked),
+                        "verified_homepage": canonical_link and not urlsplit(linked).path.strip("/") and not urlsplit(linked).query,
                         "verified_gallery": canonical_link and len(matched_listing(lead, url, catalog_pages[url])[1]) >= 2,
                         "different_phone": bool(listed_phones and phone and not listed_phones & phones(phone)),
                     }
@@ -2392,7 +2486,7 @@ def qualify(
                 return finish("qualified", pending_site["issue"])
             continue
         status, explanation = outcome
-        if (status == "qualified" and result.get("site_issue") in {"listed_homepage_disconnected", "listed_homepage_missing", "launch_portfolio"}
+        if (status == "qualified" and result.get("site_issue") in {"listed_homepage_disconnected", "listed_homepage_missing", "listed_domain_expiry_notice", "launch_portfolio"}
                 and (pending_site or credible_domains - {domain})):
             if not pending_site:
                 pending_site = {k: result[k] for k in ("website", "website_status", "site_issue", "issue", "issue_evidence_ids")}

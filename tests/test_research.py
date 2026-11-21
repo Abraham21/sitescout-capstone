@@ -164,6 +164,35 @@ def test_counties_have_separate_license_snapshots(tmp_path, monkeypatch):
     assert not research.same_market("Anaheim", "Glendale")
 
 
+def test_contact_link_defect_needs_two_matching_reads_even_with_a_working_phone(monkeypatch):
+    case = next(c for c in CASES if c["id"] == "healthy-phone")
+    home = next(iter(case["pages"]))
+    contact = home + "contact"
+    pages = [
+        '<a href="mailto:8185550110">Phone</a>',
+        '<a href="mailto:8185550110">Phone</a>',
+        '<a href="tel:8185550110">Phone</a>',
+    ]
+    def read(url, *args):
+        html = (case["pages"][home]["text"] + '<a href="/contact">Contact</a>'
+                if url == home else pages.pop(0))
+        return url, 200, "text/html", html.encode()
+
+    monkeypatch.setattr(research, "read_public", read)
+    def qualify():
+        return research.qualify(case["lead"], None, lambda _: case["results"], fetcher=research.fetch_page)
+
+    result = qualify()
+    assert result["status"] == "qualified" and result["site_issue"] == "malformed_contact_link"
+    assert any(e["url"] == contact and e["text"] == result["issue"] for e in result["evidence"])
+    pages.insert(0, '<a href="mailto:8185550110">Phone</a>')
+    assert qualify()["status"] == "skip"
+    for markup in ('<a href="#">Get a quote</a>', '<a href="http://#" onclick="openForm()">Quote</a>',
+                   '<div hidden><a href="http://#">Quote</a></div>'):
+        assert not research.malformed_contact_link(research.BeautifulSoup(markup, "html.parser"))
+    assert research.malformed_contact_link(research.BeautifulSoup('<a href="http://#">Schedule a quote</a>', "html.parser"))
+
+
 def test_disabled_listing_inbox_is_specific_need_and_syndication_is_one_source():
     case = CASES[0]
     body = "Copper Finch Painting, Glendale, (818) 555-0101. This business has not enabled messaging."
@@ -895,6 +924,28 @@ def test_an_unknown_marketplace_can_propose_a_real_website_but_cannot_veto_as_ow
     assert research.directory_publisher(lead, zip_page, "10 providers listed in Inglewood")
     assert not research.directory_publisher(lead, zip_page, "Copper Finch Painting serves Inglewood.")
 
+def test_city_ranking_and_hosted_listing_do_not_hide_a_real_owner_website():
+    case = CASES[0]
+    lead = case["lead"]
+    card = "https://copperfinchpainting.localsearch.com/"
+    rank = "https://www.sitevetter.com/contractor/ca/city/glendale/top-rated/"
+    owner = "https://copperfinchpainting.example/"
+    identity = f"{lead['name']} in {lead['city']}. Phone {lead['phone']}."
+    hits = [
+        {"url": card, "text": identity},
+        {"url": rank, "text": identity + " Other painters: Website https://different-painter.example/"},
+        *case["results"],
+    ]
+    assert run(case, results=hits)["status"] == "qualified"
+    # A genuine site linked by the named listing still gets the ordinary contact check.
+    hits[0] = {"url": card, "text": identity + " Website: " + owner}
+    page = {"url": owner, "status": 200, "text": identity + " Call us for an estimate.", "links": []}
+    result = run({**case, "pages": {owner: page}}, results=hits)
+    assert result["status"] == "skip" and result["website"] == owner
+    assert not research.directory_publisher(lead, "https://sitevetter.com/contact", identity)
+    assert not research.listing_source("https://copperfinchpainting.localsearch.com.example/")
+
+
 def test_verified_directory_profile_paths_do_not_hide_a_possible_owner_site():
     case = CASES[0]
     lead = case["lead"]
@@ -1383,3 +1434,60 @@ def test_link_page_needs_corroboration_and_its_owner_website_is_checked():
     hits = [{"url": url, "text": text} for url, text in records.items()]
     q = research.qualify(lead, None, lambda _: hits, fetcher=pages.get)
     assert q["website"] == owner_site and q["status"] == "skip"
+    pages[hub]["hub_links"].pop()
+    pages[instagram]["bio_links"].append(owner_site)
+    q = research.qualify(lead, None, lambda _: hits, fetcher=pages.get)
+    assert q["website"] == owner_site and q["status"] == "skip"
+def test_listed_domain_expiry_requires_readable_repeated_notice_and_recent_identity(monkeypatch):
+    import activity_intake
+    from datetime import date
+    from studio import angles_for, build_preview
+
+    lead = dict(CASES[0]["lead"], directory_url="https://local.yahoo.com/info-1234-copper-finch-painting/")
+    listing = lead["directory_url"]
+    home = "https://copperfinchpaintingandrefinishing.example/"
+    landing = home + "lander"
+    day = date.today().isoformat()
+    review = {"source_url": "https://www.yelp.com/biz/copper-finch?hrid=demo", "date": day}
+    lead["activity"] = {**review, "type": "customer_review", "listing_url": listing}
+    redirect = b'<script>window.onload = function() { window.location.href = "/lander"; };</script>'
+    notice = b'<p>This domain has expired. Contact your registration provider.</p><h2>copperfinchpaintingandrefinishing.example</h2>'
+    calls = []
+    def read(url, accept, limit, within=""):
+        calls.append(url)
+        return url, 200, "text/html", redirect if url == home else notice
+
+    monkeypatch.setattr(research, "read_public", read)
+    activity_intake.listed_site_signal.cache_clear()
+    assert activity_intake.listed_site_signal(home, date.today(), lead["name"]) == "expired domain"
+    assert calls == [home, landing]
+    for raw in (b"", b"<script>loadApplication()</script>", b"<p>This domain is for sale</p>",
+                b"<div hidden>" + notice + b"</div>", notice.replace(b"copperfinch", b"other")):
+        assert not research.expired_landing(home, landing, 200, "text/html", raw, 150_000)
+    assert not research.expired_landing(home, "https://other.example/lander", 200, "text/html", notice, 150_000)
+
+    profile = {"url": listing, "status": 200, "text": "", "links": [{"text": "Website", "url": home}],
+               "business_nodes": [{"name": lead["name"], "url": listing, "telephone": lead["phone"],
+                                   "address": {"addressLocality": lead["city"]}}], "yahoo_reviews": [review]}
+    replacement = "https://copperfinchnew.example/"
+    def fetch(url):
+        if url == listing:
+            return profile
+        if url == replacement:
+            return {"url": url, "status": 200, "text": f"{lead['name']}. Call {lead['phone']} for an estimate.", "links": []}
+        assert url == home
+        return research.fetch_page(url)
+    calls.clear()
+    q = research.qualify(lead, None, lambda _: [], fetcher=fetch)
+    assert calls == [home, landing, home, landing]
+    assert q["site_issue"] == "listed_domain_expiry_notice" and q["status"] == "qualified"
+    assert "domain-expiration notice" in angles_for(lead, q, build_preview(lead, q))[0]["opening"]
+    calls.clear()
+    def intermittent(url):
+        if url == home and calls:
+            return {"url": url, "status": 200, "text": "", "links": []}
+        return fetch(url)
+    assert research.qualify(lead, None, lambda _: [], fetcher=intermittent)["status"] == "hold"
+    competing = [{"url": replacement, "title": lead["name"], "text": lead["city"] + " " + lead["phone"]}]
+    assert research.qualify(lead, None, lambda _: competing, fetcher=fetch)["status"] == "skip"
+    assert research.qualify({**lead, "activity": {}}, None, lambda _: [], fetcher=fetch)["status"] == "hold"

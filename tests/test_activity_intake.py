@@ -250,6 +250,24 @@ def test_discovery_widens_even_if_listed_sites_would_fill_the_batch(monkeypatch,
     assert audit["eligible_unseen"] == 1
 
 
+def test_a_full_batch_of_blank_fields_keeps_looking_for_a_published_problem(monkeypatch, tmp_path):
+    monkeypatch.setenv("SITESCOUT_DATA_DIR", str(tmp_path))
+    blank = {"id": "11", "name": "Elm Painting", "city": "Burbank", "phone": "818-555-0101"}
+    broken = {**blank, "id": "12", "name": "Oak Painting", "phone": "818-555-0102"}
+
+    def window(today, report, licenses, starts=None):
+        row = broken if starts else blank
+        profile = {**row, "listed_website": bool(starts), "website_url": "https://oak.example/" if starts else "",
+                   "activity": {"date": today.isoformat(), "listing_url": row["id"]}}
+        return {"profiles": [profile], "next_pages": {} if starts else {"Burbank": 4},
+                "counts": {"source_listings": 1, "recent_profiles": 1}}
+
+    monkeypatch.setattr(intake, "public_profiles", window)
+    monkeypatch.setattr(research, "discover", lambda *_: [blank, broken])
+    monkeypatch.setattr(intake, "listed_site_signal", lambda *_: "malformed contact link")
+    assert [lead["id"] for lead in intake.discover(1, set())] == [broken["id"]]
+
+
 def test_partial_directory_uses_todays_earlier_evidence(monkeypatch, tmp_path):
     monkeypatch.setenv("SITESCOUT_DATA_DIR", str(tmp_path))
     lead = {"name": "Elm Painting", "city": "Downey", "phone": "562-555-0101", "id": "401"}
