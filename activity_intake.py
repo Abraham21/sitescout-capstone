@@ -154,10 +154,10 @@ def match_profile(profile, by_phone):
              and research.same_trade_name(l["name"], profile["name"])]
     if local:
         return local[0] if len(local) == 1 else None
-    if len(owners) != 1 or profile["city"].strip().title() not in research.CITIES:
+    if len(owners) != 1:
         return None
     lead = next(iter(owners.values()))
-    if (lead["city"] not in research.CITIES
+    if (not research.same_market(profile["city"].strip().title(), lead["city"])
             or len(research.phones(profile["phone"])) != 1 or research.phones(profile["phone"]) != research.phones(lead["phone"])
             or research.trade_name(lead["name"]) != research.trade_name(profile["name"])):
         return None
@@ -231,18 +231,18 @@ def select(profiles, licenses, seen, limit):
     }
 
 
-def discover(limit, seen, progress=None, *, audit=None):
+def discover(limit, seen, progress=None, *, audit=None, market="Los Angeles"):
     report = progress or (lambda message: None)
     today = date.today()
-    report(
-        "Finding painters with a customer review on Yelp in the past year, via public Yahoo Local listings."
-    )
+    _, cities = research.MARKETS[market]
+    report(f"Finding {market} County painters with a recent Yelp review, via public Yahoo Local listings.")
     storage.initialize()
-    inventory = json.loads(storage.setting("activity_inventory", "{}"))
+    suffix = "" if market == "Los Angeles" else "_orange"
+    inventory = json.loads(storage.setting("activity_inventory" + suffix, "{}"))
     # A later page or a temporarily unavailable directory need not displace today's earlier matches.
     profiles = inventory.get("profiles", {}) if inventory.get("date") == today.isoformat() else {}
-    licenses = research.discover(100_000, set(), report)
-    first = public_profiles(today, report, licenses)
+    licenses = research.discover(100_000, set(), report, market)
+    first = public_profiles(today, report, licenses, None if market == "Los Angeles" else dict.fromkeys(cities, 1))
     profiles.update((p["activity"]["listing_url"], p) for p in first["profiles"])
     counts = dict(first["counts"])
     counts["recent_profiles"] = len(profiles)
@@ -252,10 +252,10 @@ def discover(limit, seen, progress=None, *, audit=None):
     )
     selected, checks = select(profiles.values(), licenses, seen, limit)
     if checks["priority_candidates"] < limit:
-        location = json.loads(storage.setting("activity_catalog_position", "{}"))
+        location = json.loads(storage.setting("activity_catalog_position" + suffix, "{}"))
         starts = (
             location.get("next_pages")
-            if location.get("date") == today.isoformat() and location.get("markets") == len(research.CITIES)
+            if location.get("date") == today.isoformat() and location.get("markets") == len(cities)
             else first.get("next_pages")
         )
         for _ in range(2):
@@ -273,15 +273,15 @@ def discover(limit, seen, progress=None, *, audit=None):
             starts = later["next_pages"] if later["next_pages"] != starts else {}
             if not limited and checks["priority_candidates"] <= limit and later["counts"]["source_listings"]:
                 storage.set_setting(
-                    "activity_catalog_position",
-                    json.dumps({"date": today.isoformat(), "markets": len(research.CITIES), "next_pages": starts}),
+                    "activity_catalog_position" + suffix,
+                    json.dumps({"date": today.isoformat(), "markets": len(cities), "next_pages": starts}),
                 )
             if limited:
                 break
     if limited:
         report("Yahoo Local temporarily limited requests. This batch uses the verified listings available today; coverage is partial.")
     if profiles:
-        storage.set_setting("activity_inventory", json.dumps({"date": today.isoformat(), "profiles": profiles}))
+        storage.set_setting("activity_inventory" + suffix, json.dumps({"date": today.isoformat(), "profiles": profiles}))
     selected = [lead for lead in selected if lead["priority"]]
     deferred = checks["eligible_unseen"] - checks["priority_candidates"]
     report(
@@ -292,6 +292,7 @@ def discover(limit, seen, progress=None, *, audit=None):
         audit.update(
             counts,
             **checks,
+            market=market,
             deferred_without_signal=deferred,
             source_limited=limited,
             selected=len(selected),

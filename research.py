@@ -1,7 +1,5 @@
 """Discover C-33 painters and qualify one lead using attributable public evidence."""
 
-import csv
-import gzip
 import hashlib
 import http.client
 import io
@@ -22,15 +20,15 @@ from functools import lru_cache
 from itertools import zip_longest
 from pathlib import Path
 from urllib.parse import unquote, urljoin, urlsplit
-from urllib.request import Request, urlopen
+from zipfile import BadZipFile
 
+import requests
 from bs4 import BeautifulSoup
+from openpyxl import load_workbook
 
 import business_profile
 
-MASTER = (
-    "https://www.cslb.ca.gov/OnlineServices/DataPortal/DownLoadFile.ashx?fName=MasterLicenseData&type=C"
-)
+COUNTY_EXPORT = "https://www.cslb.ca.gov/OnlineServices/DataPortal/ListByCounty"
 LICENSE = "https://www.cslb.ca.gov/OnlineServices/CheckLicenseII/LicenseDetail.aspx?LicNum="
 CITIES = (
     "Glendale", "Burbank", "Pasadena", "Los Angeles", "North Hollywood", "Sherman Oaks",
@@ -40,6 +38,16 @@ CITIES = (
     "Sylmar", "Reseda", "Canoga Park", "Pomona", "Gardena", "Downey", "Hawthorne", "Covina",
     "San Pedro", "Lakewood", "Tarzana", "Chatsworth",
 )
+ORANGE_CITIES = (
+    "Aliso Viejo", "Anaheim", "Brea", "Buena Park", "Costa Mesa", "Cypress", "Dana Point",
+    "Fountain Valley", "Fullerton", "Garden Grove", "Huntington Beach", "Irvine", "La Habra",
+    "La Palma", "Laguna Beach", "Laguna Hills", "Laguna Niguel", "Laguna Woods", "Lake Forest",
+    "Los Alamitos", "Mission Viejo", "Newport Beach", "Orange", "Placentia", "Rancho Santa Margarita",
+    "San Clemente", "San Juan Capistrano", "Santa Ana", "Seal Beach", "Stanton", "Tustin",
+    "Villa Park", "Westminster", "Yorba Linda", "Corona Del Mar", "Ladera Ranch", "Trabuco Canyon",
+    "Rancho Mission Viejo", "Foothill Ranch", "Midway City",
+)
+MARKETS = {"Los Angeles": ("19", CITIES), "Orange": ("30", ORANGE_CITIES)}
 CACHE = (
     Path(os.getenv("SITESCOUT_SOURCE_CACHE", Path.home() / "Library" / "Caches" / "SiteScout"))
     / "la-county-painters-v3.json"
@@ -47,16 +55,21 @@ CACHE = (
 USER_AGENT = "SiteScout/1.0 (course project; public business website research)"
 
 
-def registry_leads(rows):
+def same_market(first_city, second_city):
+    return any(first_city in cities and second_city in cities for _, cities in MARKETS.values())
+
+
+def registry_leads(rows, cities=None):
+    cities = CITIES if cities is None else cities
     leads = []
     for row in rows:
         city = row["City"].strip().title()
         license_id = row["LicenseNo"].strip()
-        if city not in CITIES or row["State"].strip().upper() != "CA" or not license_id.isdigit():
+        if city not in cities or row["State"].strip().upper() != "CA" or not license_id.isdigit():
             continue
         if (
             row["PrimaryStatus"].strip().upper() not in {"CLEAR", "ACTIVE"}
-            or row["SecondaryStatus"].strip()
+            or row.get("SecondaryStatus", "").strip()
         ):
             continue
         if not re.search(r"\bC\s*-?\s*33\b", row["Classifications(s)"], re.IGNORECASE):
@@ -90,41 +103,55 @@ def registry_leads(rows):
     return leads
 
 
-def discover(limit: int, seen: set[str], progress=None) -> list[dict]:
+def county_licenses(county, cities):
+    """Download the same active C-33 workbook a visitor gets from CSLB's county form."""
+    with requests.Session() as session:
+        page = session.get(COUNTY_EXPORT, timeout=20)
+        page.raise_for_status()
+        form = BeautifulSoup(page.content, "html.parser")
+        fields = {node["name"]: node.get("value", "") for node in form.select('input[type="hidden"][name]')}
+        fields.update({
+            "ctl00$MainContent$lbClassification": "C-33",
+            "ctl00$MainContent$lbCounty": county,
+            "ctl00$MainContent$btnSearch": "Download",
+        })
+        download = session.post(COUNTY_EXPORT, data=fields, headers={"Referer": COUNTY_EXPORT}, timeout=45)
+        download.raise_for_status()
+    with closing(load_workbook(io.BytesIO(download.content), read_only=True, data_only=True)) as workbook:
+        rows = workbook.active.values
+        aliases = {"LicenseNumber": "LicenseNo", "Status": "PrimaryStatus", "PhoneNumber": "BusinessPhone",
+                   "Classification(s)": "Classifications(s)"}
+        headers = [aliases.get(column, column) for column in next(rows)]
+        # The county export combines license status in one field. Only a clear/active value passes.
+        records = (dict(zip(headers, ("" if v is None else str(v) for v in row))) for row in rows)
+        return registry_leads(records, cities)
+
+
+def discover(limit: int, seen: set[str], progress=None, market="Los Angeles") -> list[dict]:
     """Reuse yesterday's filtered local snapshot; alternate cities to diversify each batch."""
     if limit <= 0:
         return []
     report = progress or (lambda message: None)
-    fresh = CACHE.is_file() and time.time() - CACHE.stat().st_mtime < 86400
+    county, cities = MARKETS[market]
+    cache = CACHE if market == "Los Angeles" else CACHE.with_name("orange-county-painters.json")
+    fresh = cache.is_file() and time.time() - cache.stat().st_mtime < 86400
     if not fresh:
-        report(
-            "Reading the public CSLB master file and filtering active C-33 licenses in our Los Angeles County markets."
-        )
-        req = Request(MASTER, headers={"Accept-Encoding": "gzip", "User-Agent": USER_AGENT})
+        report(f"Downloading active painting licenses from the public CSLB {market} County register.")
         try:
-            with urlopen(req, timeout=45) as response:
-                raw = (
-                    gzip.GzipFile(fileobj=response)
-                    if response.headers.get("Content-Encoding") == "gzip"
-                    else response
-                )
-                rows = csv.DictReader(
-                    io.TextIOWrapper(raw, encoding="cp1252", errors="replace", newline="")
-                )
-                leads = registry_leads(rows)
+            leads = county_licenses(county, cities)
             if not leads:
                 raise ValueError("No eligible license records found in the CSLB download.")
-            CACHE.parent.mkdir(parents=True, exist_ok=True)
-            with tempfile.NamedTemporaryFile("w", dir=CACHE.parent, delete=False) as f:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile("w", dir=cache.parent, delete=False) as f:
                 json.dump(leads, f)
-            Path(f.name).replace(CACHE)
-        except (OSError, KeyError, ValueError, csv.Error, http.client.HTTPException):
-            if not CACHE.is_file():
+            Path(f.name).replace(cache)
+        except (OSError, KeyError, ValueError, BadZipFile, StopIteration):
+            if not cache.is_file():
                 raise
             report("CSLB refresh failed; using the last successful dated local snapshot.")
     today = date.today().isoformat()
-    leads = [lead for lead in json.loads(CACHE.read_text()) if lead["expires"] >= today]
-    buckets = {city: [] for city in CITIES}
+    leads = [lead for lead in json.loads(cache.read_text()) if lead["expires"] >= today]
+    buckets = {city: [] for city in cities}
     for lead in leads:
         buckets[lead["city"]].append(lead)
     for group in buckets.values():
@@ -148,6 +175,8 @@ def discover(limit: int, seen: set[str], progress=None) -> list[dict]:
 SOCIAL = ("facebook.com", "instagram.com", "nextdoor.com")
 INDEPENDENT_PROFILES = (*SOCIAL, "houzz.com", "bbb.org")
 LISTINGS = SOCIAL + (
+    "linktr.ee",
+    "tiktok.com",
     "yelp.com",
     "bbb.org",
     "angi.com",
@@ -488,6 +517,8 @@ def fetch_page(url, within=""):
         page.update(business_profile.instagram_profile(soup, url))
     elif domain_in(url, ("facebook.com",)):
         page.update(business_profile.facebook_profile(soup, url, requested_path))
+    elif host(url) == "linktr.ee":
+        page.update(business_profile.linktree_profile(soup, url))
     else:
         instagram_links = {
             urljoin(url, a["href"])
@@ -804,11 +835,21 @@ def extract_facts(lead, result, selected, model, photo_model=None):
         media = result["profile"]["media"]
         media[:] = [m for m in media if m.get("credit") not in {"Instagram", "ProsGrade"}]
     if model:
-        photos = result["profile"]["media"][:10]
+        photos = result["profile"]["media"][:business_profile.MAX_GALLERY_CANDIDATES]
         if photos and photo_model:
             review = photo_model(prompt, photos)
             if isinstance(review, dict):
                 apply_photo_choices(result["profile"], photos, review, lead)
+                media = result["profile"]["media"]
+                avatar = next((m for m in media if m["kind"] == "avatar"), None)
+                if avatar and not any(m["kind"] == "logo" for m in media):
+                    mark = photo_model(
+                        "Inspect this profile avatar as a candidate company logo. For a recognizable "
+                        "standalone logo return logo_photo = 1 and logo_name containing only the printed "
+                        "business name, omitting taglines. For a portrait, scene or partial watermark, "
+                        "leave both fields empty.", [avatar])
+                    if isinstance(mark, dict):
+                        apply_photo_choices(result["profile"], [avatar], mark, lead)
                 number = review.get("domain_photo")
                 domain = str(review.get("printed_domain", "")).lower().removeprefix("https://").rstrip("/")
                 if (type(number) is int and 1 <= number <= len(photos)
@@ -981,6 +1022,49 @@ def find_instagram(lead, records, fetch, known_url=""):
             and not INJECTION.search(bio)
         ):
             return page
+    return None
+
+
+def find_linktree(lead, records, fetch):
+    """A guessed handle proposes a card. A separate, identity-matched record must confirm it."""
+    trusted = {u: t for u, t in records.items() if identity(lead, t) == 2}
+    if not trusted:
+        return None
+    candidates = [u for u in records if host(u) == "linktr.ee" and re.fullmatch(r"/[\w.-]+/?", urlsplit(u).path)]
+    for text in trusted.values():
+        candidates.extend(re.findall(r"https://linktr\.ee/[\w-]+", text, re.I))
+    candidates.append("https://linktr.ee/" + trade_name(lead["name"]).replace(" ", ""))
+    for url in list(dict.fromkeys(candidates))[:2]:
+        page = fetch(url)
+        name, bio = page.get("hub_name") or "", page.get("hub_bio") or ""
+        if (page.get("status") != 200 or page.get("url", "").rstrip("/") != url.rstrip("/")
+                or trade_name(name) != trade_name(lead["name"]) or INJECTION.search(name + " " + bio)):
+            continue
+        links = [a["url"] for a in page.get("hub_links", []) if safe_url(a["url"])]
+        # An exact listed destination corroborates the card. Similar Yelp slugs can belong to different firms.
+        destinations = {(host(v), urlsplit(v).path.rstrip("/")) for v in links if urlsplit(v).path.strip("/")}
+        proof = next((u for u in trusted if listing_source(u) and host(u) != "linktr.ee"
+                      and (host(u), urlsplit(u).path.rstrip("/")) in destinations), "")
+        ig = next((business_profile.instagram_handle(v) for v in links if business_profile.instagram_handle(v)), "")
+        ig_url = f"https://www.instagram.com/{ig}/" if ig else ""
+        account = fetch(ig_url) if ig_url else {}
+        if (account.get("url", "").rstrip("/") != ig_url.rstrip("/") or account.get("status") != 200
+                or INJECTION.search(account.get("social_bio", ""))):
+            account = {}
+        if not proof and identity(lead, name + " " + bio) == 2:
+            proof = lead.get("source_url") or LICENSE + str(lead["id"])
+        if not proof and url.rstrip("/") in {v.rstrip("/") for v in account.get("bio_links", [])}:
+            # A reciprocal social account may be in the proprietor's name. Match it only
+            # inside an explicit owner/employee field in a phone- or license-matched record.
+            person = words(account.get("profile_name", ""))
+            personnel = r"\b(?:owners?|employees?|officers?)\s*:\s*([^)#.;\n]{2,210})"
+            if 2 <= len(person.split()) <= 4:
+                for source, text in trusted.items():
+                    if any(f" {person} " in f" {words(group)} " for group in re.findall(personnel, text, re.I)):
+                        proof = source
+                        break
+        if proof:
+            return {**page, "proof": proof, "instagram": ig_url, "instagram_page": account}
     return None
 
 
@@ -1182,10 +1266,10 @@ def embed_photos(candidates, profile, add, read_image):
     seen = {item["asset_url"] for item in media}
     attempts = 0
     # Reserve space for the masthead even when the linked project gallery is long.
-    for source, image in sorted(candidates, key=lambda row: row[1].get("kind") != "logo"):
+    for source, image in sorted(candidates, key=lambda row: row[1].get("kind") == "project"):
         asset, kind = image.get("asset_url", ""), image.get("kind")
         if (
-            kind not in ("project", "logo")
+            kind not in ("project", "logo", "avatar")
             or not safe_url(asset)
             or not asset.startswith("https://")
             or asset in seen
@@ -1196,11 +1280,11 @@ def embed_photos(candidates, profile, add, read_image):
         alt = clean_text(image["alt"])[:140]
         if not alt or INJECTION.search(alt):
             continue
-        if attempts >= 10:
+        if attempts >= business_profile.MAX_GALLERY_CANDIDATES:
             break
         seen.add(asset)
         attempts += 1
-        encoded = read_image(asset, kind)
+        encoded = read_image(asset, "logo" if kind == "avatar" else kind)
         if not encoded or any(item["url"] == encoded for item in media):
             continue
         ref = add(
@@ -1219,11 +1303,11 @@ def embed_photos(candidates, profile, add, read_image):
         if image.get("credit") and safe_url(image.get("credit_url", "")):
             entry.update(credit=image["credit"], credit_url=image["credit_url"])
         media.append(entry)
-    logos = [item for item in media if item["kind"] == "logo"]
+    logos = [item for item in media if item["kind"] in {"logo", "avatar"}]
     projects = [item for item in media if item["kind"] == "project"]
     projects.sort(key=lambda item: business_profile.hero_fit(item["url"]), reverse=True)
     # Keep the candidates for the visual qualifier. The rendered portfolio gets up to six.
-    profile["media"] = (logos + projects)[:10]
+    profile["media"] = (logos + projects)[:business_profile.MAX_GALLERY_CANDIDATES]
 
 
 def gallery_pages(urls):
@@ -1371,7 +1455,7 @@ def matched_listing(lead, canonical, page):
             continue
         listed_city = (lead.get("activity") or {}).get("listing_city")
         if listed_city and canonical == lead.get("directory_url"):
-            if (words(str(city)) != words(listed_city) or listed_city not in CITIES or lead["city"] not in CITIES
+            if (words(str(city)) != words(listed_city) or not same_market(listed_city, lead["city"])
                     or words(str(address.get("addressRegion", ""))) not in {"ca", "california"}
                     or trade_name(lead["name"]) != trade_name(node["name"])
                     or phones(str(node.get("telephone", ""))) != phones(lead["phone"])
@@ -1414,7 +1498,7 @@ def attach_listing(lead, pages, profile, add, fetch, read_image):
             )
             for i, asset in enumerate(gallery, 1)
         ]
-        if not any(item["kind"] == "project" for item in profile["media"]):
+        if sum(item["kind"] == "project" for item in profile["media"]) < 6:
             embed_photos(images, profile, add, read_image)
         # A second matched listing can supply different customers even if we already have photos.
         if len(profile["testimonials"]) >= 3:
@@ -1906,6 +1990,11 @@ def qualify(
             if owned_page:
                 attach_work(lead, owned_page, result, add, fetch, reader)
             profile = result["profile"]
+            if hub and hub.get("hub_avatar") and not any(m["kind"] == "logo" for m in profile["media"]):
+                # Profile pictures can also be headshots. Only the existing visual logo check can promote this.
+                avatar = {"asset_url": hub["hub_avatar"], "kind": "avatar",
+                          "alt": hub["hub_name"] + " profile image", "credit": "Linktree", "credit_url": hub["url"]}
+                embed_photos([(hub["url"], avatar)], profile, add, reader)
             social = profile.get("instagram_url") or result.get("social") or ""
             if business_profile.instagram_handle(social) and reader and (photo_model or fetcher):
                 if not social_page or business_profile.instagram_handle(
@@ -2005,7 +2094,7 @@ def qualify(
                     profile,
                     add,
                     lambda url: catalog_pages.get(url) or fetch(url),
-                    None if has_photos else reader,
+                    reader,
                 )
         index = ":memory:" if fetcher is not None else runtime_dir() / "research.sqlite"
         required = list(result.get("follow_up", {}).get("evidence_ids", []))
@@ -2103,6 +2192,38 @@ def qualify(
                         result["activity"] = {**activity, "evidence_id": activity_ref}
                         break
     read_directory_links(lead, records, fetch, report)
+    hub = None
+    if (verified_listing_url and fetcher is None) or any(host(u) == "linktr.ee" for u in records):
+        hub = find_linktree(lead, records, fetch)
+    if hub:
+        hub_url = hub["url"]
+        business_links = []
+        socials = {"Linktree": hub_url}
+        for item in hub["hub_links"]:
+            url = item["url"]
+            if not safe_url(url):
+                continue
+            if domain_in(url, ("tiktok.com",)) and re.fullmatch(r"/@[\w.]+/?", urlsplit(url).path):
+                socials["TikTok"] = "https://www.tiktok.com" + urlsplit(url).path.rstrip("/")
+            elif not listing_source(url) and (branded(lead, url) or re.search(r"\bwebsite\b", item.get("title") or "", re.I)):
+                business_links.append("Website " + url)
+        records[hub_url] = (f"{hub['hub_name']}. Owner's public link page, corroborated by {hub['proof']}. "
+                            + " ".join(business_links))
+        if hub["instagram"]:
+            instagram = hub["instagram"]
+            socials["Instagram"] = instagram
+            result["social"] = instagram
+            result["profile"]["instagram_url"] = instagram
+            account = hub["instagram_page"]
+            result["_social_page"] = account
+            sites = [u for u in account.get("bio_links", []) if safe_url(u) and not listing_source(u)]
+            if sites:
+                records[instagram] = hub["hub_name"] + ". " + " ".join("Website " + u for u in sites)
+        result["profile"]["social_links"] = []
+        for label, target in socials.items():
+            ref = add(target, f"{hub['hub_name']} lists this {label} profile on {hub_url}. Identity source: {hub['proof']}.")
+            result["profile"]["social_links"].append({"url": target, "label": label, "evidence_id": ref})
+        report("Matched the painter’s public link page and checked its social accounts and website links.")
     directory = {}
     listing_targets = {}
     contact_gap = []
@@ -2110,7 +2231,10 @@ def qualify(
     candidates = []
     corroborated = set()
     for url, text in records.items():
-        match = 2 if url == verified_listing_url else identity(lead, text)
+        if host(url) in {"linktr.ee", "tiktok.com"} and (not hub or url != hub["url"]):
+            continue
+        verified = url == verified_listing_url or (hub and url in (hub["url"], hub["instagram"]))
+        match = 2 if verified else identity(lead, text)
         if match and INJECTION.search(text):
             add(
                 url,
@@ -2306,7 +2430,7 @@ def qualify(
                     result.update(candidate)
                     return finish(*checked)
     # Frozen cases resolve through their supplied search and page snapshots.
-    if fetcher is None and (not result["social"] or domain_in(result["social"], ("instagram.com",))):
+    if fetcher is None and not result.get("_social_page") and (not result["social"] or domain_in(result["social"], ("instagram.com",))):
         report("Checking public Instagram profiles against the contractor's name and license.")
         profile = find_instagram(lead, records, fetch, result["social"])
         if profile:

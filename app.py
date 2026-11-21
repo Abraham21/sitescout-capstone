@@ -1082,6 +1082,14 @@ def main():
             on_change=change_run,
         )
     with st.expander("Run options"):
+        counties = list(pipeline.research.MARKETS)
+        saved_market = storage.setting("discovery_market", "Los Angeles")
+        st.selectbox(
+            "Discovery market", counties, index=counties.index(saved_market),
+            format_func=lambda market: market + " County", key="market_option",
+            on_change=lambda: storage.set_setting("discovery_market", st.session_state.market_option),
+            help="Applies to fresh discovery and daily autopilot. Saved runs keep their original market.",
+        )
         st.number_input(
             "Businesses per discovery run", min_value=1, max_value=10, value=10, key="limit_live"
         )

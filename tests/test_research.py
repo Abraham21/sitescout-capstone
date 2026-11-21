@@ -148,6 +148,22 @@ def test_registry_filter_and_city_rotation(tmp_path, monkeypatch):
     }
 
 
+def test_counties_have_separate_license_snapshots(tmp_path, monkeypatch):
+    monkeypatch.setattr(research, "CACHE", tmp_path / "la.json")
+    calls = []
+
+    def download(county, cities):
+        calls.append(county)
+        return [{"id": county, "city": cities[0], "name": "Demo Painting", "expires": "2099-01-01"}]
+
+    monkeypatch.setattr(research, "county_licenses", download)
+    for market, expected in [("Los Angeles", "19"), ("Orange", "30"), ("Los Angeles", "19")]:
+        assert research.discover(1, set(), market=market)[0]["id"] == expected
+    assert calls == ["19", "30"]
+    assert research.same_market("Anaheim", "Orange")
+    assert not research.same_market("Anaheim", "Glendale")
+
+
 def test_disabled_listing_inbox_is_specific_need_and_syndication_is_one_source():
     case = CASES[0]
     body = "Copper Finch Painting, Glendale, (818) 555-0101. This business has not enabled messaging."
@@ -1345,3 +1361,25 @@ def test_registered_trade_site_with_signup_preserves_its_specific_hold():
     q = research.qualify(lead, None, lambda _: [source, weak], fetcher=fetch)
     assert q["status"] == "hold" and "invites visitors to subscribe" in q["reason"]
     assert q["follow_up"]["reason"] == q["reason"]
+
+
+def test_link_page_needs_corroboration_and_its_owner_website_is_checked():
+    lead = dict(CASES[0]["lead"], name="Copper Finch Painting")
+    hub = "https://linktr.ee/copperfinchpainting"
+    instagram = "https://www.instagram.com/finchwork/"
+    directory = "https://www.yelp.com/biz/copper-finch-painting"
+    owner_site = "https://copperfinchpainting.example/"
+    business = f"{lead['name']}. {lead['city']}. Phone {lead['phone']}."
+    pages = {
+        hub: {"url": hub, "status": 200, "hub_name": lead["name"],
+              "hub_links": [{"url": instagram}, {"url": owner_site, "title": "Our website"}]},
+        instagram: {"url": instagram, "status": 200, "profile_name": "Morgan Finch", "bio_links": [hub]},
+        owner_site: {"url": owner_site, "status": 200, "text": business + " Call for an estimate.", "links": []},
+    }
+    records = {directory: business, hub: lead["name"]}
+    assert research.find_linktree(lead, records, pages.get) is None
+    records[directory] += " Employees: Morgan Finch."
+    assert research.find_linktree(lead, records, pages.get)["proof"] == directory
+    hits = [{"url": url, "text": text} for url, text in records.items()]
+    q = research.qualify(lead, None, lambda _: hits, fetcher=pages.get)
+    assert q["website"] == owner_site and q["status"] == "skip"

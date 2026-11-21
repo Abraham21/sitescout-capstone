@@ -248,7 +248,7 @@ def run_lead(run_id, lead, domain, emit, case=None):
     return record
 
 
-def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=()):
+def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=(), market=None):
     if mode not in {"live", "showcase", "demo"} or not 1 <= int(limit) <= 30:
         raise ValueError("Choose live, showcase or demo and a batch size between 1 and 30.")
     storage.initialize()
@@ -258,13 +258,14 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=())
     if recheck:
         with storage.connect() as db:
             rows = db.execute(
-                """SELECT leads.id, json_extract(leads.data, '$.directory_url'), json_extract(leads.data, '$.activity')
+                """SELECT leads.id, json_extract(leads.data, '$.directory_url'), json_extract(leads.data, '$.activity'),
+                          json_extract(leads.data, '$.city')
                    FROM leads JOIN runs ON runs.id=leads.run_id
                    WHERE runs.id=? AND runs.mode IN ('live','showcase','recheck')
                    AND runs.status IN ('complete','complete_with_errors') ORDER BY leads.rowid""",
                 (recheck,),
             )
-            listings = {license_id: (url, activity) for license_id, url, activity in rows}
+            listings = {license_id: (url, activity, city) for license_id, url, activity, city in rows}
         if not listings:
             raise ValueError("Choose a completed run of real businesses to recheck.")
         if licenses:
@@ -319,9 +320,12 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=())
                 raise ValueError("Live mode requires the Gemini and Exa keys in .env.")
             progress = lambda msg: emit("Discover", "info", msg)
             if mode == "live":
-                candidates = activity_intake.discover(int(limit), storage.seen_live_ids(), progress, audit=intake)
+                market = market or storage.setting("discovery_market", "Los Angeles")
+                candidates = activity_intake.discover(int(limit), storage.seen_live_ids(), progress, audit=intake, market=market)
             else:
-                active = {row["id"]: row for row in research.discover(100_000, set())}
+                markets = {m for m, (_, cities) in research.MARKETS.items()
+                           if any(city in cities for _, _, city in listings.values())} or {"Los Angeles"}
+                active = {row["id"]: row for m in markets for row in research.discover(100_000, set(), progress, m)}
                 by_phone = activity_intake.registry_phone_index(active.values())
                 dismissed = storage.dismissed_ids()
                 candidates = []
@@ -331,7 +335,7 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=())
                         lead = active[license_id]
                         # Revisit the public listing discovery originally found. The qualifier
                         # reads it anew and matches its current business name, locality and phone.
-                        source, activity = listings.get(license_id, (None, None))
+                        source, activity, _ = listings.get(license_id, (None, None, None))
                         if source:
                             canonical = research.gallery_pages([source])
                             if canonical:
@@ -441,6 +445,7 @@ def dismiss(run_id, lead_id):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run SiteScout without the dashboard.")
     parser.add_argument("--mode", choices=["demo", "showcase", "live"], default="demo")
+    parser.add_argument("--market", choices=research.MARKETS, help="County for fresh discovery. Defaults to the desk's setting.")
     parser.add_argument(
         "--limit", type=int, help="Maximum businesses (default 3, or the full batch when rechecking)."
     )
@@ -467,7 +472,7 @@ if __name__ == "__main__":
             else (args.limit if args.limit is not None else (30 if args.recheck else 3)),
             "live" if args.daily else args.mode,
             lambda event: print(event["stage"], event["message"], flush=True),
-            recheck=args.recheck, licenses=args.licenses,
+            recheck=args.recheck, licenses=args.licenses, market=args.market,
         )
         if args.daily:
             storage.set_setting("last_daily_date", today)

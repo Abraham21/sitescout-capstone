@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from PIL import Image, ImageDraw
 
 import storage
+from business_profile import MAX_GALLERY_CANDIDATES
 
 load_dotenv(storage.ROOT / ".env")
 MODEL = "gemini-3.8-flash"
@@ -20,7 +21,7 @@ EXA_LIMIT = int(os.getenv("SITESCOUT_EXA_LIMIT_USD", "6"))
 
 def contact_sheet(photos):
     """Label the researcher's normalized project photos in the same order used by the qualifier."""
-    photos = photos[:10]
+    photos = photos[:MAX_GALLERY_CANDIDATES]
     if not photos:
         return None
     columns = min(3, len(photos))

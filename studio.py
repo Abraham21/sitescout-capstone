@@ -163,7 +163,7 @@ def evidence_profile(q, sources):
     """Keep only media, exact named review excerpts and links backed by the matched page."""
     profile = q.get("profile") or {}
     selected = {}
-    for key in ("work_links", "review_links", "media", "testimonials"):
+    for key in ("work_links", "review_links", "social_links", "media", "testimonials"):
         accepted = []
         seen = set()
         for item in profile.get(key, []):
@@ -580,6 +580,8 @@ def build_preview(lead, qualification):
 
     extra_links = {}
     for item in work + reviews:
+        extra_links.setdefault(item["url"], item["label"])
+    for item in profile["social_links"]:
         extra_links.setdefault(item["url"], item["label"])
     for photo in photos:
         url = photo["source_url"]

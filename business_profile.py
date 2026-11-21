@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urljoin, urlsplit
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+MAX_GALLERY_CANDIDATES = 12
 
 BUSINESS_TYPES = {
     "LocalBusiness",
@@ -340,8 +341,31 @@ def instagram_profile(soup, url):
             break
     return {
         "social_bio": " ".join(bio)[:3200],
+        "profile_name": bio[0].split(" (@")[0] if bio and " (@" in bio[0] else "",
         "bio_links": list(dict.fromkeys(bio_links)),
         "social_photos": photos,
+    }
+
+
+def linktree_profile(soup, url):
+    """Read the owner's published card, excluding Linktree's recommended profiles and ads."""
+    state = soup.select_one('script#__NEXT_DATA__[type="application/json"]')
+    try:
+        card = json.loads(state.string)["props"]["pageProps"] if state and state.string else {}
+    except (ValueError, KeyError, TypeError, RecursionError):
+        return {}
+    if not isinstance(card, dict) or card.get("username") != urlsplit(url).path.strip("/"):
+        return {}
+    links = []
+    for key in ("links", "socialLinks"):
+        entries = card.get(key)
+        if isinstance(entries, list):
+            links.extend(item for item in entries[:30] if isinstance(item, dict) and isinstance(item.get("url"), str))
+    return {
+        "hub_name": str(card.get("pageTitle") or "")[:150],
+        "hub_bio": str(card.get("description") or "")[:1200],
+        "hub_avatar": str(card.get("customAvatar") or ""),
+        "hub_links": links,
     }
 
 
