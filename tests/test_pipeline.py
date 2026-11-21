@@ -157,7 +157,8 @@ def test_recheck_refetches_current_registry_and_public_intake_listing(isolated, 
         storage.save_lead(
             mode,
             {"id": "101", "name": "Archived name", "status": "hold",
-             "directory_url": listing, "website": "https://old.test"},
+             "directory_url": listing, "website": "https://old.test",
+             "qualification": {"follow_up": {"url": "https://grovepainting.example/"}}},
         )
         storage.finish_run(mode, "complete")
     with pytest.raises(ValueError, match="real businesses"):
@@ -177,7 +178,7 @@ def test_recheck_refetches_current_registry_and_public_intake_listing(isolated, 
     with pytest.raises(ValueError, match="must belong"):
         pipeline.run_batch(recheck="live", licenses=["999"])
     new_id = pipeline.run_batch(recheck="live", licenses=["101"])
-    assert received == [{**current, "directory_url": listing}]
+    assert received == [{**current, "directory_url": listing, "previous_website": "https://grovepainting.example/"}]
     assert next(r for r in storage.list_runs() if r["id"] == new_id)["mode"] == "recheck"
 
     current.update(name="Grove Painting", phone="818-555-0101", city="Pasadena")

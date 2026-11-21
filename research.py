@@ -469,7 +469,7 @@ def read_public(url, accept, limit, within=""):
                 response.status,
                 content_type,
                 response.read(limit + 1) if response.status == 200 else (
-                    response.read(8192) if response.status == 404 and "html" in content_type else b""
+                    response.read(8192) if response.status in (403, 404, 429) and "html" in content_type else b""
                 ),
             )
         except (OSError, http.client.HTTPException, UnicodeError, ValueError):
@@ -552,6 +552,17 @@ def malformed_contact_link(soup):
     return ""
 
 
+def subscription_expired(soup):
+    """Require a site-wide hosting notice. A blog post about expired subscriptions is irrelevant."""
+    heading = soup.find(["h1", "h2"])
+    if not heading or words(heading.get_text(" ", strip=True)) not in {
+        "website unavailable", "site unavailable", "subscription expired", "website subscription expired"
+    }:
+        return False
+    return bool(re.search(r"\b(?:the subscription for this (?:web)?site|this (?:web)?site.s subscription) "
+                          r"(?:has expired|is expired)\b", soup.get_text(" ", strip=True), re.I))
+
+
 def fetch_page(url, within=""):
     """Read a bounded public HTML document and its labeled links and media."""
     requested_path = urlsplit(url).path.strip("/")
@@ -561,14 +572,24 @@ def fetch_page(url, within=""):
     parked = expired_landing(requested_url, url, status, content_type, body, 1_250_000)
     if parked:
         page["expiry_notice_url"] = parked
-    if status == 404 and body:
+    if status in (403, 404, 429) and body:
         title = BeautifulSoup(body, "html.parser").title
-        if title and title.get_text(strip=True).casefold() == "connectyourdomain error | wix.com":
+        label = title.get_text(strip=True).casefold() if title else ""
+        if status == 404 and label == "connectyourdomain error | wix.com":
             page["disconnected_domain"] = True
+        if status in (403, 429) and label == "vercel security checkpoint":
+            page["browser_check"] = True
     if status != 200 or "html" not in content_type:
         return page
     soup = BeautifulSoup(body, "html.parser")
     page["title"] = soup.title.get_text(" ", strip=True)[:250] if soup.title else ""
+    footer = " ".join(f.get_text(" ", strip=True) for f in soup.select("footer"))
+    site_name = soup.select_one('meta[property="og:site_name"][content]')
+    credit = re.search(r"©\s*(?:\d{4}\s+)?(?:Copyright\s+)?([\w’' &-]{3,70})\.\s*All Rights Reserved", footer, re.I)
+    if credit:
+        page["operator_name"] = credit[1].strip()
+    elif site_name and site_name["content"].strip() in footer:
+        page["operator_name"] = site_name["content"].strip()
     if business_profile.instagram_handle(url):
         page.update(business_profile.instagram_profile(soup, url))
     elif domain_in(url, ("facebook.com",)):
@@ -584,6 +605,11 @@ def fetch_page(url, within=""):
         if len(instagram_links) == 1:
             page["instagram_url"] = instagram_links.pop()
     page["launch_heading"] = launch_heading(soup)
+    page["subscription_expired"] = subscription_expired(soup)
+    # Do not infer missing contact options from a truncated page or an embedded booking widget.
+    page["plain_brochure"] = len(body) <= 1_250_000 and not soup.select_one(
+        'form, iframe, button, [role="button"], [onclick], a[href^="sms:" i], a[href^="tel:" i], a[href^="mailto:" i]'
+    )
     page["contact_link_issue"] = malformed_contact_link(soup)
     page["business_nodes"] = business_profile.business_nodes(soup)
     page["quotes"] = business_profile.quoted_customers(soup)
@@ -879,7 +905,9 @@ def extract_facts(lead, result, selected, model, photo_model=None):
         'Respond with a JSON object {"services":[{"value":"Interior painting","cite":"e1"}], '
         '"concern":""}. '
         "Only include owner-offered painting services directly stated. Copy the exact wording. "
-        "If identity or the finding is contradicted, state the contradiction in concern; otherwise leave it empty. "
+        "If a passage about this painter contradicts the finding or identity, name the conflicting facts "
+        "and passage ID in concern. Otherwise leave it empty. A bounded search can support "
+        "'I could not find an owner website'; it does not establish that none exists. "
         "Never add claims about jobs, licenses, availability, prices, certifications or guarantees.\n"
         + json.dumps(
             {"candidate": lead["name"], "finding": result["reason"], "passages": selected},
@@ -986,10 +1014,9 @@ def extract_facts(lead, result, selected, model, photo_model=None):
                 facts["citations"][place] = item["id"]
     if facts["service_areas"]:
         facts["service_area"] = facts["service_areas"][0]
-    if review.get("concern"):
-        result.update(
-            status="hold", reason="Qualifier requested an independent identity or evidence check."
-        )
+    concern = review.get("concern")
+    if isinstance(concern, str) and concern.strip():
+        result.update(status="hold", reason=f"Check the qualification evidence: {clean_text(concern)[:300]}")
 
 
 def search_business(lead, search, report):
@@ -1011,7 +1038,7 @@ def search_business(lead, search, report):
                 and not listing_source(u)
                 for u, t in records.items()
             )
-            if strong:
+            if strong and lead.get("listed_website") is not False:
                 report(
                     "The first search found a branded candidate matching the business identity; checking the actual site."
                 )
@@ -1088,9 +1115,20 @@ def find_instagram(lead, records, fetch, known_url=""):
 def find_linktree(lead, records, fetch):
     """A guessed handle proposes a card. A separate, identity-matched record must confirm it."""
     trusted = {u: t for u, t in records.items() if identity(lead, t) == 2}
+    previous = lead.get("previous_hub") or {}
+    witness = previous.get("identity_url", "")
+    if safe_url(witness) and listing_source(witness):
+        trusted.pop(witness, None)
+        live = fetch(witness)
+        if (live.get("status") == 200 and live.get("url", "").rstrip("/") == witness.rstrip("/")
+                and identity(lead, live.get("text", "")) == 2 and not INJECTION.search(live["text"])):
+            trusted[witness] = live["text"]
     if not trusted:
         return None
     candidates = [u for u in records if host(u) == "linktr.ee" and re.fullmatch(r"/[\w.-]+/?", urlsplit(u).path)]
+    saved = previous.get("url", "")
+    if safe_url(saved) and host(saved) == "linktr.ee":
+        candidates.insert(0, saved)
     for text in trusted.values():
         candidates.extend(re.findall(r"https://linktr\.ee/[\w-]+", text, re.I))
     candidates.append("https://linktr.ee/" + trade_name(lead["name"]).replace(" ", ""))
@@ -1719,6 +1757,37 @@ def named_site_operator(lead, page, url):
     return ""
 
 
+def other_operator(lead, page, fetch):
+    """Check an ambiguous search hit against first-party identity evidence before it can block a concept."""
+    home = page["url"]
+    registered_phone = phones(lead.get("phone", ""))
+    if not registered_phone:
+        return ""
+    labels = {"about", "about us", "contact", "contact us"}
+    links = dict.fromkeys(a["url"] for a in page.get("links", []) if words(a["text"]) in labels
+                          and safe_url(a["url"]) and host(a["url"]) == host(home) and a["url"].rstrip("/") != home.rstrip("/"))
+    numbers, licenses = set(), set()
+    other_name = ""
+    proof_urls = []
+    for url in [home, *list(links)[:2]]:
+        info = page if url == home else fetch(url)
+        text = info.get("text", "")
+        if info.get("status") != 200 or host(info.get("url", "")) != host(home) or INJECTION.search(text):
+            continue
+        numbers.update(phones(contact_text(info)))
+        licenses.update(stated_licenses(text))
+        if registered_phone & numbers or lead["id"] in licenses:
+            return ""
+        owner = info.get("operator_name", "")
+        if owner and len(words(owner).split()) >= 2 and not names_business(lead, text) and words(text).count(words(owner)) >= 2:
+            other_name = owner
+        proof_urls.append(url)
+    if numbers and (len(licenses) == 1 or other_name):
+        identity = "contractor license " + next(iter(licenses)) if len(licenses) == 1 else "the operator " + other_name
+        return f"The site identifies {identity} and a different business phone. Sources: " + ", ".join(proof_urls)
+    return ""
+
+
 def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, other_results=(), dns_check=None):
     """Validate the publisher before testing customer-facing links. Return None for directories."""
     source = listing_targets.get(host(url))
@@ -1727,6 +1796,20 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
     code = page.get("status") or 0
     domain = host(url)
     exact_brand = exact_brand_homepage(lead["name"], urljoin(url, "/"))
+    if (page.get("subscription_expired") and result.get("activity") and exact_brand
+            and not urlsplit(url).path.strip("/") and host(page["url"]) == domain
+            and not INJECTION.search(page.get("text", ""))):
+        repeated = fetch(url)
+        if (repeated.get("subscription_expired") and host(repeated["url"]) == domain
+                and not INJECTION.search(repeated.get("text", ""))):
+            owned = bool(source and source.get("matched"))
+            description = "linked from the matched business profile" if owned else "matching the painter’s trade name"
+            statement = f"The homepage {description} displayed a website-unavailable notice saying its subscription expired on two checks."
+            ref = add(page["url"], statement, "observation")
+            refs = [source["id"]] if owned else [result["activity"]["evidence_id"]]
+            result.update(website=page["url"] if owned else "", website_status="has_site" if owned else "no_site_found",
+                          site_issue="website_subscription_expired", issue=statement, issue_evidence_ids=[*refs, ref])
+            return "qualified", statement
     parked = page.get("expiry_notice_url")
     if (parked and source and source.get("verified_homepage") and source.get("phone_matched")
             and result.get("activity") and branded(lead, url) and not urlsplit(url).path.strip("/")
@@ -1749,6 +1832,7 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
         and (code in (404, 410) or (code == 0 and source.get("canonical_homepage") and dns_check is not None))
     )
     wix_error = page.get("disconnected_domain")
+    browser_check = page.get("browser_check")
     failures = []
     if code != 200 or not page.get("text"):
         alternatives = []
@@ -1800,6 +1884,14 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
         return None
     if page.get("status") != 200 or not body:
         observation = http_observation(page)
+        if (browser_check and page.get("browser_check") and failures and source and source.get("matched")
+                and all(not urlsplit(u).path.strip("/") and not urlsplit(u).query and host(u) == domain
+                        for u in (source.get("target", ""), url, final_url))):
+            reason = ("The verified business profile publishes this company website. Its homepage returned a browser "
+                      "verification screen on two automated visits. No customer-facing website problem was established.")
+            add(final_url, reason, "observation")
+            result.update(website=url, website_status="has_site")
+            return "skip", reason
         unresolved = f"A possible website could not be inspected ({observation})."
         ref = add(final_url, unresolved, "observation")
         if failures:
@@ -1836,6 +1928,8 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
                 "evidence_ids": ([source["id"]] if source else []) + [ref for _, ref in failures] + [ref],
                 "reason": unresolved,
             }
+        if page.get("status") in {403, 429} and source and source.get("matched"):
+            result["follow_up"]["restricted_owner"] = True
         return "hold", unresolved
     # A similar domain spelling alone can point to a painter in a different jurisdiction.
     contact_body = contact_text(page)
@@ -1892,7 +1986,19 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
             match, owns_domain = 2, True
             add(final_url, f"The site's publisher record names {operator}. Its contact information matches the registered phone {registry_phone}.", "observation")
     cached_contacts = {}
-    if match == 1 and owns_domain and title_names_business and owner_voice(page) and not demo:
+    nodes = page.get("business_nodes", [])
+    node = nodes[0] if len(nodes) == 1 else {}
+    address = node.get("address")
+    canonical = node.get("url")
+    local_operator = (match != 2 and isinstance(address, dict) and isinstance(canonical, str)
+                      and host(canonical) == host(final_url) == domain and exact_brand_homepage(lead["name"], canonical)
+                      and trade_name(node.get("name", "")) == trade_name(lead["name"])
+                      and words(str(address.get("addressLocality", ""))) == words(lead["city"])
+                      and words(str(address.get("addressRegion", ""))) in {"ca", "california"}
+                      and not (phones(str(node.get("telephone") or "")) | visible_phones) - {registry_phone}
+                      and not licenses - {str(lead["id"])})
+    booking_email = ""
+    if (local_operator or (match == 1 and owns_domain and title_names_business)) and owner_voice(page) and not demo:
         # Prove the identity via a contact link the painter actually publishes on the homepage.
         target = next((u for u in targets if host(u) == host(final_url)), "")
         if target:
@@ -1907,6 +2013,14 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
                     match = 2
                     anchor = ("license " + lead["id"]) if published_license(lead, proof) else "registered phone " + registry_phone
                     add(target, f"The linked contact page names the business and publishes its {anchor}.", "observation")
+                elif (local_operator and names_business(lead, proof) and not phones(proof) - {registry_phone}
+                      and not stated_licenses(proof) - {str(lead["id"])}):
+                    booking_email = next((email for email in EMAIL.findall(proof) if email.lower().endswith("@" + domain)), "")
+                    if booking_email:
+                        match, owns_domain = 2, True
+                        add(final_url, f"The site's own business record names {node['name']} in {lead['city']}, California "
+                            "and identifies this exact-name domain as its homepage.", "observation")
+                        add(target, f"The linked customer contact page publishes {booking_email}.", "observation")
 
     heading = page.get("launch_heading")
     if (heading and not demo and not urlsplit(final_url).path.strip("/") and host(final_url) == domain
@@ -1922,8 +2036,14 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
         return "qualified", statement + " Its verified listing has project images for a portfolio."
 
     if match != 2 or not owns_domain or not owner_voice(page) or demo:
+        if not source and domain not in corroborated and result.get("activity") and not demo:
+            mismatch = other_operator(lead, page, fetch)
+            if mismatch:
+                add(final_url, mismatch, "observation")
+                return None
         unresolved = (
-            "A candidate domain has insufficient independent evidence of first-party ownership."
+            f"Could not confirm that {host(final_url)} belongs to {lead['name']} in {lead['city']}. "
+            "Check the site's operator, license or contact details against the business listing."
         )
         thin_page = not site_navigation and len(body.split()) < 25 and not visible_phones
         if (source or branded(lead, url)) and thin_page:
@@ -1951,7 +2071,7 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
             }
         return "hold", unresolved
     result.update(website=final_url, website_status="has_site", _owned_page=page)
-    website_email = contact_email(page)
+    website_email = contact_email(page) or booking_email
     result["email"] = website_email or result["email"]
     chunks = [body[i : i + 750] for i in range(0, min(len(body), 30_000), 650)]
     for chunk in chunks[:24]:
@@ -2008,9 +2128,21 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
             "skip",
             "The verified business website already offers a published phone, email, or request form.",
         )
+    other_contact = any(
+        domain_in(link.get("url", ""), SOCIAL) or re.search(
+            r"\b(?:call|chat|message|whatsapp|book|schedule|estimate|quote|contact|inquiry|appointment)\b",
+            f"{link.get('text', '')} {link.get('url', '')}", re.I
+        ) for link in page.get("links", [])
+    )
+    if (result.get("activity") and page.get("plain_brochure") and not urlsplit(final_url).path.strip("/")
+            and site_navigation & {"our work", "projects", "services", "gallery"} and not other_contact):
+        issue = "The business homepage shows its work or services. I could not find a phone, email or estimate link on that page."
+        ref = add(final_url, issue, "observation")
+        result.update(site_issue="brochure_without_contact", issue=issue, issue_evidence_ids=[ref])
+        return "qualified", issue
     return (
         "hold",
-        "The business owns the site, but a specific, reproducible contact problem was not established.",
+        "The business owns this site. Its contact route could not be verified from the pages SiteScout could read.",
     )
 
 
@@ -2286,7 +2418,7 @@ def qualify(
                         break
     read_directory_links(lead, records, fetch, report)
     hub = None
-    if (verified_listing_url and fetcher is None) or any(host(u) == "linktr.ee" for u in records):
+    if lead.get("previous_hub") or (verified_listing_url and fetcher is None) or any(host(u) == "linktr.ee" for u in records):
         hub = find_linktree(lead, records, fetch)
     if hub:
         hub_url = hub["url"]
@@ -2315,13 +2447,15 @@ def qualify(
         result["profile"]["social_links"] = []
         for label, target in socials.items():
             ref = add(target, f"{hub['hub_name']} lists this {label} profile on {hub_url}. Identity source: {hub['proof']}.")
-            result["profile"]["social_links"].append({"url": target, "label": label, "evidence_id": ref})
+            result["profile"]["social_links"].append({"url": target, "label": label, "evidence_id": ref, "identity_url": hub["proof"]})
         report("Matched the painter’s public link page and checked its social accounts and website links.")
     directory = {}
     listing_targets = {}
     contact_gap = []
     disabled_inbox = ""
-    candidates = []
+    previous_site = lead.get("previous_website")
+    # A recorded URL is a place to look again. Only fresh evidence can establish ownership or a defect.
+    candidates = [previous_site] if previous_site and safe_url(previous_site) else []
     corroborated = set()
     for url, text in records.items():
         if host(url) in {"linktr.ee", "tiktok.com"} and (not hub or url != hub["url"]):
@@ -2448,6 +2582,7 @@ def qualify(
     inspected = set()
     unresolved = ""
     pending_site = None
+    verified_active = bool(activity_ref and verified_listing_url == lead.get("directory_url"))
 
     def candidate_priority(url):
         path = urlsplit(url).path.rstrip("/").casefold()
@@ -2467,8 +2602,10 @@ def qualify(
             continue
         # An active painter may have several directory mirrors ahead of a genuine site.
         # Continue past ruled-out publishers, with a ceiling on page checks per lead.
-        limit = 6 if activity_ref and not unresolved else 3
+        limit = 6 if verified_active else 3
         if len(inspected) >= limit:
+            if verified_active and domain not in credible_domains:
+                continue
             unresolved = "The lookup limit left a possible first-party domain unverified."
             if not result.get("follow_up"):
                 ref = add(url, unresolved, "assessment")
@@ -2486,7 +2623,7 @@ def qualify(
                 return finish("qualified", pending_site["issue"])
             continue
         status, explanation = outcome
-        if (status == "qualified" and result.get("site_issue") in {"listed_homepage_disconnected", "listed_homepage_missing", "listed_domain_expiry_notice", "launch_portfolio"}
+        if (status == "qualified" and result.get("site_issue") in {"listed_homepage_disconnected", "listed_homepage_missing", "listed_domain_expiry_notice", "website_subscription_expired", "launch_portfolio"}
                 and (pending_site or credible_domains - {domain})):
             if not pending_site:
                 pending_site = {k: result[k] for k in ("website", "website_status", "site_issue", "issue", "issue_evidence_ids")}
@@ -2498,8 +2635,13 @@ def qualify(
             result.pop("follow_up", None)
             return finish(status, explanation)
         follow_up = result.get("follow_up", {})
+        if verified_active and domain not in credible_domains and not follow_up:
+            # A search hit containing the trade name is not evidence that the painter owns its publisher.
+            continue
         unresolved = follow_up.get("reason") or explanation
-        if lookups < 3 and follow_up.get("thin_page") and host(follow_up["url"]) == domain and branded(lead, url):
+        restricted = follow_up.get("restricted_owner") and host(follow_up["url"]) == domain
+        thin = follow_up.get("thin_page") and host(follow_up["url"]) == domain and branded(lead, url)
+        if lookups < 3 and (restricted or thin):
             lookups += 1
             report("Looking for a readable contact or estimate page on the same business domain.")
             try:
@@ -2507,6 +2649,19 @@ def qualify(
             except (OSError, RuntimeError, ValueError):
                 report("The contact-page search was unavailable. Keeping the site for manual verification.")
                 continue
+            if restricted:
+                for hit in hits[:7]:
+                    target = str(hit.get("url") or "")
+                    if not safe_url(target) or host(target) != domain:
+                        continue
+                    text = f"{hit.get('title', '')} {hit.get('text', '')}"
+                    own_email = any(host("https://" + addr.split("@")[-1]) == domain for addr in EMAIL.findall(text))
+                    if (names_business(lead, text) and CONTACT.search(text) and not INJECTION.search(text)
+                            and (own_email or phones(text) & phones(phone))):
+                        add(target, text)
+                        result.update(website=target, website_status="has_site")
+                        return finish("skip", "A matched business profile links to this site. Its indexed page publishes "
+                                      "a customer contact route. The site limited automated access during this run.")
             alternatives = dict.fromkeys(str(hit.get("url") or "").split("#")[0] for hit in hits[:7])
 
             def fetch_contact(target):

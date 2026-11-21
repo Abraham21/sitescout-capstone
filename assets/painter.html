@@ -12,12 +12,12 @@ $font_license
 @font-face{font-family:Display;src:url('$font') format('woff2');font-style:normal;font-weight:$weight;font-display:swap}
 :root{
   font:100%/1.5 -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;color-scheme:light;
-  --paper:#fffdfa;--ink:#17252b;--deep:#18374b;--muted:#505a60;--line:#c9cfd1;--wash:#ecf3f5;--brand:#167492;
+  --paper:#fffdfa;--ink:#17252b;--deep:#18374b;--muted:#505a60;--line:#d4d4ce;--wash:#f2f2ed;--hero-ground:#eaeae4;--brand:#167492;
   --accent:#9fdbea;--title:Display,"Arial Narrow",sans-serif;--weight:$weight;
   --pad:clamp(1.15rem,4.5vw,4.5rem);--section:clamp(3.25rem,7vw,7.8rem);
 }
 *{box-sizing:border-box}
-body{margin:0;color:var(--ink);background:var(--paper);--wash:color-mix(in srgb,var(--brand) 9%,white);--hero-ground:color-mix(in srgb,var(--brand) 12%,white);--line:color-mix(in srgb,var(--brand) 20%,#dae0e2)}
+body{margin:0;color:var(--ink);background:var(--paper)}
 body.atelier{--paper:#fffdfa;--deep:#5c332d;--brand:#a44936;--ink:#241f20;--muted:#575559;--accent:#ffc7a5;--title:Display,Georgia,serif}
 [hidden]{display:none!important}
 h1,h2,h3,p,figure,blockquote,ul,dl,dd{margin:0}
@@ -55,7 +55,7 @@ nav{gap:clamp(1.3rem,3.3vw,3.3rem)}.nav-links{gap:clamp(1rem,2vw,2.4rem)}
 .field .hero h1{text-transform:uppercase}
 .category{color:var(--ink);font-size:clamp(1.03rem,1.6vw,1.5rem);line-height:1.3;font-weight:650;letter-spacing:-.024em}
 .intro{max-width:42ch;margin:.65rem 0 0;font-size:clamp(.98rem,1.12vw,1.15rem);line-height:1.5}
-.hero .btn{background:var(--deep);color:#fff;box-shadow:0 3px 0 color-mix(in srgb,var(--brand) 55%,transparent)}
+.hero .btn{background:var(--deep);color:#fff;box-shadow:0 3px 0 var(--brand)}
 .hero-actions{margin-top:1.55rem;gap:.8rem 1.45rem;flex-wrap:wrap}
 .hero-proof{font-size:.94rem;font-weight:650;text-decoration:none;border-bottom:1px solid currentColor}
 .hero-proof span{margin-left:.3rem}
@@ -147,7 +147,7 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:1
  header{min-height:65px;gap:.55rem}header nav{flex:0 0 auto;max-width:52%}.brand-name{min-width:0;overflow-wrap:anywhere}.nav-links{display:none}.call{padding:.66rem .75rem;font-size:.91rem}.call span{display:none}
  .hero,.atelier .hero{display:flex;flex-direction:column;min-height:0;padding:0;gap:0}
  .hero-copy,.atelier .hero-copy{padding:2.2rem var(--pad) 1.8rem}.hero h1{--base:clamp(2.9rem,15.5cqw,4.9rem)}.atelier .hero h1{--base:clamp(2.6rem,14cqw,4.35rem)}
- .hero h1{margin:.75rem 0 .55rem}.intro{margin-top:.4rem}.hero .btn{background:var(--deep);color:#fff;box-shadow:0 3px 0 color-mix(in srgb,var(--brand) 55%,transparent)}
+ .hero h1{margin:.75rem 0 .55rem}.intro{margin-top:.4rem}.hero .btn{background:var(--deep);color:#fff;box-shadow:0 3px 0 var(--brand)}
 .hero-actions{margin-top:1.05rem}
  .hero-art,.atelier .hero-art{height:clamp(250px,65vw,405px);min-height:0;padding:.8rem}
  .atelier .hero-art{margin:0 var(--pad) 1.1rem}

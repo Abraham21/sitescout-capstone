@@ -254,13 +254,10 @@ def site_palette(data_uri, from_logo=False):
     if not from_logo:
         hue = colorsys.rgb_to_hls(*(v / 255 for v in brand))[0]
         brand = tuple(round(v * 255) for v in colorsys.hls_to_rgb(hue, .38, .62))
-    deep = darks[0] if from_logo and darks else brand
-    # Foreground white on deep; accent sits on that same dark color in the contact area.
-    while luminance(deep) > 0.15:
-        deep = tuple(round(c * .88) for c in deep)
-    accent = brand
-    while (luminance(accent) + .05) / (luminance(deep) + .05) < 4.8:
-        accent = tuple(round(c * .8 + 51) for c in accent)
+    # Keep saturated logo colors in the details. Use a neutral ground for the quote form.
+    deep = next((rgb for rgb in darks if from_logo and max(rgb) == min(rgb)), (36, 40, 39))
+    contrast = (luminance(brand) + .05) / (luminance(deep) + .05)
+    accent = brand if contrast >= 4.8 else (250, 248, 240)
     def hex_color(rgb):
         return "#%02x%02x%02x" % rgb
     return ";".join(f"--{k}:{hex_color(value)}" for k, value in (
@@ -653,7 +650,7 @@ def build_preview(lead, qualification):
             else "Used the business’s logo in the header."
         )
     if from_mark:
-        handoff.append("Sampled the business mark for the site’s brand, button and accent colors.")
+        handoff.append("Used the logo’s color for borders and accents on a neutral background.")
     elif palette:
         handoff.append("Chose the concept’s accent from a color in its cover photograph.")
     if phone:
@@ -777,6 +774,12 @@ def angles_for(lead, q, preview):
         elif checked and q.get("site_issue") == "malformed_contact_link":
             finding += " I noticed " + issue[:1].lower() + issue[1:]
             key, label, priority = "site", "A fix for the contact link", 3
+        elif checked and q.get("site_issue") == "website_subscription_expired":
+            finding += " When I opened your website, it showed a subscription-expired notice."
+            key, label, priority = "site", "A preview while the website is unavailable", 3
+        elif checked and q.get("site_issue") == "brochure_without_contact":
+            finding += " I looked through your homepage and couldn’t find a number, email or link to ask about a job there."
+            key, label, priority = "site", "A way to ask for an estimate from the homepage", 3
         elif checked and q.get("site_issue") == "listed_homepage_missing" and "NXDOMAIN" in issue:
             finding += " The website address on your business listing didn’t open when I checked."
             key, label, priority = "site", "The website link on the listing", 3
@@ -825,7 +828,11 @@ def angles_for(lead, q, preview):
         else:
             if len(profiles) >= 2:
                 key, label, priority = "profile", "From a listing to an estimate", 3
-        if ids and "messaging was turned off" not in finding:
+        if q.get("site_issue") == "website_subscription_expired" and any(
+            issue and normalized(issue) in normalized(sources[i]["text"]) for i in ids
+        ):
+            finding += " I found a site under your business name that showed a subscription-expired notice."
+        elif ids and "messaging was turned off" not in finding:
             finding += " I looked for a website where a customer could ask you for an estimate and couldn’t find one."
     angle_ids = {}
     for feature in ("phone", "email"):

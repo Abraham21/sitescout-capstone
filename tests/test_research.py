@@ -1355,6 +1355,25 @@ def test_ownership_can_use_a_telephone_link_or_identity_on_the_linked_contact_pa
     assert inspect()[0] == "hold"
 
 
+def test_active_brochure_without_contact_has_a_specific_offer(monkeypatch):
+    lead = CASES[0]["lead"]
+    home = "https://copperfinchpainting.example/"
+    html = (f"<h1>{lead['name']}</h1>Our painting services in {lead['city']}. "
+            f"License #{lead['id']}. <a href='/work'>Our work</a>")
+    monkeypatch.setattr(research, "read_public", lambda *_: (home, 200, "text/html", html.encode()))
+
+    def inspect():
+        q = {"email": "", "activity": {"date": "2026-11-01"}, "profile": {}}
+        status, _ = research.inspect_site(lead, home, set(), {}, q, research.fetch_page, lambda *_: "e1")
+        return status, q.get("site_issue")
+
+    assert inspect() == ("qualified", "brochure_without_contact")
+    html += "<iframe title='Online booking' src='/book'></iframe>"
+    assert inspect()[0] == "hold"
+    html += f"<a href='tel:{lead['phone']}'>Call us</a>"
+    assert inspect()[0] == "skip"
+
+
 def test_a_launching_homepage_needs_a_matched_gallery_to_offer_a_portfolio():
     from bs4 import BeautifulSoup
     from studio import build_preview, write_pitch
@@ -1431,6 +1450,11 @@ def test_link_page_needs_corroboration_and_its_owner_website_is_checked():
     assert research.find_linktree(lead, records, pages.get) is None
     records[directory] += " Employees: Morgan Finch."
     assert research.find_linktree(lead, records, pages.get)["proof"] == directory
+    recheck = {**lead, "previous_hub": {"url": hub, "identity_url": directory}}
+    pages[directory] = {"url": directory, "status": 404}
+    assert research.find_linktree(recheck, records, pages.get) is None
+    pages[directory].update(status=200, text=records[directory])
+    assert research.find_linktree(recheck, {}, pages.get)["proof"] == directory
     hits = [{"url": url, "text": text} for url, text in records.items()]
     q = research.qualify(lead, None, lambda _: hits, fetcher=pages.get)
     assert q["website"] == owner_site and q["status"] == "skip"
@@ -1491,3 +1515,93 @@ def test_listed_domain_expiry_requires_readable_repeated_notice_and_recent_ident
     competing = [{"url": replacement, "title": lead["name"], "text": lead["city"] + " " + lead["phone"]}]
     assert research.qualify(lead, None, lambda _: competing, fetcher=fetch)["status"] == "skip"
     assert research.qualify({**lead, "activity": {}}, None, lambda _: [], fetcher=fetch)["status"] == "hold"
+
+
+def test_active_painter_can_build_on_an_expired_matching_name_without_claiming_ownership():
+    from datetime import date
+    from bs4 import BeautifulSoup
+    lead = dict(CASES[0]["lead"], directory_url="https://local.yahoo.com/info-1034-copper-finch/", listed_website=False)
+    listing = lead["directory_url"]
+    home = "https://copperfinchpainting.example/"
+    weak = "https://local-profiles.example/businesses/copper-finch"
+    review = {"date": date.today().isoformat(), "source_url": "https://www.yelp.com/biz/copper-finch?hrid=demo"}
+    lead["activity"] = {**review, "type": "customer_review", "listing_url": listing}
+    profile = {"url": listing, "status": 200, "links": [], "yahoo_reviews": [review], "text": "",
+               "business_nodes": [{"name": lead["name"], "url": listing, "telephone": lead["phone"],
+                                   "address": {"addressLocality": lead["city"]}}]}
+    body = "<title>Subscription Expired</title><h2>Website Unavailable</h2><p>The subscription for this website has expired.</p>"
+    assert research.subscription_expired(BeautifulSoup(body, "html.parser"))
+    assert not research.subscription_expired(BeautifulSoup(body.replace("Website Unavailable", "Blog"), "html.parser"))
+    pages = {listing: profile, home: {"url": home, "status": 200, "text": body, "subscription_expired": True, "links": []},
+             weak: {"url": weak, "status": 403, "text": "", "links": []}}
+    hits = [{"url": weak, "title": lead["name"], "text": lead["city"]}, {"url": home, "title": lead["name"]}]
+    def run_active():
+        return research.qualify(lead, None, lambda _: hits, fetcher=lambda url: pages.get(url, {}))
+    q = run_active()
+    assert (q["status"], q["website_status"], q["website"]) == ("qualified", "no_site_found", "")
+    assert q["site_issue"] == "website_subscription_expired" and "matching" in q["issue"]
+    hits.pop()  # Only the unrelated deep directory result remains.
+    assert run_active()["status"] == "qualified"
+
+
+def test_restricted_site_requires_indexed_contact_and_independent_identity_to_skip():
+    lead = CASES[0]["lead"]
+    official, contact = "https://finchstudio.example/", "https://finchstudio.example/contact"
+    houzz = "https://www.houzz.com/professionals/painters/copper-finch"
+    yelp = "https://www.yelp.com/biz/copper-finch"
+    details = f"{lead['name']}, {lead['city']}, license {lead['id']}. Website {official}"
+    hits = [{"url": houzz, "text": details}, {"url": yelp, "text": f"{lead['name']} {lead['phone']}"}]
+    def result(indexed_email, browser_check=False):
+        def search(q):
+            if q.startswith("site:"):
+                return [{"url": contact, "title": lead["name"], "text": "Contact our painters at " + indexed_email}]
+            return hits
+        return research.qualify(lead, None, search, fetcher=lambda u: {
+            "url": u, "status": 429, "text": "", "browser_check": browser_check})
+    q = result("quotes@finchstudio.example")
+    assert q["status"] == "skip" and q["website"] == contact and "indexed" in q["reason"]
+    assert result("quotes@different.example")["status"] == "hold"
+    # The previous search result and the directory can use different www spellings.
+    lead = {**lead, "previous_website": official.replace("://", "://www.")}
+    gated = result("", browser_check=True)
+    assert gated["status"] == "skip" and research.host(gated["website"]) == research.host(official)
+    assert "No customer-facing website problem was established" in gated["reason"]
+
+
+def test_exact_local_owner_record_and_booking_email_can_verify_a_working_site():
+    lead = CASES[0]["lead"]
+    home = "https://copperfinchpainting.example/"
+    booking = home + "book-online"
+    node = {"name": lead["name"], "url": home, "address": {"addressLocality": lead["city"], "addressRegion": "CA"}}
+    site = {"url": home, "title": "Home | Copper F", "status": 200, "business_nodes": [node],
+            "text": "Welcome to our painting business. Get a quote.", "links": [{"text": "Get a Quote", "url": booking}]}
+    contact = {"url": booking, "status": 200, "text": lead["name"] + ". Book an estimate. estimates@copperfinchpainting.example"}
+    def inspect():
+        result = {"email": ""}
+        outcome = research.inspect_site(lead, home, set(), {}, result, {home: site, booking: contact}.__getitem__, lambda *_: "proof")
+        return outcome[0]
+    assert inspect() == "skip"
+    node["address"]["addressLocality"] = "San Diego"
+    assert inspect() == "hold"
+    node["address"]["addressLocality"] = lead["city"]
+    contact["text"] = lead["name"] + ". Book an estimate. someone@another.example"
+    assert inspect() == "hold"
+    contact["text"] = lead["name"] + ". estimates@copperfinchpainting.example. CSLB license 912345."
+    assert inspect() == "hold"
+
+
+def test_unlinked_namesake_needs_conflicting_license_or_publisher_and_phone():
+    lead = CASES[0]["lead"]
+    home = "https://copperfinchpainting.example/"
+    about, contact = home + "about-us", home + "contact-us"
+    page = {"url": home, "status": 200, "text": lead["name"], "links": [
+        {"url": about, "text": "About Us"}, {"url": contact, "text": "Contact Us"}]}
+    sites = {about: {"url": about, "status": 200, "text": "California contractor license #900009."},
+             contact: {"url": contact, "status": 200, "text": "Call (510) 555-0188."}}
+    assert "900009" in research.other_operator(lead, page, sites.__getitem__)
+    sites[about]["text"] = "About our painters."
+    assert not research.other_operator(lead, page, sites.__getitem__)
+    sites[about].update(text="Red Clay Builders. Get to know the team at Red Clay Builders.", operator_name="Red Clay Builders")
+    assert "Red Clay Builders" in research.other_operator(lead, page, sites.__getitem__)
+    sites[contact]["text"] += " Or call " + lead["phone"]
+    assert not research.other_operator(lead, page, sites.__getitem__)

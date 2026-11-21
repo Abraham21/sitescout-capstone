@@ -459,20 +459,24 @@ def test_multiple_services_and_places_only_use_cited_facts():
     assert [o.get_text() for o in soup.select(".area-list li")] == ["Pasadena", "Glendale"]
 
 
-def test_small_gold_lettering_supplies_a_brand_accent_with_accessible_contrast():
+@pytest.mark.parametrize("ink,expected_brand", [((178, 139, 64), "#b09050"), ((241, 14, 40), "#f01030")])
+def test_small_logo_lettering_keeps_its_color_on_neutral_surfaces(ink, expected_brand):
     from PIL import Image
     import base64
     from io import BytesIO
     from studio import site_palette, luminance
 
-    mark = Image.new("RGB", (96, 96), "black")
-    mark.paste((178, 139, 64), (41, 34, 47, 42))
+    mark = Image.new("RGB", (96, 96), (42, 12, 13))
+    mark.paste("black", (0, 0, 25, 25))
+    mark.paste(ink, (41, 34, 47, 42))
     data = BytesIO()
     mark.save(data, format="PNG")
     css = site_palette("data:image/png;base64," + base64.b64encode(data.getvalue()).decode(), True)
     colors = dict(rule.split(":") for rule in css.split(";"))
     def rgb(token):
         return tuple(bytes.fromhex(colors[token][1:]))
-    r, g, b = rgb("--brand")
-    assert r > g > b
+    assert colors["--brand"] == expected_brand
+    assert len(set(rgb("--deep"))) == 1
+    if colors["--accent"] != expected_brand:
+        assert max(rgb("--accent")) - min(rgb("--accent")) <= 12
     assert (luminance(rgb("--accent")) + .05) / (luminance(rgb("--deep")) + .05) >= 4.5

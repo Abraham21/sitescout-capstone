@@ -122,6 +122,8 @@ def listed_site_signal(url, today, business_name):
             return "unresolved domain"
     if status == 200 and "html" in mime and not urlsplit(final).path.strip("/"):
         soup = BeautifulSoup(body[:limit], "html.parser")
+        if research.subscription_expired(soup):
+            return "expired website subscription"
         if research.malformed_contact_link(soup):
             return "malformed contact link"
         if len(body) <= limit and b"soon" in body.lower() and research.launch_heading(soup):
@@ -207,7 +209,7 @@ def select(profiles, licenses, seen, limit):
         probes = pool.map(lambda lead: listed_site_signal(lead["website_url"], today, lead["name"]), linked)
         for lead, signal in zip(linked, probes):
             lead["listed_site_signal"] = signal
-            lead["missing_link"] = signal in {"missing page", "unresolved domain", "expired domain"}
+            lead["missing_link"] = signal in {"missing page", "unresolved domain", "expired domain", "expired website subscription"}
     for lead in unseen:
         lead["priority"] = (
             not lead["listed_website"] or lead.get("missing_link", False)

@@ -253,19 +253,35 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=(),
         raise ValueError("Choose live, showcase or demo and a batch size between 1 and 30.")
     storage.initialize()
     listings = {}
+    research_hints = {}
     if licenses and not recheck:
         raise ValueError("Choose a previous real run to recheck specific licenses.")
     if recheck:
         with storage.connect() as db:
             rows = db.execute(
                 """SELECT leads.id, json_extract(leads.data, '$.directory_url'), json_extract(leads.data, '$.activity'),
-                          json_extract(leads.data, '$.city')
+                          json_extract(leads.data, '$.city'), json_extract(leads.data, '$.qualification.profile.social_links'),
+                          json_extract(leads.data, '$.qualification.evidence'),
+                          coalesce(nullif(json_extract(leads.data, '$.qualification.website'), ''),
+                                   json_extract(leads.data, '$.qualification.follow_up.url'))
                    FROM leads JOIN runs ON runs.id=leads.run_id
                    WHERE runs.id=? AND runs.mode IN ('live','showcase','recheck')
                    AND runs.status IN ('complete','complete_with_errors') ORDER BY leads.rowid""",
                 (recheck,),
             )
-            listings = {license_id: (url, activity, city) for license_id, url, activity, city in rows}
+            for license_id, url, activity, city, socials, evidence, website in rows:
+                listings[license_id] = (url, activity, city)
+                hints = {}
+                if website and research.safe_url(website) and not research.listing_source(website):
+                    hints["previous_website"] = website
+                hub = next((s for s in json.loads(socials or "[]") if s.get("label") == "Linktree"), None)
+                if hub:
+                    proof = hub.get("identity_url")
+                    if not proof:  # Older runs kept the corroborating URL in the cited observation.
+                        note = next((e["text"] for e in json.loads(evidence or "[]") if e["id"] == hub["evidence_id"]), "")
+                        proof = note.partition("Identity source: ")[2].removesuffix(".")
+                    hints["previous_hub"] = {"url": hub["url"], "identity_url": proof}
+                research_hints[license_id] = hints
         if not listings:
             raise ValueError("Choose a completed run of real businesses to recheck.")
         if licenses:
@@ -332,7 +348,7 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=(),
                 ids = [entry["id"] for entry in showcase_entries()] if mode == "showcase" else listings
                 for license_id in ids:
                     if license_id in active and license_id not in dismissed:
-                        lead = active[license_id]
+                        lead = {**active[license_id], **research_hints.get(license_id, {})}
                         # Revisit the public listing discovery originally found. The qualifier
                         # reads it anew and matches its current business name, locality and phone.
                         source, activity, _ = listings.get(license_id, (None, None, None))
