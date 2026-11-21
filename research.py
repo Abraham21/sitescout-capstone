@@ -619,13 +619,19 @@ def fetch_page(url, within=""):
         page["yahoo_reviews"] = business_profile.yahoo_reviews(soup)
     # On this publisher, article-level OG images belong to the individual gallery.
     if host(url) == "local.yahoo.com" and soup.select_one("#business-photo-grid"):
-        page["listing_photos"] = list(
+        gallery = list(
             dict.fromkeys(
                 m["content"]
                 for m in soup.select('meta[property="og:image"][content]')
                 if re.fullmatch(r"https://s\.yimg\.com/bj/[a-f0-9]+/[a-f0-9]+\.jpg", m["content"])
             )
-        )[:12]
+        )
+        page["listing_photo_count"] = len(gallery)
+        # A business mark can be the last upload. Cover the whole album within one visual call.
+        slots = business_profile.MAX_GALLERY_CANDIDATES
+        if len(gallery) > slots:
+            gallery = [gallery[round(i * (len(gallery) - 1) / (slots - 1))] for i in range(slots)]
+        page["listing_photos"] = gallery
     for tag in soup(["script", "style", "noscript", "template"]):
         tag.decompose()
     page.update(
@@ -876,7 +882,7 @@ def apply_photo_choices(profile, photos, review, lead=None):
             profile["media"].insert(0, cover)
             profile["cover_evidence_id"] = cover["evidence_id"]
     captions = review.get("photo_captions")
-    for item in captions[:10] if isinstance(captions, list) else []:
+    for item in captions[:len(photos)] if isinstance(captions, list) else []:
         if not isinstance(item, dict):
             continue
         number, caption = item.get("photo"), item.get("caption")
@@ -1479,7 +1485,7 @@ def directory_page(url, day):
     if gallery_pages([url]) != [url]:
         return fetch_page(url)
     saved = _directory_snapshot(url, day)
-    if saved is not None:
+    if saved is not None and ("listing_photo_count" in saved or len(saved.get("listing_photos", [])) != 12):
         return saved
     page = fetch_page(url)
     if page["status"] == 200 and page["url"].rstrip("/") == url.rstrip("/") and any(
@@ -1487,7 +1493,9 @@ def directory_page(url, day):
         for node in page.get("business_nodes", [])
     ):
         _directory_snapshot(url, day, page)
-    return page
+        return page
+    # Older snapshots recorded only the first twelve photos. Keep them if refresh is unavailable.
+    return saved or page
 
 
 def same_trade_name(registered, listed):
@@ -1596,7 +1604,8 @@ def attach_listing(lead, pages, profile, add, fetch, read_image):
             )
             for i, asset in enumerate(gallery, 1)
         ]
-        if sum(item["kind"] == "project" for item in profile["media"]) < 6:
+        if (sum(item["kind"] == "project" for item in profile["media"]) < 6
+                or not any(item["kind"] == "logo" for item in profile["media"])):
             embed_photos(images, profile, add, read_image)
         # A second matched listing can supply different customers even if we already have photos.
         if len(profile["testimonials"]) >= 3:

@@ -11,7 +11,7 @@ from urllib.parse import parse_qs, urljoin, urlsplit
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-MAX_GALLERY_CANDIDATES = 12
+MAX_GALLERY_CANDIDATES = 24
 
 BUSINESS_TYPES = {
     "LocalBusiness",

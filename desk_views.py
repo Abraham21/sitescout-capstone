@@ -131,11 +131,19 @@ def how_it_works(events=(), *, synthetic=False):
     }
     steps = []
     if names:
+        if st.session_state.get("graph_business") not in names:
+            st.session_state.pop("graph_business", None)
+
+        def remember_business():
+            st.query_params.from_dict({"view": "workflow", "run": events[0]["run_id"],
+                                       "business": st.session_state.graph_business})
+
         lead_id = st.selectbox(
             "Follow a business through the graph",
             sorted(names, key=lambda key: (key not in published, names[key])),
             format_func=lambda key: display_name(names[key]),
             key="graph_business",
+            on_change=remember_business,
         )
         st.caption(
             "Playing recorded handoffs from a "

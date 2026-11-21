@@ -24,7 +24,7 @@ def contact_sheet(photos):
     photos = photos[:MAX_GALLERY_CANDIDATES]
     if not photos:
         return None
-    columns = min(3, len(photos))
+    columns = min(4 if len(photos) > 12 else 3, len(photos))
     width, height = (650, 460) if len(photos) == 1 else (240, 180)
     sheet = Image.new("RGB", (columns * width, ((len(photos) + columns - 1) // columns) * height), "white")
     labels = ImageDraw.Draw(sheet)
@@ -57,7 +57,7 @@ def gemini(prompt, run_id, lead_id, *, photos=()):
         )
         prompt += (
             ' Return "portfolio_photos" (numbers showing actual painting work, not flyers, logos or personal posts). '
-            'Return "logo_photo" only for a fully visible, standalone business logo. A mark printed '
+            'Scan every numbered tile for the painter’s own logo. Return "logo_photo" only for a fully visible, standalone business logo. A mark printed '
             'in the corner of a project collage is not a standalone logo. In "logo_name" transcribe '
             'the business name actually visible on the mark. Omit ambiguous marks. '
             'If a company website is legible in an image, return "printed_domain" exactly as printed '

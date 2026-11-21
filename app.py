@@ -672,6 +672,8 @@ def lead_panel(lead, run_id, events, replay, *, synthetic=False, from_queue=Fals
     with evidence:
         evidence_panel(lead, synthetic=synthetic)
     with trace:
+        route_url = "?" + urlencode({"view": "workflow", "run": run_id, "business": lead["id"]})
+        st.markdown(f"[Step through this business’s handoffs]({route_url})")
         if from_queue:
             handoff_chain(relevant, lead, synthetic=synthetic)
         if review:
@@ -917,6 +919,10 @@ def read_location(runs):
         return
     if query.get("view") == "workflow":
         st.session_state.view = "How it works"
+        if query.get("run") in {r["id"] for r in runs}:
+            st.session_state.saved_run = query["run"]
+        if query.get("business"):
+            st.session_state.graph_business = query["business"]
         return
     if "contact" in query or "group" in query:
         contact = query.get("contact")
@@ -1003,7 +1009,16 @@ def main():
     def navigate():
         st.session_state.pop("playing", None)
         if st.session_state.view == "How it works":
-            set_location(view="workflow")
+            current = st.query_params.to_dict()
+            rid = current.get("run") or current.get("replay")
+            business = current.get("business")
+            location = {"view": "workflow"}
+            if rid:
+                location["run"] = rid
+            if business:
+                st.session_state.graph_business = business
+                location["business"] = business
+            set_location(**location)
         elif st.session_state.view == "Runs":
             rid = st.session_state.get("saved_run") or next(iter(sources), None)
             st.session_state.replaying = None
@@ -1042,7 +1057,8 @@ def main():
             )
         return
     if view == "How it works":
-        example = next(
+        example = sources.get(st.query_params.get("run"))
+        example = example or next(
             (
                 r
                 for r in runs
