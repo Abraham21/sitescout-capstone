@@ -95,3 +95,37 @@ def test_an_exhausted_first_window_follows_the_next_published_page(tmp_path, mon
     assert scans == [None, {"Burbank": 4}]
     assert intake.discover(1, {lead["id"]}) == []
     assert scans[-1] == {"Burbank": 7}
+
+
+def test_broken_listing_beats_no_link_and_a_denied_site_is_not_a_defect(monkeypatch):
+    lead = {"name": "Maple Painting", "city": "Burbank", "phone": "818-555-0100", "id": "100"}
+    licenses = [{**lead, "id": str(100 + i), "phone": f"818-555-010{i}"} for i in range(4)]
+    profiles = []
+    for i, row in enumerate(licenses):
+        url = ("https://closed.example", "", "", "https://denied.example")[i]
+        profiles.append({**row, "listed_website": bool(url), "website_url": url, "contact_estimates": i == 2,
+                         "activity": {"date": "2026-11-10", "listing_url": f"https://local.yahoo.com/info-{i}/"}})
+    monkeypatch.setattr(research, "read_public", lambda url, *_: (url, 404 if "closed" in url else 403, "", b""))
+    intake.listed_link_missing.cache_clear()
+    selected, counts = intake.select(profiles, licenses, set(), 4)
+    assert [lead["id"] for lead in selected] == ["100", "102", "101", "103"]
+    assert counts["priority_candidates"] == 3 and counts["unseen_with_missing_link"] == 1
+
+
+def test_discovery_widens_even_if_listed_sites_would_fill_the_batch(monkeypatch, tmp_path):
+    monkeypatch.setenv("SITESCOUT_DATA_DIR", str(tmp_path))
+    calls = []
+    first = {"id": "1", "name": "Elm Painting", "city": "Burbank", "phone": "818-555-0101"}
+    later = {**first, "id": "2", "name": "Oak Painting", "phone": "818-555-0102"}
+
+    def window(today, report, starts=None):
+        calls.append(starts)
+        lead = later if starts else first
+        profile = {**lead, "listed_website": not starts, "activity": {"date": "2026-11-19", "listing_url": lead["id"]}}
+        return {"profiles": [profile], "next_pages": {} if starts else {"Burbank": 4},
+                "counts": {"source_listings": 1, "recent_profiles": 1}}
+
+    monkeypatch.setattr(intake, "public_profiles", window)
+    monkeypatch.setattr(research, "discover", lambda *args: [first, later])
+    assert intake.discover(1, set())[0]["id"] == later["id"]
+    assert calls == [None, {"Burbank": 4}]

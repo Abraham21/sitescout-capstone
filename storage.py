@@ -159,7 +159,10 @@ def seen_live_ids():
               WHERE runs.mode IN ('live','showcase','recheck') AND runs.status IN ('complete','complete_with_errors','interrupted')
               AND EXISTS (SELECT 1 FROM events WHERE events.run_id=runs.id AND json_extract(events.data,'$.lead_id')=leads.id
                           AND json_extract(events.data,'$.stage')='Queue') AND json_extract(data,'$.status')
-              IN ('ready','manual','skip','hold','blocked','dismissed')""")
+              IN ('ready','manual','skip','hold','blocked','dismissed')
+              UNION
+              SELECT usage.lead_id FROM usage LEFT JOIN runs ON runs.id=usage.run_id
+              WHERE runs.id IS NULL AND usage.service='Exa'""")
         }
 
 

@@ -244,7 +244,7 @@ def test_business_phone_and_gallery_reach_the_artifact_and_pitch():
         and "e3" in page["evidence_ids"]
     )
     pitch = write_pitch(lead, q, page, None)
-    assert pitch["opening"] in pitch["body"] and "links to your photos" in pitch["opening"]
+    assert pitch["opening"] in pitch["body"] and "links to your gallery" in pitch["opening"]
     assert review(lead, q, page, pitch, None)["passed"]
     wrong = {**page, "handoff": "Imported their photos."}
     assert not review(lead, q, wrong, pitch, None)["passed"]
@@ -351,12 +351,45 @@ def test_testimonial_selection_checks_full_feedback_and_preserves_individual_sta
     page = BeautifulSoup(build_preview(LEAD, q)["html"], "html.parser")
     cards = page.select("#reviews figure")
     assert len(cards) == 2
+    assert page.select_one("#reviews-title").text == "Customer reviews"
     assert cards[0].select_one('[aria-label="5 out of 5 stars"]')
     assert not cards[1].select_one(".review-stars")
     profile["testimonials"][1]["rating"] = 5
     assert (
         len(BeautifulSoup(build_preview(LEAD, q)["html"], "html.parser").select("#reviews figure")) == 1
     )
+
+
+def test_syndicated_praise_keeps_context_and_an_empty_review_section_is_omitted():
+    from bs4 import BeautifulSoup
+    import research
+
+    source = "https://local.yahoo.com/info-1-elm/"
+    yelp = "https://www.yelp.com/biz/elm-painting?hrid=abc"
+    published = "The crew painted our front door last month. Their work was phenomenal. Not only was the color perfect, the finish was beautiful..."
+    evidence = list(QUALIFIED["evidence"])
+    profile = {"testimonials": [], "review_links": []}
+
+    def add(url, text, kind):
+        evidence.append({"id": "review", "url": url, "text": text})
+        return "review"
+
+    row = {"quote": published, "author": "J. Doe", "rating": 5, "source_url": yelp}
+    research.attach_testimonials([row], source, "Yelp via Yahoo Local", profile, add)
+    q = {**QUALIFIED, "evidence": evidence, "profile": profile}
+    page = BeautifulSoup(build_preview(LEAD, q)["html"], "html.parser")
+    assert published in evidence[-1]["text"]
+    assert profile["testimonials"][0]["quote"] == "Their work was phenomenal."
+    assert page.select_one(".review-source")["href"] == yelp.split("?")[0]
+    assert page.select_one(".review-card a")["href"] == yelp
+
+    profile["testimonials"] = []
+    profile["review_links"] = [{"label": "Read reviews on Yahoo Local", "url": source, "evidence_id": "review"}]
+    research.attach_testimonials([{**row, "quote": "Not only was the price great, they also damaged the floor."}],
+                                source, "Yelp via Yahoo Local", profile, add)
+    page = BeautifulSoup(build_preview(LEAD, q)["html"], "html.parser")
+    assert not page.select_one('#reviews, a[href="#reviews"], .review-source')
+    assert "Read reviews on Yahoo Local" not in page.get_text()
 
 
 def test_instagram_portfolio_in_rehearsal_and_when_a_real_profile_hides_its_photos():
@@ -410,3 +443,22 @@ def test_multiple_services_and_places_only_use_cited_facts():
         "Cabinet refinishing",
     }
     assert [o.get_text() for o in soup.select(".area-list li")] == ["Pasadena", "Glendale"]
+
+
+def test_small_gold_lettering_supplies_a_brand_accent_with_accessible_contrast():
+    from PIL import Image
+    import base64
+    from io import BytesIO
+    from studio import site_palette, luminance
+
+    mark = Image.new("RGB", (96, 96), "black")
+    mark.paste((178, 139, 64), (41, 34, 47, 42))
+    data = BytesIO()
+    mark.save(data, format="PNG")
+    css = site_palette("data:image/png;base64," + base64.b64encode(data.getvalue()).decode(), True)
+    colors = dict(rule.split(":") for rule in css.split(";"))
+    def rgb(token):
+        return tuple(bytes.fromhex(colors[token][1:]))
+    r, g, b = rgb("--brand")
+    assert r > g > b
+    assert (luminance(rgb("--accent")) + .05) / (luminance(rgb("--deep")) + .05) >= 4.5

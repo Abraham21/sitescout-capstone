@@ -29,6 +29,16 @@ def test_visual_qualifier_uses_one_numbered_sheet_and_preserves_photo_sources():
     ]
     with Image.open(BytesIO(base64.b64decode(contact_sheet(photos)))) as sheet:
         assert sheet.size == (480, 180)
+    # The large second read must preserve both ends of a wide wordmark.
+    wide = Image.new("RGB", (1000, 180), "blue")
+    wide.paste("red", (0, 0, 100, 180))
+    wide.paste("green", (900, 0, 1000, 180))
+    data = BytesIO()
+    wide.save(data, format="PNG")
+    encoded = "data:image/png;base64," + base64.b64encode(data.getvalue()).decode()
+    with Image.open(BytesIO(base64.b64decode(contact_sheet([{"url": encoded}])))) as enlarged:
+        assert enlarged.getpixel((24, 30))[0] > 225
+        assert enlarged.getpixel((620, 30))[1] > 100
     profile = {"media": photos.copy()}
     verdict = {
         "hero_photo": 2,
@@ -187,3 +197,11 @@ def test_handoff_records_use_real_artifacts_and_only_publish_exposes_the_hosted_
     assert events["Review"]["text"] == lead["review"]["feedback"]
     assert events["Publish"]["url"] == lead["preview"]["url"]
     assert all("url" not in payload for stage, payload in events.items() if stage != "Publish")
+
+
+def test_fresh_selection_remembers_research_outside_dashboard_batches(isolated):
+    storage.reserve("early-public-research", "123456", "Exa", 0.014, 6, 3)
+    storage.new_run("recoverable-run", "live")
+    storage.reserve("recoverable-run", "654321", "Exa", 0.014, 6, 3)
+    assert "123456" in storage.seen_live_ids()
+    assert "654321" not in storage.seen_live_ids()

@@ -170,9 +170,12 @@ def endorses_work(text, rating=None):
         rating is not None and (type(rating) is not int or rating not in {4, 5})
     ):
         return False
+    # These expressions are common in praise. Other reservations still disqualify the review.
+    text = re.sub(r"\bnot only\b", "", text, flags=re.I)
+    text = re.sub(r"\bcould(?: not|n['’]t) (?:have been|be) (?:happier|more pleased)\b", "pleased", text, flags=re.I)
     if re.search(
         r"\b(?:not|never|but|however|although|except|unprofessional|disappoint\w*|poor\w*|"
-        r"terrible|awful|slow|rude|damage[ds]?|refund|incomplete|complaint|avoid|overcharg\w*)\b"
+        r"terrible|awful|slow|rude|shoddy|messy|unreliable|damage[ds]?|refund|incomplete|complaint|avoid|overcharg\w*)\b"
         r"|n['’]t\b",
         text,
         re.I,
@@ -182,7 +185,7 @@ def endorses_work(text, rating=None):
         re.search(
             r"\b(?:great|excellent|beautiful\w*|awesome|love[dl]?|wonderful|"
             r"recommend(?:ed)?|pleased|happy|crisp|professional|lovely|outstanding|"
-            r"quality work|friendly|knowledgeable|exceeded|flawless|impeccable|fantastic)\b",
+            r"quality work|responsive|friendly|knowledgeable|exceeded|flawless|impeccable|phenomenal|fantastic)\b",
             text,
             re.I,
         )
@@ -382,14 +385,14 @@ def listing_profile(profile, url, text, evidence_id):
         profile["instagram_url"] = url
     item = {"url": url, "source_url": url, "evidence_id": evidence_id}
     # Never infer photos or completed projects from a site's default “Photos & reviews” heading.
-    count = re.search(r"(?:see all\s+)?\b([1-9]\d{0,3})\s+(?:photos|projects)\b", text, re.IGNORECASE)
+    count = re.search(r"\b([1-9]\d{0,3})\s+(photos?|projects)\b", text, re.IGNORECASE)
     portfolio = re.search(
         r"\b(?:our (?:work|portfolio|projects)|portfolio of|recent projects?|before and after)\b",
         text,
         re.IGNORECASE,
     )
     if count or portfolio:
-        label = count[0].removeprefix("See all ").removeprefix("see all ") if count else "Work"
+        label = f"{count[1]} {count[2].lower().rstrip('s')}{'s' if count[1] != '1' else ''}" if count else "Work"
         profile["work_links"].append({**item, "label": f"{label.capitalize()} on {platform}"})
     if re.search(
         r"\b[1-9]\d{0,4}\s+(?:recommended\s+)?reviews?\b|customer reviews?:", text, re.IGNORECASE

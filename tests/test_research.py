@@ -267,6 +267,8 @@ def test_only_observed_listing_media_is_linked_and_only_for_verified_identity():
     case = {**case, "pages": {**case["pages"], base["url"]: listing}}
     q = run(case, results=[base, case["results"][1]])
     assert q["profile"]["work_links"][0]["label"] == "9 photos on Yelp"
+    one = {**base, "text": base["text"].replace("9 photos", "1 photo")}
+    assert run(case, results=[one, case["results"][1]])["profile"]["work_links"][0]["label"] == "1 photo on Yelp"
     assert q["profile"]["review_links"][0]["url"] == base["url"] and not q["profile"]["media"]
     assert [(x["author"], x["source_url"]) for x in q["profile"]["testimonials"]] == [
         ("D. Lane", base["url"])
@@ -376,6 +378,40 @@ def test_listing_qualifies_only_a_phone_matched_painter_with_verified_work():
     assert research.qualify(intake, None, lambda _: [], fetcher=lambda _: page)["status"] == "hold"
 
 
+def test_unique_local_trading_name_reaches_preview_pitch_and_reviewer():
+    from activity_intake import select
+    from bs4 import BeautifulSoup
+    from studio import build_preview, review, write_pitch
+
+    licensee = {**CASES[0]["lead"], "name": "MARTIN LARK-SOTO"}
+    url = "https://local.yahoo.com/info-123-lark-painting-glendale/"
+    review_url = "https://www.yelp.com/biz/lark-painting?hrid=review1"
+    today = research.date.today().isoformat()
+    activity = {"type": "customer_review", "date": today, "source_url": review_url, "listing_url": url}
+    profile = {"name": "Lark Painting", "city": licensee["city"], "phone": licensee["phone"],
+               "activity": activity, "listed_website": False}
+    node = {"name": profile["name"], "url": url, "address": {"addressLocality": profile["city"]},
+            "telephone": profile["phone"]}
+    page = {"url": url, "status": 200, "text": "", "links": [], "business_nodes": [node],
+            "yahoo_reviews": [{"date": today, "source_url": review_url, "author": "J. Guest",
+                               "quote": "The cabinet paint looks wonderful.", "rating": 5}]}
+    [lead], _ = select([profile], [licensee], set(), 1)
+    qualified = research.qualify(lead, None, lambda _: [], fetcher=lambda _: page)
+    preview = {**build_preview(lead, qualified), "url": "/preview"}
+    pitch = write_pitch(lead, qualified, preview, None)
+    assert BeautifulSoup(preview["html"], "html.parser").h1.get_text(" ", strip=True) == "Lark Painting"
+    assert pitch["subject"].endswith("Lark Painting") and pitch["body"].startswith("Hi Lark Painting team,")
+    assert qualified["facts"]["citations"]["Lark Painting"] in pitch["evidence_ids"]
+    assert review(lead, qualified, preview, pitch, None)["passed"]
+
+    # A changed/ambiguous source or a second matching license cannot lend its brand.
+    page["business_nodes"].append({**node, "name": "Lark and Sons Painting"})
+    ambiguous = research.qualify(lead, None, lambda _: [], fetcher=lambda _: page)
+    assert "public_name" not in ambiguous["facts"]
+    assert "Martin Lark-Soto" in build_preview(lead, ambiguous)["html"]
+    assert not select([profile], [licensee, {**licensee, "id": "other"}], set(), 1)[0]
+
+
 def test_verified_first_party_gallery_supports_a_real_self_contained_raster():
     import io
 
@@ -444,11 +480,11 @@ def test_gallery_cover_uses_image_quality_and_can_select_later_photos():
         raw = io.BytesIO()
         # The last image is wide, correctly exposed and spreads across a landscape cover.
         size = (1200, 800) if i == 8 else (320, 600)
-        Image.new("RGB", size, (90 + i, 60, 120)).save(raw, "JPEG")
+        Image.new("RGB", size, (90 + i * 10, 60, 120)).save(raw, "JPEG")
         rasters[url] = business_profile.small_raster(raw.getvalue(), "project")
 
     research.embed_photos(candidates, profile, lambda *_: "e1", lambda u, _: rasters[u])
-    assert len(profile["media"]) == 6
+    assert len(profile["media"]) == 9  # The visual qualifier chooses the final six.
     assert profile["media"][0]["asset_url"] == candidates[-1][1]["asset_url"]
 
 
@@ -797,7 +833,26 @@ def test_an_unknown_marketplace_can_propose_a_real_website_but_cannot_veto_as_ow
     assert research.directory_publisher(lead, zip_page, "10 providers listed in Inglewood")
     assert not research.directory_publisher(lead, zip_page, "Copper Finch Painting serves Inglewood.")
 
+def test_verified_directory_profile_paths_do_not_hide_a_possible_owner_site():
+    case = CASES[0]
+    lead = case["lead"]
+    urls = [
+        "https://uslocaldir.com/copper-finch-painting-glendale-ca-91201.xhtml",
+        "https://prismpaintingcompany.com/business/copper-finch-painting-ca-1122/",
+        "https://a1cleaningrestoration.com/business/copper-finch-painting-ca-3344/",
+    ]
+    def hit(url):
+        return {"url": url, "title": lead["name"], "text": f"{lead['city']} {lead['phone']}."}
+    hits = [hit(url) for url in urls] + case["results"]
+    result = run(case, results=hits)
+    assert result["status"] == "qualified"
+    assert set(urls) <= {e["url"] for e in result["evidence"] if e["kind"] == "assessment"}
 
+    owner = "https://finch-studio.example/business/copper-finch-painting-ca-1122/"
+    private_page = {"url": owner, "status": 403, "text": ""}
+    assert run({**case, "pages": {owner: private_page}}, results=[*hits, hit(owner)])["status"] == "hold"
+    assert not research.directory_publisher(lead, "https://prismpaintingcompany.com/contact", "")
+    assert not research.directory_publisher({"name": "Prism Painting Company", "city": "Glendale"}, urls[1], "")
 
 def test_license_query_and_owner_site_retry_after_timeout():
     # A business can publish a sales line that differs from the registry phone.
@@ -856,11 +911,18 @@ def test_disconnected_homepage_requires_registered_phone_and_repeat_host_error(m
     domain, listing = "https://copperfinchpainting.example", "https://www.contractorsup.com/123/copper-finch"
     hits = [{"url": listing, "title": lead["name"], "text": lead["city"]}]
     markup = b"<html><title>ConnectYourDomain Error | Wix.com</title></html>"
-    monkeypatch.setattr(research, "read_public", lambda url, accept, limit: (url, 404, "text/html", markup))
+    monkeypatch.setattr(research, "read_public", lambda url, *_: (url, 404, "text/html", markup))
     error_page = research.fetch_page(domain)
     assert error_page["disconnected_domain"]
-    for phone, second_error, expected in [(lead["phone"], True, "qualified"),
-                                          (lead["phone"], False, "hold"), ("310-555-0101", True, "hold")]:
+    for phone, first_code, second_code, wix, redirect, expected in [
+        (lead["phone"], 404, 404, True, "", "listed_homepage_disconnected"),
+        (lead["phone"], 404, 404, False, "", "listed_homepage_missing"),
+        (lead["phone"], 410, 410, False, "", "listed_homepage_missing"),
+        (lead["phone"], 404, 403, False, "", "hold"),
+        (lead["phone"], 0, 0, False, "", "hold"),
+        (lead["phone"], 404, 404, False, "/different-page", "hold"),
+        ("310-555-0101", 404, 404, True, "", "hold"),
+    ]:
         calls = []
 
         def fetch(url):
@@ -869,13 +931,53 @@ def test_disconnected_homepage_requires_registered_phone_and_repeat_host_error(m
                         "links": [{"text": "Call", "url": f"tel:{phone}"}, {"text": "Website", "url": domain}]}
             assert url == domain
             calls.append(url)
-            return {**error_page, "disconnected_domain": len(calls) == 1 or second_error}
+            return {**error_page, "url": url + redirect,
+                    "status": first_code if len(calls) == 1 else second_code, "disconnected_domain": wix}
 
         q = research.qualify(lead, None, lambda query: hits, fetcher=fetch)
-        assert q["status"] == expected and calls == [domain, domain]
-        if expected == "qualified":
-            assert q["site_issue"] == "listed_homepage_disconnected"
+        assert calls == [domain, domain]
+        if expected == "hold":
+            assert q["status"] == "hold"
+        else:
+            assert q["status"] == "qualified" and q["site_issue"] == expected
+            assert len(set(q["issue_evidence_ids"])) == 3
             assert set(q["issue_evidence_ids"]) <= set(q["retrieved_ids"])
+            from studio import build_preview, angles_for
+            first = angles_for(lead, q, build_preview(lead, q))[0]
+            assert "website link on your business listing twice" in first["opening"]
+            assert set(q["issue_evidence_ids"]) <= set(first["evidence_ids"])
+
+    # A healthy replacement wins even when the officially listed link was broken.
+    replacement = "https://copperfinchpaintingnew.example/"
+    def competing(url):
+        if url == replacement:
+            return {"url": url, "status": 200, "title": lead["name"], "has_form": True,
+                    "links": [], "text": f"{lead['name']}. Call us at {lead['phone']} for a quote."}
+        if url == listing:
+            return {"url": url, "status": 200, "text": f"{lead['name']}. {lead['city']}.",
+                    "links": [{"text": "Call", "url": "tel:" + lead["phone"]}, {"text": "Website", "url": domain}]}
+        assert url == domain
+        return {**error_page, "disconnected_domain": False}
+    q = research.qualify(lead, None, lambda query: hits + [
+        {"url": replacement, "title": lead["name"], "text": f"{lead['city']} {lead['phone']}"}
+    ], fetcher=competing)
+    assert q["status"] == "skip" and q["website"] == replacement
+
+
+def test_procurement_pdf_is_evidence_and_never_the_business_website():
+    case = CASES[0]
+    lead = case["lead"]
+    pdf = "https://bidders.example/2026/award-notice.PDF"
+    item = {"url": pdf, "title": "Procurement award register", "text": f"{lead['name']}, {lead['city']}: {lead['phone']}."}
+    # run() will also reject an attempt to fetch the document as an owner page.
+    q = run(case, results=[*case["results"], item])
+    assert q["status"] == "qualified" and any(r["url"] == pdf for r in q["evidence"])
+    owner = "https://copperfinchpainting.example"
+    pages = {**case["pages"], owner: {"url": owner, "status": 200, "links": [], "has_form": True,
+                                      "text": f"We are {lead['name']}. Call us at {lead['phone']}."}}
+    q = run({**case, "pages": pages}, results=[*case["results"], {**item, "text": item["text"]+" Website: "+owner}])
+    assert q["status"] == "skip" and q["website"] == owner
+
 
 
 def test_trade_name_paint_or_painting_requires_the_same_registered_phone():
@@ -904,3 +1006,60 @@ def test_namesake_needs_a_declared_base_and_two_foreign_cities_to_dismiss():
                           lambda u: {"url": u, "status": 200, "text": "Copper Finch Painting", "links": []},
                           lambda *args: "e1")
     assert thin["follow_up"]["url"] == website and "Open it in a browser" in thin["follow_up"]["reason"]
+
+
+def test_shell_uses_remaining_search_for_verified_same_domain_contact():
+    lead = CASES[0]["lead"]
+    home = "https://copperfinchpainting.example/"
+    contact = "https://residential.copperfinchpainting.example/"
+    unrelated = "https://copperfinchpainting.example.other.test/contact"
+    identity = f"{lead['name']} in {lead['city']}. Call {lead['phone']} for an estimate."
+
+    for has_phone, used_all_searches, expected in [(True, False, "skip"), (False, False, "hold"), (True, True, "hold")]:
+        calls, fetched = [], []
+
+        def search(query):
+            calls.append(query)
+            if query.startswith("site:"):
+                return [{"url": u, "text": identity} for u in (unrelated, contact)]
+            return [{"url": home, "text": lead["name"] if used_all_searches else identity}]
+
+        def fetch(url):
+            fetched.append(url)
+            assert url in {home, contact}
+            body = identity if url == contact and has_phone else lead["name"]
+            return {"url": url, "status": 200, "text": body, "links": []}
+
+        result = research.qualify(lead, None, search, fetcher=fetch)
+        assert len(calls) == (3 if used_all_searches else 2)
+        assert result["status"] == expected
+        if expected == "skip":
+            assert result["website"] == contact and contact in fetched
+        else:
+            assert result["follow_up"]["url"] == home and result["website_status"] == "unsure"
+
+
+def test_matching_logo_and_printed_domain_are_verified_before_the_build():
+    import business_profile
+
+    case = CASES[0]
+    site = "https://copperfinchpainting.example"
+    pages = {**case["pages"], site: {
+        "url": site, "status": 200, "text": "Copper Finch Painting. Call us at (818) 555-0101 for an estimate.",
+        "has_form": True, "links": [], "title": "Copper Finch Painting",
+    }}
+    vision_calls = []
+
+    def vision(prompt, photos):
+        vision_calls.append(len(photos))
+        return {"logo_photo": 1, "logo_name": "Copper Finch Painting", "domain_photo": 1,
+                "printed_domain": "copperfinchpainting.example", "portfolio_photos": [2], "hero_photo": 2}
+
+    result = research.qualify(case["lead"], lambda _: {}, lambda _: case["results"],
+                              fetcher=lambda u: pages[u], photo_model=vision,
+                              image_reader=lambda u, kind: business_profile.fixture_image(case["image_files"], u, kind))
+    assert vision_calls == [2, 1]
+    assert result["status"] == "skip" and result["website"] == site
+    logo = next(m for m in result["profile"]["media"] if m["kind"] == "logo")
+    assert logo["evidence_id"] == result["printed_website"]["evidence_id"]
+    assert any("Visual reading" in row["text"] for row in result["evidence"])

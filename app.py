@@ -694,10 +694,14 @@ def workspace(run, replay=False):
                 f"in the past year. Of those, {intake['unique_active_license_matches']} matched one "
                 f"active painting license by phone, city and name. {intake['eligible_unseen']} were new."
             )
-            st.caption(
-                "Profiles without a listed website come first, followed by the most recent review. "
-                "The researcher then independently checks for an existing business website."
-            )
+            if "priority_candidates" in intake:
+                st.caption(
+                    "Discovery checks listed links for missing pages and looks for painters without a listed site. "
+                    "Within those groups it prioritizes listings that request estimates by phone or message, "
+                    "then work photos and recent reviews. The researcher independently checks ownership and contact."
+                )
+            else:
+                st.caption("Profiles without a listed website came first, followed by the most recent review.")
     elif run["mode"] == "live" and any(
         event["stage"] == "Discover" and "public listings." in event["message"] for event in events
     ):

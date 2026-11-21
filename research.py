@@ -225,6 +225,11 @@ STREET = re.compile(
 )
 CONTACT = re.compile(r"\b(quote|estimate|contact|booking|appointment|inquiry)\b", re.IGNORECASE)
 
+ESTIMATE_BY_PHONE_OR_MESSAGE = re.compile(
+    r"\b(?:call|phone|message|dm|text)(?:\s+\w+){0,8}\s+(?:estimate|quote|booking)s?\b|\b(?:quotes?|estimates?)(?:\s+\w+){0,5}\s+(?:phone|dm|message)\b|\b(?:llama|mensaje|llámenos|escríbenos)\b.{0,70}\b(?:presupuesto|cotización)",
+    re.IGNORECASE,
+)
+
 
 def host(url):
     try:
@@ -250,6 +255,13 @@ def directory_publisher(lead, url, text):
     if branded(lead, url):
         return ""
     path = urlsplit(url).path.casefold()
+    publisher = host(url)
+    if publisher == "uslocaldir.com" and re.fullmatch(r"/[a-z0-9-]+-[a-z]{2}-\d{5}(?:-\d+)?\.xhtml", path):
+        return "US Local Directory publishes ZIP-coded records for other businesses."
+    if publisher in {"prismpaintingcompany.com", "a1cleaningrestoration.com"} and re.fullmatch(
+        r"/business/[a-z0-9-]+-[a-z]{2}-\d+/?", path
+    ):
+        return "This publisher hosts numbered business profiles by state."
     if re.search(r"/compan(?:y|ies)/[a-z]{2}-[a-z]{2}/", path) and re.search(
         r"registry number|company number", text, re.I
     ) and re.search(r"jurisdiction|legal form", text, re.I):
@@ -314,10 +326,10 @@ def public_socket(address, timeout, source_address=None):
     raise OSError("No reachable public address")
 
 
-def read_public(url, accept, limit):
+def read_public(url, accept, limit, within=""):
     """Connect to public addresses only and cap redirects, response bytes and read time."""
     for _ in range(4):
-        if not safe_url(url):
+        if not safe_url(url) or (within and not domain_in(url, (within,))):
             break
         p = urlsplit(url)
         conn_type = http.client.HTTPSConnection if p.scheme == "https" else http.client.HTTPConnection
@@ -353,10 +365,10 @@ def fetch_image(url, kind):
     return business_profile.small_raster(body, kind)
 
 
-def fetch_page(url):
+def fetch_page(url, within=""):
     """Read a bounded public HTML document and its labeled links and media."""
     requested_path = urlsplit(url).path.strip("/")
-    url, status, content_type, body = read_public(url, "text/html,application/xhtml+xml", 1_250_000)
+    url, status, content_type, body = read_public(url, "text/html,application/xhtml+xml", 1_250_000, within)
     page = {"url": url, "status": status, "text": "", "links": [], "has_form": False}
     if status == 404 and body:
         title = BeautifulSoup(body, "html.parser").title
@@ -532,7 +544,7 @@ def branded(lead, url):
     if terms and all(t in stem for t in terms):
         return True
     # Initials can identify a trade brand when qualified by the full business name and phone/license on the page.
-    name_words = words(lead["name"]).split()
+    name_words = re.sub(r"\b(?:[a-z] ){2,}(?=[a-z]\b)", lambda m: m[0].replace(" ", ""), words(lead["name"])).split()
     short_trade_name = "".join(name_words[:2])
     return (
         len(name_words) >= 2
@@ -604,22 +616,32 @@ def contact_email(page):
     return match[1] if match else ""
 
 
-def apply_photo_choices(profile, photos, review):
+def apply_photo_choices(profile, photos, review, lead=None):
     """Visual descriptions supplement an unlabeled gallery. The original source stays attached."""
     suitable = review.get("portfolio_photos")
     selected = {n for n in suitable if type(n) is int} if isinstance(suitable, list) else set()
-    # A business may also post personal photos. Only carry its relevant images into the site.
+    mark, mark_name = review.get("logo_photo"), review.get("logo_name")
+    gallery_mark = (
+        lead and type(mark) is int and 1 <= mark <= len(photos)
+        and isinstance(mark_name, str) and same_trade_name(lead["name"], mark_name)
+    )
     for number, photo in enumerate(photos, 1):
-        if photo.get("credit") in {"Instagram", "ProsGrade"} and number not in selected:
+        if gallery_mark and number == mark:
+            if not any(m["kind"] == "logo" and m is not photo for m in profile["media"]):
+                photo.update(kind="logo", alt=mark_name + " logo")
+            elif photo["kind"] != "logo":
+                profile["media"].remove(photo)
+        elif photo.get("credit") in {"Instagram", "ProsGrade", "Yahoo Local"} and number not in selected:
             profile["media"].remove(photo)
     hero = review.get("hero_photo")
-    if type(hero) is int and 1 <= hero <= len(photos) and photos[hero - 1] in profile["media"]:
+    if type(hero) is int and 1 <= hero <= len(photos):
         cover = photos[hero - 1]
-        profile["media"].remove(cover)
-        profile["media"].insert(0, cover)
-        profile["cover_evidence_id"] = cover["evidence_id"]
+        if cover in profile["media"] and cover.get("kind", "project") == "project":
+            profile["media"].remove(cover)
+            profile["media"].insert(0, cover)
+            profile["cover_evidence_id"] = cover["evidence_id"]
     captions = review.get("photo_captions")
-    for item in captions[:6] if isinstance(captions, list) else []:
+    for item in captions[:10] if isinstance(captions, list) else []:
         if not isinstance(item, dict):
             continue
         number, caption = item.get("photo"), item.get("caption")
@@ -628,7 +650,8 @@ def apply_photo_choices(profile, photos, review):
         photo = photos[number - 1]
         caption = " ".join(caption.split()).rstrip(".")
         if (
-            re.search(r"\bgallery photo \d+$", photo["alt"], re.I)
+            photo.get("kind") != "logo"
+            and re.search(r"\bgallery photo \d+$", photo["alt"], re.I)
             and 4 <= len(caption.split()) <= 14
             and len(caption) <= 110
             and re.fullmatch(r"[\w ,’'()–-]+", caption)
@@ -660,11 +683,27 @@ def extract_facts(lead, result, selected, model, photo_model=None):
         media = result["profile"]["media"]
         media[:] = [m for m in media if m.get("credit") not in {"Instagram", "ProsGrade"}]
     if model:
-        photos = [m for m in result["profile"]["media"] if m["kind"] == "project"][:6]
+        photos = result["profile"]["media"][:10]
         if photos and photo_model:
             review = photo_model(prompt, photos)
             if isinstance(review, dict):
-                apply_photo_choices(result["profile"], photos, review)
+                apply_photo_choices(result["profile"], photos, review, lead)
+                number = review.get("domain_photo")
+                domain = str(review.get("printed_domain", "")).lower().removeprefix("https://").rstrip("/")
+                if (type(number) is int and 1 <= number <= len(photos)
+                    and re.fullmatch(r"(?:[a-z0-9-]+\.)+[a-z]{2,24}", domain)
+                    and safe_url("https://" + domain)
+                    and not listing_source("https://" + domain)
+                    and branded(lead, "https://" + domain)):
+                    image = photos[number - 1]
+                    # A second, larger view must independently reproduce the same hostname.
+                    verify = photo_model("Read the painter's printed website, letter by letter, from this single image. "
+                                         "Return printed_domain only if the complete domain is visible. Never infer it.", [image])
+                    if isinstance(verify, dict):
+                        second = str(verify.get("printed_domain", "")).lower().removeprefix("https://").rstrip("/")
+                        if second.removeprefix("www.") == domain.removeprefix("www."):
+                            result["printed_website"] = {"url": "https://" + domain, "evidence_id": image["evidence_id"]}
+
         else:
             review = model(prompt)
     else:
@@ -680,6 +719,10 @@ def extract_facts(lead, result, selected, model, photo_model=None):
         review = {"services": services}
     if not isinstance(review, dict):
         raise TypeError("Qualifier returned a non-object response.")
+    media = result["profile"]["media"]
+    result["profile"]["media"] = [m for m in media if m["kind"] == "logo"][:1] + [
+        m for m in media if m["kind"] == "project"
+    ][:6]
     corpus = {e["id"]: e["text"].casefold() for e in selected if e["id"] != "registry"}
     permitted = (
         "painting",
@@ -955,38 +998,37 @@ def attach_work(lead, page, result, add, fetch, read_image):
     embed_photos(candidates, profile, add, read_image)
 
 
-def customer_excerpt(row):
+def customer_excerpt(row, *, require_praise=False):
     quote, author = row.get("quote"), row.get("author")
     if not isinstance(quote, str) or not isinstance(author, str) or not 1 <= len(author) <= 70:
         return ""
-    if len(quote) > 260 or len(quote.split()) > 24:
-        first = re.match(r"^.{12,259}?[.!?](?=\s|$)", quote)
-        quote = first[0] if first and len(first[0].split()) <= 24 else ""
-    text = f"{author}: {quote}"
-    if (
-        len(quote) < 12
-        or INJECTION.search(text)
-        or clean_text(text) != text
-        or EMAIL.search(text)
-        or phones(text)
-    ):
-        return ""
-    return quote
+    # A syndicated card can open with the job description or stop mid-sentence.
+    for sentence in re.split(r"(?<=[.!?])\s+", quote.strip()):
+        if not 12 <= len(sentence) <= 260 or len(sentence.split()) > 32 or sentence.endswith(("...", "…")):
+            continue
+        text = f"{author}: {sentence}"
+        if INJECTION.search(text) or clean_text(text) != text or EMAIL.search(text) or phones(text):
+            continue
+        if not require_praise or business_profile.endorses_work(sentence, row.get("rating")):
+            return sentence
+    return ""
 
 
 def attach_testimonials(rows, source, platform, profile, add):
     saved = profile["testimonials"]
     for row in rows:
-        if len(saved) >= 4:
+        if len(saved) >= 6:
             break
-        quote = customer_excerpt(row)
+        quote = customer_excerpt(row, require_praise=True)
+        original = row.get("quote") or ""
         rating = row.get("rating")
-        if (not quote or not business_profile.endorses_work(row.get("quote"), rating)
-                or not business_profile.endorses_work(quote, rating)
+        if (not quote or len(original) > 1800 or INJECTION.search(original)
+                or EMAIL.search(original) or phones(original)
+                or not business_profile.endorses_work(original, rating)
                 or any(item["quote"] == quote for item in saved)):
             continue
         author = row["author"]
-        joined = f"{author} on {platform}: {quote}"
+        joined = f"{author} on {platform}: {original}"
         item = {"quote": quote, "author": author, "source_url": source, "platform": platform}
         if rating:
             item["rating"] = rating
@@ -1047,7 +1089,8 @@ def embed_photos(candidates, profile, add, read_image):
     logos = [item for item in media if item["kind"] == "logo"]
     projects = [item for item in media if item["kind"] == "project"]
     projects.sort(key=lambda item: business_profile.hero_fit(item["url"]), reverse=True)
-    profile["media"] = logos + projects[:6]
+    # Keep the candidates for the visual qualifier. The rendered portfolio gets up to six.
+    profile["media"] = (logos + projects)[:10]
 
 
 def gallery_pages(urls):
@@ -1235,7 +1278,7 @@ def listing_record(lead, url, page):
     description = str(node.get("description") or "")[:1300]
     text = f"{node['name']}. {lead['city']}. {node.get('telephone', '')}. {description}"
     if gallery:
-        text += f" {len(gallery)} photos."
+        text += f" {len(gallery)} photo{'s' if len(gallery) != 1 else ''}."
     # Keep each possible owned website in the existing ownership/contact check.
     for website in published_website_links(page):
         text += " Business website: " + website
@@ -1293,13 +1336,23 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
     source = listing_targets.get(host(url))
     checked_url = url
     page = fetch(url)
-    listing_disconnected = bool(source and source.get("phone_matched") and branded(lead, url)
-                                and not urlsplit(url).path.strip("/") and page.get("disconnected_domain"))
-    failures = []
     code = page.get("status") or 0
+    registered_names = re.split(r"\s+(?:d/b/a|dba|doing business as)\s+", lead["name"], flags=re.I)
+    brand_labels = {name.replace(" ", "") for registered in registered_names
+                    for name in (words(registered), trade_name(registered))}
+    domain = host(url)
+    exact_brand = domain.count(".") == 1 and domain.split(".")[0].replace("-", "") in brand_labels
+    listed_home = (
+        source and source.get("matched") and source.get("phone_matched") and exact_brand
+        and source.get("target", "").rstrip("/") == url.rstrip("/")
+        and not urlsplit(url).path.strip("/") and not urlsplit(url).query
+        and page.get("url", "").rstrip("/") == url.rstrip("/") and code in (404, 410)
+    )
+    wix_error = page.get("disconnected_domain")
+    failures = []
     if code != 200 or not page.get("text"):
         alternatives = []
-        if branded(lead, url) and not listing_disconnected:
+        if branded(lead, url) and not listed_home:
             home = urljoin(url, "/")
             if urlsplit(url).path.strip("/"):
                 alternatives.append(home)
@@ -1340,14 +1393,17 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
         unresolved = f"A possible website could not be inspected ({observation})."
         ref = add(final_url, unresolved, "observation")
         if failures:
-            label = "directory-linked" if source else "business-branded"
+            label = "business-branded" if not source else ("image-printed" if source.get("kind") == "image" else "directory-linked")
             observations = ", ".join([issue for issue, _ in failures] + [observation])
             unresolved = f"The {label} website could not be inspected after {len(failures) + 1} checks ({observations})."
-        if listing_disconnected and page.get("disconnected_domain") and host(final_url) == host(url):
-            statement = "The website linked from the business profile returned HTTP 404 on two checks with a Wix domain-connection error."
+        if listed_home and page.get("status") == code and final_url.rstrip("/") == url.rstrip("/"):
+            site_issue = "listed_homepage_missing"
+            statement = f"The website link on the matched business profile returned HTTP {code} on two checks."
+            if wix_error and page.get("disconnected_domain"):
+                site_issue = "listed_homepage_disconnected"
+                statement = "The website linked from the business profile returned HTTP 404 on two checks with a Wix domain-connection error."
             confirmed = add(final_url, statement, "observation")
-            result.update(website=final_url, website_status="has_site", issue=statement,
-                          site_issue="listed_homepage_disconnected",
+            result.update(website=final_url, website_status="has_site", issue=statement, site_issue=site_issue,
                           issue_evidence_ids=[source["id"], failures[0][1], confirmed])
             return "qualified", statement
         if source and not source["matched"]:
@@ -1407,7 +1463,8 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
         )
         if title_names_business and visible_phones and registry_phone and registry_phone not in visible_phones:
             unresolved = "The site names this business but publishes a different phone from the license record."
-        if (source or branded(lead, url)) and not site_navigation and len(body.split()) < 25 and not visible_phones:
+        thin_page = not site_navigation and len(body.split()) < 25 and not visible_phones
+        if (source or branded(lead, url)) and thin_page:
             unresolved = "The branded website returned a page with too little readable content to verify contact details. Open it in a browser to check."
         ref = add(final_url, unresolved, "assessment")
         if source or branded(lead, url):
@@ -1416,6 +1473,7 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, o
                 "source_url": source["url"] if source else "",
                 "evidence_ids": ([source["id"]] if source else []) + [ref],
                 "reason": unresolved,
+                "thin_page": thin_page,
             }
         return "hold", unresolved
     result.update(website=final_url, website_status="has_site", _owned_page=page)
@@ -1598,7 +1656,7 @@ def qualify(
                     )
                     break
             for link in profile["review_links"][:2]:
-                if profile["testimonials"] or not link["label"].startswith("Read reviews on "):
+                if len(profile["testimonials"]) >= 6 or not link["label"].startswith("Read reviews on "):
                     continue
                 source = fetch(link["url"])
                 if source.get("status") != 200 or source.get("url", "").rstrip("/") != link[
@@ -1649,6 +1707,25 @@ def qualify(
         if status == "qualified":
             report(f"Retrieved {len(selected)} of {len(evidence)} evidence passages for the qualifier.")
             extract_facts(lead, result, selected, model, photo_model)
+            printed = result.get("printed_website")
+            if printed and result["status"] == "qualified" and host(printed["url"]) != host(result.get("website", "")):
+                ref = printed["evidence_id"]
+                photo_source = next(e["url"] for e in evidence if e["id"] == ref)
+                mark = add(photo_source, f"Visual reading of the business gallery image {ref}: {printed['url']}.", "observation")
+                report("Checking the web address visible in a matched business image.")
+                source = {"id": mark, "url": photo_source, "matched": True, "kind": "image"}
+                checked = inspect_site(lead, printed["url"], {host(printed["url"])},
+                                       {host(printed["url"]): source}, result, fetch, add)
+                next_status, reason = checked or ("hold", "The address visible in the gallery needs an ownership check.")
+                result.update(status=next_status, reason=reason)
+                if next_status != "qualified":
+                    result.update(issue="", issue_evidence_ids=[])
+                    if result["website_status"] == "no_site_found":
+                        result["website_status"] = "unsure"
+                result.pop("_owned_page", None)
+                selected = ranking(lead, evidence, retrieval, index=index,
+                                   required=[mark, *result["issue_evidence_ids"], *result.get("follow_up", {}).get("evidence_ids", [])])
+                result.update(retrieved_ids=[e["id"] for e in selected], corpus_size=len(evidence))
             if result["profile"].get("cover_evidence_id"):
                 count = sum(
                     m.get("caption_origin") == "visual description" for m in result["profile"]["media"]
@@ -1708,6 +1785,13 @@ def qualify(
                 "assessment",
             )
             return finish("blocked", "Instruction-like content detected in external evidence.")
+        # A procurement PDF may list this contractor and a branded URL; the report itself is not a contact site.
+        if urlsplit(url).path.casefold().endswith(".pdf") and not branded(lead, url):
+            if match:
+                add(url, text)
+                if match == 2:
+                    candidates.extend(link for link in listing_websites(text, lead) if branded(lead, link))
+            continue
         if registry_mirror(url, text, lead):
             if match:
                 add(
@@ -1732,6 +1816,18 @@ def qualify(
                 add(url, publisher, "assessment")
             if url == verified_listing_url and (has_listed_work or activity_ref):
                 portfolio_refs.append(ref)
+            if url == verified_listing_url == lead.get("directory_url") and activity_ref:
+                # This dated listing passed intake's unique license match and the current phone/city check.
+                names = {
+                    node["name"].strip() for node in catalog_pages[url].get("business_nodes", [])
+                    if isinstance(node.get("name"), str)
+                    and str(node.get("url") or node.get("@id") or "").rstrip("/") == url.rstrip("/")
+                }
+                if len(names) == 1:
+                    public_name = names.pop()
+                    if words(public_name) != words(lead["name"]) and public_name.isprintable() and len(public_name) <= 100:
+                        facts["public_name"] = public_name
+                        facts["citations"][public_name] = ref
             for linked in links:
                 if match == 2 or branded(lead, linked):
                     candidates.append(linked)
@@ -1742,6 +1838,7 @@ def qualify(
                     listing_targets[host(linked)] = {
                         "id": ref,
                         "url": url,
+                        "target": linked,
                         "matched": match == 2,
                         "phone_matched": phone_matched,
                         "different_phone": bool(listed_phones and phone and not listed_phones & phones(phone)),
@@ -1769,11 +1866,7 @@ def qualify(
             ):
                 disabled_inbox = source
                 contact_gap.append(ref)
-            if re.search(
-                r"\b(?:call|phone|message|dm|text)(?:\s+\w+){0,8}\s+(?:estimate|quote|booking)s?\b|\b(?:quotes?|estimates?)(?:\s+\w+){0,5}\s+(?:phone|dm|message)\b|\b(?:llama|mensaje|llámenos|escríbenos)\b.{0,70}\b(?:presupuesto|cotización)",
-                text,
-                re.IGNORECASE,
-            ):
+            if ESTIMATE_BY_PHONE_OR_MESSAGE.search(text):
                 contact_gap.append(ref)
             if source in SOCIAL and match == 2 and not result["social"]:
                 path = urlsplit(url).path.strip("/")
@@ -1806,7 +1899,8 @@ def qualify(
             return 0
         return 1 if path in {"", "/about", "/about-us", "/contact", "/services"} else 2
 
-    credible_domains = {host(u) for u in candidates if candidate_priority(u) == 0}
+    credible_domains = {host(u) for u in candidates if candidate_priority(u) == 0
+                        or (identity(lead, records.get(u, "")) == 2 and candidate_priority(u) == 1)}
     candidates.sort(key=candidate_priority)
     for url in candidates:
         domain = host(url)
@@ -1826,15 +1920,40 @@ def qualify(
         outcome = inspect_site(lead, url, corroborated, listing_targets, result, fetch, add, records)
         if outcome:
             status, explanation = outcome
-            if status == "qualified" and result.get("site_issue") == "listed_homepage_disconnected" and credible_domains - {domain}:
+            if status == "qualified" and result.get("site_issue") in {"listed_homepage_disconnected", "listed_homepage_missing"} and credible_domains - {domain}:
                 # The published link is broken, but the business might already have a replacement website.
                 result.pop("site_issue")
                 result.update(website="", website_status="unsure", issue="", issue_evidence_ids=[])
-                unresolved = "The listed homepage is disconnected. Another possible business website needs verification."
+                unresolved = "The published homepage link returned an error. Another possible business website needs verification."
                 continue
             if status != "hold":
                 return finish(status, explanation)
             unresolved = explanation
+            follow_up = result.get("follow_up", {})
+            if lookups < 3 and follow_up.get("thin_page") and host(follow_up["url"]) == domain and branded(lead, url):
+                lookups += 1
+                report("Looking for a readable contact or estimate page on the same business domain.")
+                try:
+                    hits = search(f"site:{domain} {lead['name']} contact estimate phone {phone}")
+                except (OSError, RuntimeError, ValueError):
+                    report("The contact-page search was unavailable. Keeping the site for manual verification.")
+                    continue
+                alternatives = dict.fromkeys(str(hit.get("url") or "").split("#")[0] for hit in hits[:7])
+
+                def fetch_contact(target):
+                    if safe_url(target) and domain_in(target, (domain,)):
+                        page = fetcher(target) if fetcher else fetch_page(target, within=domain)
+                        if domain_in(page.get("url") or target, (domain,)):
+                            return page
+                    return {"url": target, "status": 0, "text": ""}
+
+                pages = [u for u in alternatives if safe_url(u) and domain_in(u, (domain,)) and u.rstrip("/") != url.rstrip("/")]
+                for alternate in pages[:2]:
+                    candidate = result.copy()
+                    checked = inspect_site(lead, alternate, corroborated, listing_targets, candidate, fetch_contact, add)
+                    if checked and checked[0] in {"skip", "blocked"}:
+                        result.update(candidate)
+                        return finish(*checked)
     # Frozen cases resolve through their supplied search and page snapshots.
     if fetcher is None and (not result["social"] or domain_in(result["social"], ("instagram.com",))):
         report("Checking public Instagram profiles against the contractor's name and license.")

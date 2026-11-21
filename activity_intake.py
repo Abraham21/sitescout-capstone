@@ -4,6 +4,7 @@ import json
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
+from functools import lru_cache
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -37,6 +38,9 @@ def recent_profile(url, today):
         if not all(isinstance(field, str) and field.strip() for field in identity):
             continue
         posted, source = max(dates)
+        website = next(
+            (url for url in research.published_website_links(page) if not research.listing_source(url)), ""
+        )
         return {
             "name": node["name"],
             "city": address["addressLocality"],
@@ -48,7 +52,10 @@ def recent_profile(url, today):
                 "source_url": source,
                 "listing_url": url,
             },
-            "listed_website": bool(research.published_website_links(page)),
+            "listed_website": bool(website),
+            "website_url": website,
+            "contact_estimates": bool(research.ESTIMATE_BY_PHONE_OR_MESSAGE.search(str(node.get("description") or ""))),
+            "gallery": len(page.get("listing_photos", [])) >= 2,
         }
     return {}
 
@@ -63,7 +70,7 @@ def public_profiles(today, report, starts=None):
     first = starts if starts is not None else dict.fromkeys(research.CITIES, 1)
     try:
         saved = json.loads(cache.read_text())
-        if saved["date"] == today.isoformat() and saved.get("starts", first) == first:
+        if saved["date"] == today.isoformat() and saved.get("version") == 2 and saved.get("starts") == first:
             return saved
     except (OSError, ValueError, KeyError):
         pass
@@ -89,6 +96,7 @@ def public_profiles(today, report, starts=None):
             profile for profile in pool.map(lambda url: recent_profile(url, today), urls) if profile
         ]
     saved = {
+        "version": 2,
         "date": today.isoformat(),
         "starts": first,
         "profiles": profiles,
@@ -105,6 +113,13 @@ def public_profiles(today, report, starts=None):
             json.dump(saved, stream)
         Path(stream.name).replace(cache)
     return saved
+
+
+@lru_cache(maxsize=256)
+def listed_link_missing(url, today):
+    """One failed listing link can prioritize research. Qualification independently verifies it."""
+    final, status, _, _ = research.read_public(url, "text/html", 1024)
+    return status in {404, 410} and research.host(final) == research.host(url)
 
 
 def select(profiles, licenses, seen, limit):
@@ -131,20 +146,32 @@ def select(profiles, licenses, seen, limit):
                 "directory_url": mark["listing_url"],
                 "activity": mark,
                 "listed_website": profile["listed_website"],
+                "website_url": profile.get("website_url", ""),
+                "contact_estimates": profile.get("contact_estimates", False),
+                "gallery": profile.get("gallery", False),
             }
     unseen = [l for i, l in matched.items() if i not in seen]
-    # Every selection decision uses discovery's sources. Website inspection happens in the graph.
+    # Only probe identity-matched businesses, newest first, before buying any web searches.
+    unseen.sort(key=lambda lead: (-date.fromisoformat(lead["activity"]["date"]).toordinal(), lead["id"]))
+    linked = [lead for lead in unseen if lead["website_url"]][:24]
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        today = date.today()
+        probes = pool.map(lambda lead: listed_link_missing(lead["website_url"], today), linked)
+        for lead, failed in zip(linked, probes):
+            lead["missing_link"] = failed
+    # Stable sorting preserves review recency and the license-ID tiebreak within each group.
     unseen.sort(
         key=lambda lead: (
-            lead["listed_website"],
-            -date.fromisoformat(lead["activity"]["date"]).toordinal(),
-            lead["id"],
+            not lead.get("missing_link", False), lead["listed_website"],
+            not lead["contact_estimates"], not lead["gallery"],
         )
     )
     return unseen[:limit], {
         "unique_active_license_matches": len(matched),
         "previously_seen": len(matched) - len(unseen),
         "eligible_unseen": len(unseen),
+        "priority_candidates": sum(not lead["listed_website"] or bool(lead.get("missing_link")) for lead in unseen),
+        "unseen_with_missing_link": sum(bool(lead.get("missing_link")) for lead in unseen),
         "unseen_without_listed_website": sum(not lead["listed_website"] for lead in unseen),
     }
 
@@ -163,7 +190,7 @@ def discover(limit, seen, progress=None, *, audit=None):
     )
     licenses = research.discover(100_000, set(), report)
     selected, checks = select(profiles, licenses, seen, limit)
-    if len(selected) < limit:
+    if checks["priority_candidates"] < limit:
         storage.initialize()
         location = json.loads(storage.setting("activity_catalog_position", "{}"))
         starts = (
@@ -171,19 +198,22 @@ def discover(limit, seen, progress=None, *, audit=None):
             if location.get("date") == today.isoformat()
             else first.get("next_pages")
         )
-        if starts:
+        for _ in range(2):
+            if not starts or checks["priority_candidates"] >= limit:
+                break
             report(
-                "The first source window has too few unseen licenses. Reading the next public directory pages."
+                "Looking beyond the first directory pages for more painters with missing listing links or no listed website."
             )
             later = public_profiles(today, report, starts)
-            profiles = {p["activity"]["listing_url"]: p for p in profiles + later["profiles"]}
+            profiles = list({p["activity"]["listing_url"]: p for p in profiles + later["profiles"]}.values())
             counts = {key: value + later["counts"][key] for key, value in counts.items()}
             counts["recent_profiles"] = len(profiles)
-            selected, checks = select(profiles.values(), licenses, seen, limit)
-            if checks["eligible_unseen"] <= limit and later["counts"]["source_listings"]:
+            selected, checks = select(profiles, licenses, seen, limit)
+            starts = later["next_pages"] if later["next_pages"] != starts else {}
+            if checks["priority_candidates"] <= limit and later["counts"]["source_listings"]:
                 storage.set_setting(
                     "activity_catalog_position",
-                    json.dumps({"date": today.isoformat(), "next_pages": later["next_pages"]}),
+                    json.dumps({"date": today.isoformat(), "next_pages": starts}),
                 )
     report(
         f"{checks['eligible_unseen']} unseen painters matched one active license by phone, city and trade name. Selected {len(selected)} for website research."
