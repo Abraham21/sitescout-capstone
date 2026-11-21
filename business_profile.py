@@ -6,7 +6,7 @@ import json
 import re
 import warnings
 from pathlib import Path
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
@@ -65,6 +65,29 @@ def reviews_from(node):
     return rows
 
 
+def yahoo_reviews(soup):
+    """Match the name/date row to the excerpt and Yelp review link in the listing’s reviews section."""
+    rows = []
+    for link in soup.select("#local-user-reviews p + a[href]")[:12]:
+        target = urlsplit(link["href"])
+        if target.hostname not in {"www.yelp.com", "yelp.com"} or not parse_qs(target.query).get(
+            "hrid"
+        ):
+            continue
+        heading = link.parent.find_previous_sibling()
+        labels = heading.find_all("span", recursive=False) if heading else []
+        if len(labels) == 2 and re.fullmatch(
+            r"\d{1,2}/\d{1,2}/\d{2,4}", labels[1].get_text(strip=True)
+        ):
+            rows.append(
+                {
+                    "author": labels[0].get_text(" ", strip=True),
+                    "quote": link.find_previous_sibling("p").get_text(" ", strip=True),
+                }
+            )
+    return rows
+
+
 def named_service_areas(text):
     """Read place names from explicit service-area statements, without inferring a radius."""
     places = []
@@ -79,11 +102,131 @@ def named_service_areas(text):
             name = name.removeprefix("the ").strip()
             if (
                 re.fullmatch(r"[A-ZÀ-ÖØ-Þ][\w'-]*(?: [A-ZÀ-ÖØ-Þ][\w'-]*){0,4}", name)
-                and name.casefold() not in {"ca", "more", "homeowners", "nearby areas", "surrounding areas"}
+                and name.casefold()
+                not in {"ca", "more", "homeowners", "nearby areas", "surrounding areas"}
                 and name not in places
             ):
                 places.append(name)
     return places
+
+
+def instagram_handle(url):
+    try:
+        parts = urlsplit(url or "")
+    except ValueError:
+        return ""
+    handle = parts.path.strip("/")
+    if (
+        parts.scheme == "https"
+        and parts.hostname in {"www.instagram.com", "instagram.com", "m.instagram.com"}
+        and re.fullmatch(r"[A-Za-z0-9._]{1,30}", handle)
+        and handle.casefold() not in {"accounts", "explore", "p", "reel", "reels", "stories", "direct"}
+    ):
+        return handle.casefold()
+    return ""
+
+
+def facebook_profile(soup, url, page_id):
+    """Read the public business card attached to Facebook's canonical page."""
+    canonical = soup.select_one('meta[property="og:url"][content]')
+    description = soup.select_one('meta[property="og:description"][content]')
+    if not canonical or canonical["content"].rstrip("/") != url.rstrip("/") or not description:
+        return {}
+    details = [description["content"]]
+    websites = []
+    for script in soup.select('script[type="application/json"]') if page_id.isdecimal() else ():
+        try:
+            pending = [json.loads(script.string or "")]
+        except (ValueError, RecursionError):
+            continue
+        while pending:
+            value = pending.pop()
+            if isinstance(value, list):
+                pending.extend(value)
+            elif isinstance(value, dict):
+                group = value.get("profile_tile_items")
+                if not isinstance(group, dict) or not isinstance(group.get("nodes"), list):
+                    pending.extend(value.values())
+                    continue
+                # The owner ID is on the contact-card group’s category/location rows;
+                # the phone and email are sibling rows that often omit their own ID.
+                cards = [
+                    node.get("node", {}).get("timeline_context_item", {}).get("renderer", {})
+                    for node in group["nodes"]
+                    if isinstance(node, dict)
+                    and isinstance(node.get("node"), dict)
+                    and isinstance(node["node"].get("timeline_context_item"), dict)
+                ]
+                cards = [c for c in cards if isinstance(c, dict)]
+                if {str(c["associated_page_id"]) for c in cards if c.get("associated_page_id")} != {
+                    page_id
+                }:
+                    continue
+                for c in cards:
+                    item = c.get("context_item") or {}
+                    if not isinstance(item, dict) or not isinstance(item.get("title"), dict):
+                        continue
+                    label = item["title"].get("text")
+                    if isinstance(label, str) and len(label) < 260:
+                        details.append("Contact: " + label)
+                        if re.fullmatch(
+                            r"(?:https?://)?(?:www\.)?[\w.-]+\.[a-zA-Z]{2,}(?:/\S*)?", label
+                        ):
+                            websites.append(label if "://" in label else "https://" + label)
+    return {"social_bio": " ".join(details)[:2500], "bio_links": websites}
+
+
+def instagram_profile(soup, url):
+    """Read the public bio and photo posts belonging to the profile identified by Instagram."""
+    handle = instagram_handle(url)
+    canonical = soup.select_one('meta[property="og:url"][content]')
+    if not handle or not canonical or instagram_handle(canonical["content"]) != handle:
+        return {}
+    header = soup.find("header")
+    bio = [
+        m["content"]
+        for m in soup.select(
+            'meta[property="og:title"][content],meta[property="og:description"][content],meta[name="description"][content]'
+        )
+    ]
+    if header:
+        bio.append(header.get_text(" ", strip=True))
+    bio_links = []
+    for a in header.select("a[href]") if header else ():
+        href = a["href"]
+        target = urlsplit(href)
+        if target.hostname == "l.instagram.com":
+            href = parse_qs(target.query).get("u", [""])[0]
+        if href.startswith(("https://", "http://")) and not instagram_handle(href):
+            bio_links.append(href)
+    photos = []
+    for link in soup.select("a[href] img[src]"):
+        dest = urlsplit(urljoin(url, link.find_parent("a")["href"]))
+        if dest.hostname not in {"www.instagram.com", "instagram.com"} or not re.fullmatch(
+            rf"/{re.escape(handle)}/p/[A-Za-z0-9_-]+/?", dest.path, re.I
+        ):
+            continue
+        asset = link["src"]
+        image_host = urlsplit(asset).hostname or ""
+        if asset.startswith("https://") and image_host.endswith((".cdninstagram.com", ".fbcdn.net")):
+            post = "https://www.instagram.com" + dest.path
+            photos.append(
+                {
+                    "asset_url": asset,
+                    "post_url": post,
+                    "kind": "project",
+                    "credit": "Instagram",
+                    "credit_url": post,
+                    "alt": f"Instagram gallery photo {len(photos) + 1}",
+                }
+            )
+        if len(photos) == 6:
+            break
+    return {
+        "social_bio": " ".join(bio)[:3200],
+        "bio_links": list(dict.fromkeys(bio_links)),
+        "social_photos": photos,
+    }
 
 
 def quoted_customers(soup):
@@ -107,6 +250,7 @@ def listing_profile(profile, url, text, evidence_id):
     domain = (parts.hostname or "").removeprefix("www.")
     platforms = {
         "yelp.com": ("Yelp", r"^/biz/[^/]+/?$"),
+        "local.yahoo.com": ("Yahoo Local", r"^/info-[0-9]+-"),
         "houzz.com": ("Houzz", r"^/professionals/[^/]+/[^/]+"),
         "instagram.com": ("Instagram", r"^/[^/]+/?$"),
         "facebook.com": ("Facebook", r"^/(?:people/)?[^/]+(?:/\d+)?/?$"),
@@ -123,6 +267,8 @@ def listing_profile(profile, url, text, evidence_id):
     )
     if not platform:
         return
+    if instagram_handle(url):
+        profile["instagram_url"] = url
     item = {"url": url, "source_url": url, "evidence_id": evidence_id}
     # Never infer photos or completed projects from a site's default “Photos & reviews” heading.
     count = re.search(r"(?:see all\s+)?\b([1-9]\d{0,3})\s+(?:photos|projects)\b", text, re.IGNORECASE)

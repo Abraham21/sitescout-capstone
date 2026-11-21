@@ -17,6 +17,7 @@ from string import Template
 from urllib.parse import urlsplit
 
 from PIL import Image
+from business_profile import instagram_handle
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 THEMES = {
@@ -51,9 +52,10 @@ def display_name(name):
     if not name.isupper():
         return name
     keep = {"LLC", "LLP", "LP", "DBA", "USA", "LA", "III", "II", "IV"}
-    return re.sub(
+    formatted = re.sub(
         r"[A-Z]+", lambda m: m[0] if len(m[0]) == 1 or m[0] in keep else m[0].capitalize(), name
     )
+    return re.sub(r"([’'])S\b", r"\1s", formatted)
 
 
 def normalized(value):
@@ -217,12 +219,12 @@ PROFILE_ICONS = {
 }
 
 
-def profile_footer(links, staged):
+def profile_footer(links, staged, photos):
     """Link only verified destinations. The embedded publisher marks work offline."""
-    if staged:
-        return ""
     buttons = []
     for url, label in links.items():
+        if staged and not (photos and instagram_handle(url)):
+            continue
         host = urlsplit(url).hostname or ""
         platform = next(
             (
@@ -239,8 +241,11 @@ def profile_footer(links, staged):
             continue
         else:
             icon = '<span aria-hidden="true">↗</span>'
+        target = 'target="_blank" rel="noopener noreferrer"'
+        if staged:
+            url, label, target = "#work", "Instagram · sample gallery", ""
         buttons.append(
-            f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener noreferrer">'
+            f'<a href="{escape(url, quote=True)}" {target}>'
             f'<span aria-hidden="true" class="publisher-icon">{icon}</span>{escape(label)}</a>'
         )
     return (
@@ -263,15 +268,36 @@ def slide_controls(total, label):
     )
 
 
-def project_gallery(name, photos):
+def project_gallery(name, photos, instagram, staged):
     """The full photograph stays visible; navigation appears only for a real collection."""
-    if not photos:
+    if not photos and not (instagram and not staged):
         return ""
+    from_instagram = any(
+        urlsplit(item["source_url"]).hostname in {"instagram.com", "www.instagram.com"}
+        for item in photos
+    )
+    title = "Project gallery"
+    if instagram and (from_instagram or not photos):
+        title = (
+            "Sample Instagram gallery"
+            if staged
+            else ("Instagram gallery" if photos else "On Instagram")
+        )
+    profile_link = (
+        source_link(instagram, "Visit @" + instagram_handle(instagram) + " on Instagram")
+        if instagram and not staged
+        else ""
+    )
+    if not photos:
+        return (
+            f'<section class="work wrap" id="work"><h2>{title}</h2>'
+            f'<p class="gallery-profile">{profile_link}</p></section>'
+        )
     slides = []
     # The landing image stays in the collection; open the gallery on a different view.
     for index, item in enumerate(photos[1:] + photos[:1]):
         label = str(item.get("alt") or f"{name} project photograph")[:180]
-        if fixture_url(item["source_url"]) and web_url(item.get("credit_url")):
+        if staged and web_url(item.get("credit_url")):
             credit = source_link(
                 item["credit_url"], item.get("credit") or "Staged portfolio photograph"
             )
@@ -287,20 +313,34 @@ def project_gallery(name, photos):
         )
     return (
         '<section class="work wrap" id="work" data-slideshow aria-labelledby="gallery-title">'
-        f'<div class="section-head"><h2 id="gallery-title">Project gallery</h2>{slide_controls(len(photos), "photo")}</div>'
+        f'<div class="section-head"><h2 id="gallery-title">{title}</h2>{slide_controls(len(photos), "photo")}</div>'
         f'<div class="gallery-wall"><div class="gallery-stage">{"".join(slides)}</div>'
         + (
             '<div class="photo-strip" aria-label="Choose a project photo"></div>'
             if len(photos) > 1
             else ""
         )
-        + "</div></section>"
+        + "</div>"
+        + (f'<p class="gallery-profile">{profile_link}</p>' if profile_link else "")
+        + "</section>"
     )
 
 
-def reviews_section(reviews):
+def reviews_section(reviews, links, staged):
     if not reviews:
-        return ""
+        profiles = [
+            source_link(item["url"], item["label"])
+            for item in links
+            if not staged and item["label"].startswith("Read reviews on ")
+        ]
+        if not profiles:
+            return ""
+        return (
+            '<section class="reviews" id="reviews" aria-labelledby="reviews-title"><div class="wrap">'
+            '<h2 id="reviews-title">Customer reviews</h2><p>'
+            + " · ".join(profiles)
+            + "</p></div></section>"
+        )
     slides = []
     for index, item in enumerate(reviews):
         author = escape(item["author"])
@@ -388,12 +428,20 @@ def build_preview(lead, qualification):
     name, city = display_name(lead["name"]), lead["city"]
     phone, email = by_kind.get("phone"), by_kind.get("email")
     staged = fixture_url(sources["registry"].get("url", ""))
+    social = qualification.get("social")
+    social_id = next((i for i, source in sources.items() if social and source.get("url") == social), "")
+    instagram = (qualification.get("profile") or {}).get("instagram_url") or social
+    instagram_id = next((i for i, src in sources.items() if src.get("url") == instagram), "")
+    if not instagram_id or not web_url(instagram) or not instagram_handle(instagram):
+        instagram = ""
     contact = ""
     if phone:
         digits = re.sub(r"[^0-9]", "", phone)
         contact = f'<a class="call" href="tel:+1{digits}" aria-label="Call {escape(name)} at {escape(phone)}"><span>Call </span>{escape(phone)}</a>'
     elif email:
         contact = f'<a class="call" href="mailto:{escape(email)}">{escape(email)}</a>'
+    elif instagram and not staged:
+        contact = source_link(instagram, "Message on Instagram", "call")
     initial = next((letter for letter in name if letter.isalnum()), "")
     mark = (
         f'<img class="logo" src="{logo["url"]}" alt="">'
@@ -438,7 +486,7 @@ def build_preview(lead, qualification):
         )
         record = source_link(registry["url"], ("Sample license #" + license_id) if staged else label)
     features = ["Preview estimate request form"]
-    if contact:
+    if phone or email:
         features.append("Published phone number" if phone else "Published business email")
     if work:
         features.append("Business gallery link")
@@ -460,9 +508,11 @@ def build_preview(lead, qualification):
         url = photo["source_url"]
         if urlsplit(url).hostname == "local.yahoo.com":
             extra_links.setdefault(url, "Yahoo Local")
-    social = qualification.get("social")
-    if web_url(social) and any(source.get("url") == social for source in sources.values()):
+    if social_id and web_url(social):
         extra_links.setdefault(social, "Social profile")
+    if instagram:
+        features.append("Instagram profile")
+        extra_links.setdefault(instagram, "Instagram")
     area_list = (
         '<ul class="area-list">' + "".join(f"<li>{escape(area)}</li>" for area in areas) + "</ul>"
     )
@@ -476,17 +526,19 @@ def build_preview(lead, qualification):
         )
         if value
     )
+    gallery = project_gallery(name, photos, instagram, staged)
+    testimonials = reviews_section(quotes, reviews, staged)
     sections = (
-        project_gallery(name, photos) + reviews_section(quotes) + service_section(city, services)
+        gallery + testimonials + service_section(city, services)
         if variant == "Fieldwork"
-        else service_section(city, services) + project_gallery(name, photos) + reviews_section(quotes)
+        else service_section(city, services) + gallery + testimonials
     )
     nav_links = "".join(
         f'<a href="#{target}">{caption}</a>'
         for target, caption, show in (
-            ("work", "Our work", photos),
+            ("work", "Our work" if photos else "Instagram", gallery),
             ("services", "Services", services),
-            ("reviews", "Reviews", quotes),
+            ("reviews", "Reviews", testimonials),
         )
         if show
     )
@@ -510,25 +562,37 @@ def build_preview(lead, qualification):
         if photos
         else f"Planning a painting project? Talk to {name} about the space, colors and finish you have in mind."
     )
-    handoff = ["Built a demo estimate form for the homeowner’s contact details and project."]
+    handoff = []
     if phone:
-        handoff.append("Placed the published phone in the header and estimate section.")
+        handoff.append(f"Placed {phone} in the header and estimate section.")
     elif email:
-        handoff.append("Linked the published business email in the header and estimate section.")
+        handoff.append(f"Linked {email} in the header and estimate section.")
     if photos:
         handoff.append(
-            f"Featured {len(photos)} sourced project photo{'s' if len(photos) != 1 else ''} on the page."
+            f"Built a gallery of {len(photos)} sourced project photo{'s' if len(photos) != 1 else ''} "
+            f"and chose “{alt.rstrip('.')}” as its cover."
         )
     elif local_photo:
         handoff.append("Used a labeled Burbank neighborhood photograph for local context.")
     if work:
         handoff.append(f"Linked the business gallery (“{work[0]['label']}”).")
+    if instagram:
+        if staged and photos:
+            handoff.append("Added an Instagram icon that opens the local sample gallery.")
+        elif not staged:
+            handoff.append(f"Linked the business’s Instagram profile, @{instagram_handle(instagram)}.")
     if quotes:
         handoff.append(
             f"Included {len(quotes)} attributed customer review{'s' if len(quotes) != 1 else ''}."
         )
+    elif testimonials:
+        handoff.append(
+            f"Connected the reviews section to {reviews[0]['label'].removeprefix('Read reviews on ')}."
+        )
     if services:
-        handoff.append(f"Connected {services[0].lower()} to the estimate form.")
+        handoff.append(f"Connected {', '.join(s.lower() for s in services)} to the estimate form.")
+    if areas:
+        handoff.append(f"Listed the published service area covering {', '.join(areas)}.")
     title_words = " ".join(f"<span>{escape(word)}</span>" for word in name.split())
     html = Template((ASSETS / "painter.html").read_text()).substitute(
         theme=theme["theme"],
@@ -561,13 +625,15 @@ def build_preview(lead, qualification):
         sections=sections,
         detail_rows=details,
         service_field=service_field,
-        profiles=profile_footer(extra_links, staged),
+        profiles=profile_footer(extra_links, staged, photos),
         contact_prompt='<p class="contact-prompt">Prefer to talk it through?</p>' if contact else "",
         area_note=escape(city),
     )
     evidence = dict.fromkeys(
         [c["evidence_id"] for c in claims]
         + [x["evidence_id"] for group in profile.values() for x in group]
+        + ([social_id] if social_id else [])
+        + ([instagram_id] if instagram else [])
     )
     notes = []
     if not photos:
@@ -581,7 +647,9 @@ def build_preview(lead, qualification):
         "features": features,
         "claims": claims,
         "section": "#estimate",
-        "handoff": " ".join(handoff),
+        "customizations": handoff
+        or [f"Created a concept wordmark and an estimate form for {name} in {city}."],
+        "handoff": " ".join(handoff) or f"Built a demo estimate form for {name} in {city}.",
         "evidence_ids": list(evidence),
     }
 
@@ -834,7 +902,8 @@ def review(lead, qualification, preview, pitch, model):
             "html"
         ) and rebuilt["claims"] == preview.get("claims")
         checks["Handoff reflects the business evidence used on the page"] = all(
-            rebuilt[k] == preview.get(k) for k in ("features", "handoff", "section", "evidence_ids")
+            rebuilt[k] == preview.get(k)
+            for k in ("features", "handoff", "section", "evidence_ids", "customizations")
         )
         checks["Contact form collects the homeowner’s contact details and project in preview mode"] = (
             all(
@@ -857,7 +926,11 @@ def review(lead, qualification, preview, pitch, model):
         profile = evidence_profile(qualification, evidence_for(lead, qualification))
         facts = [c for c in rebuilt["claims"] if c["kind"] in {"phone", "email", "area", "service"}]
         checks["The concept has a business-specific contact, service or portfolio source"] = bool(
-            facts or profile["work_links"] or profile["media"] or profile["review_links"]
+            facts
+            or profile["work_links"]
+            or profile["media"]
+            or profile["review_links"]
+            or "Instagram profile" in rebuilt["features"]
         )
         if profile["work_links"]:
             checks["The preview links to the cited business gallery"] = all(

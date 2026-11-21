@@ -1,0 +1,103 @@
+"""Read the saved handoffs and evidence. These views never call an external service."""
+
+import json
+import re
+from html import escape
+from pathlib import Path
+from urllib.parse import urlsplit
+
+import streamlit as st
+
+from studio import display_name, web_url
+
+
+def customization_notes(lead):
+    preview = lead.get("preview") or {}
+    notes = preview.get("customizations") or re.split(r"(?<=\.)\s+", preview.get("handoff", ""))
+    notes = [note for note in notes if note]
+    if notes:
+        st.markdown("**How this site was customized**")
+        st.html("<ul>" + "".join(f"<li>{escape(note)}</li>" for note in notes) + "</ul>")
+
+
+def retrieval_view(lead, *, synthetic=False):
+    q = lead.get("qualification") or {}
+    passages = q.get("evidence") or []
+    if not passages:
+        st.caption("Evidence will appear after the researcher checks this business.")
+        return
+    retrieved = set(q.get("retrieved_ids", []))
+    decisive = set(q.get("issue_evidence_ids", []))
+    facts = q.get("facts", {}).get("citations", {})
+    inferred = q.get("model_mode") == "model-assisted"
+    st.markdown("**Retrieval-augmented generation (RAG)**")
+    total, chosen, used = st.columns(3)
+    total.metric("Saved passages", len(passages))
+    chosen.metric("Retrieved", len(retrieved))
+    used.metric("Cited for the finding", len(decisive))
+    st.caption(
+        "SQLite searches this business’s evidence for identity, contact and services. "
+        + (
+            "Gemini received the retrieved passages."
+            if inferred
+            else "Evidence rules determined this route."
+        )
+    )
+    if synthetic:
+        st.caption("These passages come from fictional source snapshots.")
+    for chosen in (True, False):
+        group = [p for p in passages if (p["id"] in retrieved) == chosen]
+        if not group:
+            continue
+        label = "Retrieved passages" if chosen else "Other saved passages"
+        group.sort(key=lambda p: p["id"] not in decisive)
+        with st.expander(f"{label} ({len(group)})", expanded=chosen):
+            for p in group:
+                eid, url = p["id"], p.get("url", "")
+                host = urlsplit(url).hostname if web_url(url) else ""
+                source = escape(host or "Saved observation")
+                if host and not synthetic:
+                    source = f'<a href="{escape(url, quote=True)}" target="_blank" rel="noreferrer">{source} ↗</a>'
+                uses = [fact for fact, ref in facts.items() if ref == eid]
+                if eid in decisive:
+                    uses.insert(0, "Qualification finding")
+                note = f"<p><small>Supports · {escape(' · '.join(uses))}</small></p>" if uses else ""
+                passage = str(p.get("text", ""))
+                if len(passage) > 420:
+                    intro = passage[:360].rsplit(" ", 1)[0]
+                    entry = f"<p>{escape(intro)}…</p><details><summary>Read full passage</summary><p>{escape(passage)}</p></details>"
+                else:
+                    entry = f"<p>{escape(passage)}</p>"
+                st.html(
+                    f'<article class="ss-note"><small>{escape(eid)} · {source}</small>'
+                    f"{entry}{note}</article>"
+                )
+
+
+def how_it_works(events=(), *, synthetic=False):
+    st.subheader("How SiteScout works")
+    st.caption("Approved drafts enter the contact queue. Holds and skips stay in the run history.")
+    names = {e["lead_id"]: e["lead_name"] for e in events if e.get("lead_id")}
+    published = {
+        e["lead_id"] for e in events if e.get("stage") == "Publish" and e["status"] == "completed"
+    }
+    steps = []
+    if names:
+        lead_id = st.selectbox(
+            "Follow a business through the graph",
+            sorted(names, key=lambda key: (key not in published, names[key])),
+            format_func=lambda key: display_name(names[key]),
+            key="graph_business",
+        )
+        st.caption(
+            "Playing recorded handoffs from a "
+            + ("fictional rehearsal." if synthetic else "real discovery run.")
+        )
+        for e in events:
+            batch_start = e.get("stage") == "Discover" and not e.get("lead_id")
+            if (batch_start or e.get("lead_id") == lead_id) and e["status"] not in {"started", "info"}:
+                steps.append({"stage": e["stage"], "status": e["status"], "message": e["message"]})
+    template = (Path(__file__).parent / "assets" / "workflow.html").read_text()
+    # A source or model observation may contain HTML. Keep it inside JSON and render as text.
+    data = json.dumps(steps, ensure_ascii=False).replace("<", "\\u003c")
+    st.iframe(template.replace("WORKFLOW_STEPS", data), height=438, alt="SiteScout workflow playback")

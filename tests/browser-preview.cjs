@@ -70,6 +70,9 @@ async function main() {
       await checkHeadline(page);
     } else {
       await page.goto(process.env.SITESCOUT_DESK_URL || 'http://127.0.0.1:8501');
+      const draft = page.getByRole('link', {name: 'Open draft →'}).first();
+      const rehearsal = page.getByRole('link', {name: 'Open saved rehearsal'});
+      await draft.or(rehearsal).first().click();
       await page.getByRole('tab', {name: 'Website preview'}).click();
       site = page.frameLocator('iframe[title="Saved business website preview"]')
         .frameLocator('iframe[title="Business website preview"]');

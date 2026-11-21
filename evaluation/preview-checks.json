@@ -146,5 +146,25 @@
       "In the synthetic Linen Leaf rehearsal, two services prefill the form and the sourced service area includes Pasadena, Altadena and San Marino. The rotating testimonials pause for user interaction and remain static with reduced motion.",
       "The batch board marks the one business whose agent handoffs are shown. Changing the inspection selection changes the marker and the detail panel together."
     ]
+  },
+  "contact_queue_and_social_portfolio": {
+    "run_id": "4529b46f22ab",
+    "business": "Tony Castaneda Painting",
+    "public_url": "https://p-587c6a9871c0e8ab16.sitescout-previews-ec8f1c9e.pages.dev",
+    "verified_utc": "2026-11-21T04:48:59+00:00",
+    "http_status": 200,
+    "decoded_work_images": 5,
+    "distinct_instagram_post_links": 5,
+    "verified_instagram_profile_link": true,
+    "desktop_and_mobile": "Chromium checked the page at eight widths from 320 to 1920 pixels. The estimate form validated sample contact details locally. Chrome also exercised recorded route playback, the scrubber and source retrieval on the operator desk at 1440, 390 and 320 pixels.",
+    "paintastic": "The published listing still contains no named review excerpts. The review reader discards its empty structured Review marker."
+  },
+  "attributed_public_reviews": {
+    "run_id": "34d081d2c1fa",
+    "business": "Alexander Clark",
+    "public_url": "https://p-4cf7565fb74df3b89f.sitescout-previews-ec8f1c9e.pages.dev",
+    "customer_review_excerpts": 4,
+    "work_photos": 6,
+    "method": "Chromium followed the Next review button through four distinct attributed testimonials and back to the first. All four matched source links on the live page. Headline and form checks passed at eight widths from 320 to 1920 pixels."
   }
 }

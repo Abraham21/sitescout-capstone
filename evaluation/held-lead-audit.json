@@ -1,0 +1,62 @@
+{
+  "date": "2026-11-20",
+  "population": "The six leads still held after the first independent social and website discovery revision, from original batch 103b6ee39bc6.",
+  "method": "Separate public web searches by trading name, location, license and published telephone. These judgments informed regression work. The production discovery inputs remain registry records.",
+  "cases": [
+    {
+      "id": "1118965",
+      "business": "BE Painting",
+      "judgment": "Recoverable opportunity. Its public Facebook business card gives the registry phone, public contact email and residential and commercial painting specialties. An independent local listing corroborates name and phone. The revised workflow discovered and verified the Facebook page from an indexed trade listing.",
+      "sources": [
+        "https://www.facebook.com/BePaintingCA/",
+        "https://localservicebiz.com/businesses/painting/be-painting-llc/"
+      ]
+    },
+    {
+      "id": "1133525",
+      "business": "Uni-Deck",
+      "judgment": "Follow up manually. A matched public directory links to uni-deck.com, which the public reader could not reach over HTTP or HTTPS. Another profile lists an older license. A 2025 trade-name filing indicates a change in registrant. Confirm which online materials belong to the present contractor.",
+      "sources": [
+        "https://www.yellowpages.com/glendale-ca/mip/uni-deck-455516815",
+        "https://www.buildzoom.com/contractor/uni-deck",
+        "https://static1.squarespace.com/static/57df855ff7e0ab74193e26a8/t/67ef0a8b55960b27db744975/1743719057098/2025-04-04.pdf"
+      ]
+    },
+    {
+      "id": "1047682",
+      "business": "Michael Eshaghoff",
+      "judgment": "Follow up manually. A 2019 fictitious-name filing associated the individual with Mikey’s Painting. A current business-controlled site or social account linking that old alias to the license and phone was not established.",
+      "sources": [
+        "https://mtnviewsnews.com/old/mvnews/v13/MVNews_2019_08_31.pdf",
+        "https://www.cslb.ca.gov/OnlineServices/CheckLicenseII/LicenseDetail.aspx?LicNum=1047682"
+      ]
+    },
+    {
+      "id": "1161368",
+      "business": "Cosmic Color Painting Inc",
+      "judgment": "Public project evidence exists. A district’s May 2026 signed bid identifies a sole proprietorship with a different license, 1125741. A public plan-holders list corroborates the current registry phone. The association between the awarded work, contact and current corporation needs verification before reuse.",
+      "sources": [
+        "https://resources.finalsite.net/images/v1778795996/oxnardunionorg/gqytut7fhwgvyy7q9tkc/CosmicColorPainting_OxnardBidPackage_Signed.pdf",
+        "https://www.bpxplanroom.com/projects/1962/plan-holders/icc-paint-project"
+      ]
+    },
+    {
+      "id": "1162539",
+      "business": "Proguard Coat Waterproofing",
+      "judgment": "Hold. A similarly named building-products business has a live website selling coatings. The bounded search established the Los Angeles contractor’s registration but did not establish a matching business-controlled property or a specific customer inquiry gap.",
+      "sources": [
+        "https://www.cslb.ca.gov/OnlineServices/CheckLicenseII/LicenseDetail.aspx?LicNum=1162539",
+        "https://proguardbuilding.com/contact/"
+      ]
+    },
+    {
+      "id": "1162184",
+      "business": "EMH Painting & Decorating",
+      "judgment": "Hold. Searches returned similarly named contractors in other jurisdictions and registry listings. A California-owner web property or independent customer contact opportunity could not be corroborated in this check.",
+      "sources": [
+        "https://www.cslb.ca.gov/OnlineServices/CheckLicenseII/LicenseDetail.aspx?LicNum=1162184",
+        "https://www.buildzoom.com/contractor/emh-painting-llc"
+      ]
+    }
+  ]
+}

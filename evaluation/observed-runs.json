@@ -329,6 +329,479 @@
           "output_tokens": 483
         }
       ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "f0355b14644d",
+      "selection": "Rechecking the licenses from run 103b6ee39bc6 against current sources.",
+      "started_at": "2026-11-21T04:34:08.687+00:00",
+      "elapsed_seconds": 24.808,
+      "outcomes": {
+        "skip": 3,
+        "hold": 6,
+        "ready": 1
+      },
+      "hosted_verified": 1,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 25,
+          "dollars": 0.175,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        {
+          "service": "Gemini",
+          "state": "reported",
+          "calls": 4,
+          "dollars": 0.00457,
+          "input_tokens": 3578,
+          "output_tokens": 503
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "2a09cd86367b",
+      "selection": "Ten unseen active registry businesses.",
+      "started_at": "2026-11-21T04:34:50.844+00:00",
+      "elapsed_seconds": 25.565,
+      "outcomes": {
+        "skip": 2,
+        "hold": 8
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 26,
+          "dollars": 0.182,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "df631a0728b0",
+      "selection": "Ten fictional businesses from frozen source snapshots.",
+      "started_at": "2026-11-21T04:39:26.476+00:00",
+      "elapsed_seconds": 14.959,
+      "outcomes": {
+        "skip": 2,
+        "manual": 2,
+        "hold": 4,
+        "blocked": 1,
+        "ready": 1
+      },
+      "hosted_verified": 3,
+      "provider_usage": [
+        {
+          "service": "Gemini",
+          "state": "reported",
+          "calls": 9,
+          "dollars": 0.004638,
+          "input_tokens": 4004,
+          "output_tokens": 436
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "e2e2f0ac5da4",
+      "selection": "Ten unseen active registry businesses, prioritizing local directory matches.",
+      "started_at": "2026-11-21T04:41:23.644+00:00",
+      "elapsed_seconds": 26.703,
+      "outcomes": {
+        "hold": 6,
+        "skip": 4
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 22,
+          "dollars": 0.154,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "b8cca90cfc4c",
+      "selection": "Rechecking the licenses from run 103b6ee39bc6 against current sources.",
+      "started_at": "2026-11-21T04:43:28.887+00:00",
+      "elapsed_seconds": 21.104,
+      "outcomes": {
+        "skip": 3,
+        "hold": 7
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 24,
+          "dollars": 0.168,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "4529b46f22ab",
+      "selection": "Rechecking the licenses from run 103b6ee39bc6 against current sources.",
+      "started_at": "2026-11-21T04:46:24.445+00:00",
+      "elapsed_seconds": 32.291,
+      "outcomes": {
+        "hold": 5,
+        "skip": 3,
+        "ready": 2
+      },
+      "hosted_verified": 2,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 24,
+          "dollars": 0.168,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        {
+          "service": "Gemini",
+          "state": "reported",
+          "calls": 8,
+          "dollars": 0.007583,
+          "input_tokens": 6926,
+          "output_tokens": 637
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "a14742ea2d66",
+      "selection": "Rechecking the licenses from run 2a09cd86367b against current sources.",
+      "started_at": "2026-11-21T04:46:57.395+00:00",
+      "elapsed_seconds": 24.167,
+      "outcomes": {
+        "skip": 2,
+        "hold": 8
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 25,
+          "dollars": 0.175,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "82ce81a3e669",
+      "selection": "Rechecking the licenses from run e2e2f0ac5da4 against current sources.",
+      "started_at": "2026-11-21T04:47:22.405+00:00",
+      "elapsed_seconds": 22.874,
+      "outcomes": {
+        "hold": 6,
+        "skip": 4
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 21,
+          "dollars": 0.147,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "95c7a121d752",
+      "selection": "Rechecking the licenses from run 2a09cd86367b against current sources.",
+      "started_at": "2026-11-21T04:50:00.785+00:00",
+      "elapsed_seconds": 38.768,
+      "outcomes": {
+        "skip": 2,
+        "hold": 7,
+        "manual": 1
+      },
+      "hosted_verified": 1,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 25,
+          "dollars": 0.175,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        {
+          "service": "Gemini",
+          "state": "reported",
+          "calls": 4,
+          "dollars": 0.005606,
+          "input_tokens": 5060,
+          "output_tokens": 483
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "1581a7f5dbb2",
+      "selection": "Rechecking the licenses from run e2e2f0ac5da4 against current sources.",
+      "started_at": "2026-11-21T04:50:40.179+00:00",
+      "elapsed_seconds": 12.982,
+      "outcomes": {
+        "hold": 6,
+        "skip": 4
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 21,
+          "dollars": 0.147,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "81d2c80569b0",
+      "selection": "Ten unseen active registry businesses, prioritizing local directory matches.",
+      "started_at": "2026-11-21T04:51:11.010+00:00",
+      "elapsed_seconds": 28.942,
+      "outcomes": {
+        "hold": 5,
+        "skip": 5
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 16,
+          "dollars": 0.112,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "c34d38f7447a",
+      "selection": "Rechecking the licenses from run 2a09cd86367b against current sources.",
+      "started_at": "2026-11-21T04:52:42.421+00:00",
+      "elapsed_seconds": 28.496,
+      "outcomes": {
+        "skip": 2,
+        "hold": 7,
+        "manual": 1
+      },
+      "hosted_verified": 1,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 25,
+          "dollars": 0.175,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        {
+          "service": "Gemini",
+          "state": "reported",
+          "calls": 4,
+          "dollars": 0.00562,
+          "input_tokens": 5059,
+          "output_tokens": 487
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "d24046721795",
+      "selection": "Rechecking the licenses from run 81d2c80569b0 against current sources.",
+      "started_at": "2026-11-21T04:54:10.193+00:00",
+      "elapsed_seconds": 9.943,
+      "outcomes": {
+        "skip": 5,
+        "hold": 5
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 16,
+          "dollars": 0.112,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "3a130196c47c",
+      "selection": "Ten unseen active registry businesses, prioritizing local directory matches.",
+      "started_at": "2026-11-21T04:54:20.793+00:00",
+      "elapsed_seconds": 30.898,
+      "outcomes": {
+        "hold": 9,
+        "skip": 1
+      },
+      "hosted_verified": 0,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 27,
+          "dollars": 0.189,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      ]
+    },
+    {
+      "release": "Contact queue, social portfolios and discovery audit",
+      "run_id": "34d081d2c1fa",
+      "selection": "Rechecking the licenses from run 81d2c80569b0 against current sources.",
+      "started_at": "2026-11-21T04:55:22.197+00:00",
+      "elapsed_seconds": 29.145,
+      "outcomes": {
+        "skip": 5,
+        "manual": 3,
+        "hold": 2
+      },
+      "hosted_verified": 3,
+      "provider_usage": [
+        {
+          "service": "Exa",
+          "state": "reported",
+          "calls": 16,
+          "dollars": 0.112,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        {
+          "service": "Gemini",
+          "state": "reported",
+          "calls": 12,
+          "dollars": 0.014696,
+          "input_tokens": 13324,
+          "output_tokens": 1254
+        }
+      ]
     }
-  ]
+  ],
+  "evening_discovery_comparison": {
+    "method": "Five disjoint sets of ten licenses. All first-run outcomes are retained. Rechecks are development evidence and reuse the same license IDs. Each recheck performs new searches. The final portfolio recheck refetched the public directory listings that the original discovery itself found. Older rechecks started with registry IDs alone. None used previously generated drafts or photos. The last group ran after the directory-publisher correction.",
+    "cohorts": [
+      {
+        "cohort": "Operator's original ten",
+        "first_run": {
+          "run_id": "103b6ee39bc6",
+          "contact_ready": 0,
+          "outcomes": {
+            "hold": 9,
+            "skip": 1
+          }
+        },
+        "same_licenses_researched_again": {
+          "run_id": "4529b46f22ab",
+          "contact_ready": 2,
+          "outcomes": {
+            "hold": 5,
+            "skip": 3,
+            "ready": 2
+          }
+        }
+      },
+      {
+        "cohort": "New ten drawn from the license registry during development",
+        "first_run": {
+          "run_id": "2a09cd86367b",
+          "contact_ready": 0,
+          "outcomes": {
+            "skip": 2,
+            "hold": 8
+          }
+        },
+        "same_licenses_researched_again": {
+          "run_id": "c34d38f7447a",
+          "contact_ready": 1,
+          "outcomes": {
+            "skip": 2,
+            "hold": 7,
+            "manual": 1
+          }
+        }
+      },
+      {
+        "cohort": "New ten prioritizing directory name matches during development",
+        "first_run": {
+          "run_id": "e2e2f0ac5da4",
+          "contact_ready": 0,
+          "outcomes": {
+            "hold": 6,
+            "skip": 4
+          }
+        },
+        "same_licenses_researched_again": {
+          "run_id": "1581a7f5dbb2",
+          "contact_ready": 0,
+          "outcomes": {
+            "hold": 6,
+            "skip": 4
+          }
+        }
+      },
+      {
+        "cohort": "New ten prioritizing verified directory portfolios during development",
+        "first_run": {
+          "run_id": "81d2c80569b0",
+          "contact_ready": 0,
+          "outcomes": {
+            "hold": 5,
+            "skip": 5
+          }
+        },
+        "same_licenses_researched_again": {
+          "run_id": "34d081d2c1fa",
+          "contact_ready": 3,
+          "outcomes": {
+            "skip": 5,
+            "manual": 3,
+            "hold": 2
+          }
+        }
+      },
+      {
+        "cohort": "Next ten unseen businesses after the directory-reader correction",
+        "first_run": {
+          "run_id": "3a130196c47c",
+          "contact_ready": 0,
+          "outcomes": {
+            "hold": 9,
+            "skip": 1
+          }
+        }
+      }
+    ]
+  }
 }

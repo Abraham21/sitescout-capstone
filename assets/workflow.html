@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,sans-serif;color:#23352f}
+main{border:1px solid #d3dfd8;border-radius:14px;background:#fcfdfb;overflow:hidden}
+.map{padding:16px 12px 0;background:#f3f7f3}
+svg{display:block;width:100%;height:206px}path{fill:none;stroke:#71857c;stroke-width:1.7;marker-end:url(#tip)}
+path.branch{stroke-dasharray:4 3}.route{font-size:12px;fill:#3b594b}.node rect{fill:white;stroke:#9bada3;stroke-width:1.5}
+.node text{text-anchor:middle;dominant-baseline:middle;fill:#24372d;font-size:15px;font-weight:600}
+.node.visited rect{fill:#deece1;stroke:#70977d}.node.active rect{fill:#175b44;stroke:#104c38;stroke-width:3}.node.active text{fill:white}
+.controls,.detail{padding:10px 16px;display:flex;gap:10px;align-items:center}.detail{display:block;min-height:76px;padding-top:3px}
+.detail p{margin:4px 0}.controls button{border:1px solid #9aaea3;background:white;border-radius:6px;padding:6px 12px;color:#244532;cursor:pointer;font:inherit}.controls button:first-child{background:#175b44;color:white}
+.controls input{flex:1;width:30px;accent-color:#175b44}.controls output{white-space:nowrap;font-variant-numeric:tabular-nums}
+@media(max-width:500px){.map{padding:4px}.controls,.detail{padding:8px}.controls{gap:6px}.controls button{padding:7px}.detail{font-size:14px}svg{height:auto;max-height:280px}}
+</style>
+<main><div class="map">
+<svg viewBox="0 0 598 230" role="img" aria-label="Discovery passes each lead to research. Qualified leads reach the builder, writer and reviewer. Review can request up to two repairs, hold, or approve publication. The operator desk records the result.">
+<defs><marker id="tip" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><polygon points="0,0 7,3.5 0,7" fill="#71857c"/></marker></defs>
+<g id="wide-arrows"><path d="M127 40H156"/><path d="M275 40H304"/><path d="M423 40H452"/><path d="M513 63V127"/>
+<path d="M454 152H425"/><path d="M306 152H277"/>
+<path class="branch" d="M216 63V127"/><text class="route" x="132" y="102">hold / skip</text>
+<path class="branch" d="M470 129V97H365V65"/><text class="route" x="383" y="88">revise</text>
+<path class="branch" d="M513 177V203H217V179"/><text class="route" x="322" y="222">review hold</text></g>
+<g id="narrow-arrows"><path d="M137 35H176"/><path d="M236 58V80"/><path d="M178 105H139"/>
+<path d="M78 128V150"/><path d="M137 175H176"/><path d="M236 198V220"/>
+<path class="branch" d="M295 35H317V245H298"/><text class="route" transform="translate(331 84) rotate(90)">hold / skip</text>
+<path class="branch" d="M137 165H154V120H176"/><text class="route" x="83" y="146">revise</text>
+<path class="branch" d="M78 198V245H175"/><text class="route" x="20" y="222">hold</text></g>
+<g id="nodes"></g></svg></div>
+<div class="controls" hidden><button id="play" type="button">Play route</button><button id="step" type="button">Next</button><input id="position" type="range" min="0" value="0" aria-label="Recorded step"><output id="count"></output></div>
+<div class="detail" aria-live="polite"><strong id="label">Workflow</strong><p id="observation">A lead needs a verified contact opportunity to enter the build step.</p></div></main>
+<script type="application/json" id="events">WORKFLOW_STEPS</script>
+<script>
+const nodes = [
+  ['Discover', 'Discovery', 10, 17], ['Qualify', 'Researcher', 158, 17],
+  ['Build', 'Site builder', 306, 17], ['Write', 'Pitch writer', 454, 17],
+  ['Review', 'Reviewer', 454, 129], ['Publish', 'Publish', 306, 129],
+  ['Queue', 'Operator desk', 158, 129]
+];
+const mobilePositions = [[20, 12], [178, 12], [178, 82], [20, 82], [20, 152], [178, 152], [178, 222]];
+const mobile = matchMedia('(max-width: 500px)');
+const graph = document.querySelector('svg');
+const byId = id => document.getElementById(id);
+
+function layout() {
+  graph.setAttribute('viewBox', mobile.matches ? '0 0 340 278' : '0 0 598 230');
+  byId('wide-arrows').style.display = mobile.matches ? 'none' : '';
+  byId('narrow-arrows').style.display = mobile.matches ? '' : 'none';
+  nodes.forEach(([stage, label, desktopX, desktopY], index) => {
+    const id = 'node-' + stage;
+    if (!byId(id)) {
+      // These labels are defined above. All recorded observations below use textContent.
+      byId('nodes').insertAdjacentHTML('beforeend',
+        `<g class="node" id="${id}"><rect width="117" height="46" rx="8"/><text x="58.5" y="23">${label}</text></g>`);
+    }
+    const [x, y] = mobile.matches ? mobilePositions[index] : [desktopX, desktopY];
+    byId(id).setAttribute('transform', `translate(${x} ${y})`);
+  });
+}
+layout();
+mobile.addEventListener('change', layout);
+
+const events = JSON.parse(byId('events').textContent);
+const last = events.length - 1;
+let current = 0;
+let timer;
+
+function pause() {
+  clearInterval(timer);
+  timer = undefined;
+}
+
+function show(index) {
+  current = index;
+  const event = events[index];
+  const visited = new Set(events.slice(0, index).map(previous => previous.stage));
+  for (const [stage] of nodes) {
+    const node = byId('node-' + stage);
+    node.classList.toggle('visited', visited.has(stage));
+    node.classList.toggle('active', stage === event.stage);
+  }
+  if (index === last) pause();
+  byId('position').value = index;
+  byId('count').value = (index + 1) + ' / ' + events.length;
+  byId('step').disabled = index === last;
+  byId('play').textContent = timer ? 'Pause' : (index === last ? 'Replay' : 'Play route');
+  const stageLabel = nodes.find(([stage]) => stage === event.stage)?.[1] || event.stage;
+  byId('label').textContent = stageLabel + ' · ' + event.status;
+  byId('observation').textContent = event.message;
+}
+
+const controls = document.querySelector('.controls');
+controls.style.display = events.length ? 'flex' : 'none';
+if (events.length) {
+  controls.hidden = false;
+  byId('position').max = last;
+  show(0);
+  byId('play').onclick = () => {
+    if (timer) {
+      pause();
+    } else if (last > 0) {
+      if (current === last) current = 0;
+      timer = setInterval(() => show(current + 1), 1700);
+    }
+    show(current);
+  };
+  byId('step').onclick = () => {
+    pause();
+    show(Math.min(current + 1, last));
+  };
+  byId('position').oninput = event => {
+    pause();
+    show(Number(event.target.value));
+  };
+}
+</script></html>

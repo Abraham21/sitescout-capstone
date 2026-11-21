@@ -28,9 +28,12 @@ class OperatorDeskTest(unittest.TestCase):
         ):
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py")).run()
             self.assertFalse(app.exception)
-            self.assertEqual(app.radio(key="data_source").value, "replay")
+            self.assertEqual(app.segmented_control(key="view").value, "Contact queue")
+            self.assertFalse(storage.contact_queue())
+            app.segmented_control(key="view").set_value("Runs").run()
             self.assertIn("Recorded sample (synthetic)", app.selectbox(key="saved_run").options[0])
-            self.assertTrue(app.text_input[0].disabled)
+            self.assertTrue(any('class="ss-draft"' in h.value for h in app.get("html")))
+            self.assertFalse(app.text_input)
             self.assertEqual([r["mode"] for r in storage.list_runs()], ["sample"])
             run_id = storage.list_runs()[0]["id"]
             ready = next(item for item in storage.leads(run_id) if item["status"] == "ready")
@@ -81,17 +84,75 @@ class OperatorDeskTest(unittest.TestCase):
             )
             storage.finish_run("test-run", "complete")
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py")).run()
+            self.assertEqual([r["id"] for r in storage.contact_queue()], ["test"])
+            app.query_params["contact"] = "test"
+            app.run()
             app.text_input[0].set_value("Reviewed subject")
             app.button(key="edit_test-run_test").click().run()
             self.assertFalse(app.exception)
             self.assertEqual(storage.leads("test-run")[0]["pitch"]["subject"], "Reviewed subject")
-            app.radio(key="data_source").set_value("replay").run()
-            self.assertTrue(app.text_input[0].disabled)
-            self.assertEqual(app.text_input[0].value, "First draft")
+            app.query_params.clear()
+            app.query_params.update({"replay": "test-run", "business": "test"})
+            app.run()
+            self.assertFalse(app.text_input)
+            self.assertIn(
+                "First draft", next(h.value for h in app.get("html") if 'class="ss-draft"' in h.value)
+            )
+            self.assertTrue(
+                any(
+                    "Copy draft" in f.proto.srcdoc
+                    for f in app.get("iframe")
+                    if f.proto.HasField("srcdoc")
+                )
+            )
             self.assertFalse(any(b.label == "Dismiss lead" for b in app.button))
-            app.radio(key="data_source").set_value("live").run()
+            app.query_params.clear()
+            app.query_params["contact"] = "test"
+            app.run()
             app.button(key="dismiss_test-run_test").click().run()
             self.assertEqual(storage.leads("test-run")[0]["status"], "dismissed")
+
+    def test_real_contact_queue_uses_latest_evidence_and_all_confirmed_channels(self):
+        with (
+            tempfile.TemporaryDirectory() as folder,
+            patch.dict("os.environ", {"SITESCOUT_DATA_DIR": folder}),
+        ):
+            storage.initialize()
+            lead = {
+                "id": "abc",
+                "name": "Matched Painter",
+                "city": "Glendale",
+                "status": "ready",
+                "channel": "Email",
+                "preview": {"url": "https://preview.example/site", "published": True},
+                "pitch": {"subject": "Preview", "body": "Your preview"},
+                "qualification": {
+                    "email": "paint@example.test",
+                    "social": "https://www.instagram.com/test_painter/",
+                    "phone": "8185551234",
+                },
+            }
+            for mode in ["showcase", "demo", "recheck"]:
+                storage.new_run(mode, mode)
+                storage.save_lead(mode, lead)
+                storage.finish_run(mode, "complete")
+            self.assertEqual([r["run_id"] for r in storage.contact_queue()], ["recheck"])
+            app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py"))
+            app.query_params["contact"] = "abc"
+            app.run()
+            self.assertFalse(app.exception)
+            for marker in ['class="ss-queue"', 'class="ss-context"']:
+                blocks = [h.value for h in app.get("html") if marker in h.value]
+                self.assertTrue(
+                    any(
+                        "mailto:paint@example.test" in h
+                        and "instagram.com/test_painter/" in h
+                        and "tel:8185551234" in h
+                        for h in blocks
+                    )
+                )
+            storage.save_lead("recheck", {**lead, "status": "hold"})
+            self.assertEqual(storage.contact_queue(), [])
 
     def test_recorded_handoffs_show_only_what_was_known_at_the_cursor(self):
         with (
@@ -135,7 +196,8 @@ class OperatorDeskTest(unittest.TestCase):
                 )
             storage.finish_run("audit", "complete")
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py")).run()
-            app.radio(key="data_source").set_value("replay").run()
+            app.query_params.update({"replay": "audit", "at": "6"})
+            app.run()
             cursor = app.slider(key="cursor_audit")
             cursor.set_value(2).run()
             chain = next(h.value for h in app.get("html") if 'class="ss-chain"' in h.value)
@@ -150,12 +212,17 @@ class OperatorDeskTest(unittest.TestCase):
             self.assertIn("A specific draft opening", chain)
             self.assertNotIn("The complete final draft", chain)
 
-    def test_featured_live_start_dispatches_one_fresh_showcase(self):
+    def test_showcase_button_dispatches_one_fresh_run(self):
         with (
             tempfile.TemporaryDirectory() as folder,
             patch.dict("os.environ", {"SITESCOUT_DATA_DIR": folder}),
             patch("pipeline.showcase_available", return_value=True),
-            patch("pipeline.run_batch", return_value="featured") as runner,
+            patch(
+                "pipeline.run_batch",
+                side_effect=lambda **kw: kw["on_event"](
+                    {"stage": "Discover", "status": "started", "run_id": "featured"}
+                ),
+            ) as runner,
         ):
             storage.initialize()
             storage.new_run("featured", "showcase")
@@ -170,9 +237,10 @@ class OperatorDeskTest(unittest.TestCase):
             )
             storage.finish_run("featured", "complete")
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py")).run()
+            app.segmented_control(key="view").set_value("Runs").run()
             next(b for b in app.button if "Start live showcase" in b.label).click().run()
             self.assertFalse(app.exception)
-            self.assertEqual(app.radio(key="data_source").value, "showcase")
+            self.assertEqual(app.selectbox(key="saved_run").value, "featured")
             self.assertEqual(runner.call_count, 1)
             self.assertEqual(runner.call_args.kwargs["mode"], "showcase")
             app.run()
@@ -205,8 +273,8 @@ class OperatorDeskTest(unittest.TestCase):
             first_started = next(i for i, e in enumerate(events, 1) if e.get("lead_id"))
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py"))
             app.query_params["replay"] = run_id
-            with patch("time.sleep"):
-                app.run()
+            app.query_params["at"] = str(len(events))
+            app.run()
             self.assertFalse(app.exception)
             self.assertEqual(app.selectbox(key="saved_run").value, run_id)
 
@@ -216,18 +284,36 @@ class OperatorDeskTest(unittest.TestCase):
                 )
                 return BeautifulSoup(markup, "html.parser")
 
-            self.assertEqual(board().find(role="status").get_text(), "10 of 10 finished")
-            businesses = app.selectbox(key=f"lead_{run_id}_all")
-            businesses.set_value(events[first_started - 1]["lead_id"]).run()
+            self.assertEqual(board().find(role="status").get_text(), "10 of 10 finished · 0 ready to contact")
+            businesses = app.selectbox(key=f"inspect_{run_id}")
+            other = next(e for e in events if e.get("lead_id") and e["lead_id"] != businesses.value)
+            businesses.set_value(other["lead_id"]).run()
+            self.assertEqual(app.session_state.opened_location["business"], other["lead_id"])
+            self.assertIn(other["lead_name"], board().select_one(".ss-following").parent.get_text())
             name = events[first_started - 1]["lead_name"]
-            self.assertIn(name, board().select_one(".ss-following").parent.get_text())
             app.slider(key=f"cursor_{run_id}").set_value(discovered).run()
             self.assertEqual(len(board().select("tbody tr")), 10)
             self.assertEqual({td.text for td in board().select("tbody td:last-child")}, {"Waiting"})
-            self.assertFalse(board().select("a, .done"))
+            self.assertFalse(board().select(".done"))
+            self.assertTrue(
+                all("at=" in a["href"] and "business=" in a["href"] for a in board().select("a"))
+            )
             self.assertIsNone(board().select_one(".ss-following"))
             app.slider(key=f"cursor_{run_id}").set_value(first_started).run()
             self.assertEqual(len(board().select(".ss-status.active")), 1)
             self.assertIn("9 waiting", board().find(role="status").get_text())
             self.assertIn(name, board().select_one(".ss-following").parent.get_text())
-            self.assertIn(name, [heading.value for heading in app.subheader])
+            self.assertTrue(
+                any(name in h.value for h in app.get("html") if 'id="business-detail"' in h.value)
+            )
+            target = next(
+                e["lead_id"]
+                for e in events
+                if e.get("lead_id") and e["lead_id"] != events[first_started - 1]["lead_id"]
+            )
+            app.query_params.update({"at": str(first_started), "business": target})
+            app.run()
+            self.assertEqual(app.selectbox(key=f"follow_{run_id}").value, target)
+            self.assertFalse(app.text_area)
+            app.segmented_control(key="view").set_value("Contact queue").run()
+            self.assertEqual(app.session_state.opened_location, {})

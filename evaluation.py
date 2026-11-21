@@ -309,7 +309,8 @@ def blind_cards(review_runs=None):
     runs = [
         r
         for r in storage.list_runs()
-        if r["mode"] in ("live", "showcase") and r["status"] in ("complete", "complete_with_errors")
+        if r["mode"] in ("live", "showcase", "recheck")
+        and r["status"] in ("complete", "complete_with_errors")
     ]
     if review_runs:
         requested = set(review_runs)

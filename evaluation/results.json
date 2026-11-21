@@ -71,9 +71,9 @@
         "matched": 12,
         "total": 12
       },
-      "selected_passages": 52,
-      "selected_chars": 11668,
-      "qualified_selected_chars": 8390
+      "selected_passages": 55,
+      "selected_chars": 12028,
+      "qualified_selected_chars": 8665
     }
   },
   "cases": [
@@ -82,26 +82,26 @@
       "expected": {
         "status": "qualified",
         "website_status": "no_site_found",
-        "evidence_url": "https://www.instagram.com/site_scout_demo_social-estimates/",
+        "evidence_url": "https://www.instagram.com/site_scout_demo_copperfinch/",
         "evidence_contains": "Message us for a painting estimate"
       },
       "fts": {
         "status": "qualified",
         "website_status": "no_site_found",
         "selected_passages": 3,
-        "available_passages": 3,
+        "available_passages": 5,
         "selected_chars": 441,
-        "context_sha256": "3cbc33d834bf663aec5155c41ca7577afeb133217abb00b7100bbd5d011a97a5",
+        "context_sha256": "5dea5719955ae91041293815dd834a3862ee2ac0035376e0e55a98628fd5780d",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
       "full": {
         "status": "qualified",
         "website_status": "no_site_found",
-        "selected_passages": 3,
-        "available_passages": 3,
-        "selected_chars": 441,
-        "context_sha256": "3cbc33d834bf663aec5155c41ca7577afeb133217abb00b7100bbd5d011a97a5",
+        "selected_passages": 5,
+        "available_passages": 5,
+        "selected_chars": 716,
+        "context_sha256": "72d50871170f3272077d8d3327d50cc561c14cf8866fef9ac7519751e123fc6f",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }
@@ -205,7 +205,7 @@
         "status": "hold",
         "website_status": "unsure",
         "selected_passages": 3,
-        "available_passages": 3,
+        "available_passages": 4,
         "selected_chars": 393,
         "context_sha256": "a1ef99137ff3d4ceaa4987fa5379be32780e6b0c3dfc15a46d61f849375296cc",
         "expected_url_in_selection": true,
@@ -214,10 +214,10 @@
       "full": {
         "status": "hold",
         "website_status": "unsure",
-        "selected_passages": 3,
-        "available_passages": 3,
-        "selected_chars": 393,
-        "context_sha256": "a1ef99137ff3d4ceaa4987fa5379be32780e6b0c3dfc15a46d61f849375296cc",
+        "selected_passages": 4,
+        "available_passages": 4,
+        "selected_chars": 478,
+        "context_sha256": "fa715ed2ad83be3a0f5ad4ac542e0a41efc5909f47677c4091a01ce5e7a2ff48",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }

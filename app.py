@@ -1,16 +1,20 @@
 """The local SiteScout operator desk. Run with streamlit run app.py."""
 
-from collections import Counter
 from datetime import datetime
 from html import escape
+import os
 import re
+from concurrent.futures import Future
+from threading import Thread
 import time
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 from zoneinfo import ZoneInfo
 
 import streamlit as st
 
 import pipeline
+import desk_views
+import storage
 from storage import usage
 from studio import display_name
 
@@ -18,6 +22,7 @@ from studio import display_name
 STAGES = ("Discover", "Qualify", "Build", "Write", "Review", "Publish", "Queue")
 MODES = {
     "live": "Live discovery",
+    "recheck": "Rechecked businesses",
     "showcase": "Curated live showcase",
     "demo": "Demo fixtures",
     "sample": "Recorded sample (synthetic)",
@@ -51,27 +56,18 @@ st.html("""
 <style>
 html{scroll-behavior:smooth}
 .stMainBlockContainer{max-width:1530px;padding:2rem 3.5rem 4rem}
-[data-testid=stSidebar]{border-right:1px solid #d3ddd6}
-[data-testid=stSidebar] [data-testid=stSidebarContent]{padding-top:.4rem}
 button[kind=primary]{background:#185c4e;border-color:#185c4e;color:white}
 button[kind=primary]:hover{background:#104a3e;border-color:#104a3e;color:white}
 button[kind=primary]:focus-visible,.ss-chain a:focus-visible{outline:3px solid #ba8043}
-.ss-brand{font:760 1.45rem/1.25 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:-.055em;margin:.1rem 0 .8rem}
-.ss-brand b{color:#217b61}.ss-brand span{display:block;letter-spacing:.025em;font-size:.74rem;color:#56695e;font-weight:500;margin-top:.25rem}
 .ss-title,.ss-company{font:500 clamp(2rem,3vw,3.4rem)/1.02 Georgia,serif;letter-spacing:-.055em;margin:.2rem 0}
 .ss-title{font-size:clamp(1.8rem,2.7vw,2.7rem)}
 .ss-rule{height:1px;background:#c8d8ce;margin:.6rem 0}
-.ss-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-block:1px solid #c4d2c8;margin:.2rem 0}
-.ss-metric{display:flex;gap:.6rem;align-items:center;padding:.6rem .7rem;color:#345546}
-.ss-metric strong{font:500 1.7rem Georgia,serif}.ss-metric small{font-size:.77rem;line-height:1.2}
 .ss-companyline{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin:.4rem 0 .24rem}
-.ss-companyline small,.ss-runline{font-size:.82rem;color:#52695c}
+.ss-companyline small{font-size:.82rem;color:#52695c}
 .ss-timeline{display:grid;gap:.1rem}.ss-event{display:grid;grid-template-columns:4.9rem 5.2rem 1fr;align-items:baseline;gap:.3rem;padding:.48rem 0;border-bottom:1px solid #82958f38;font-size:.9rem}
 .ss-event time{font:normal .75rem ui-monospace,monospace;color:#597168}
 .ss-event b{font-size:.82rem}.ss-event p{margin:0;font-size:.92rem;line-height:1.4;overflow-wrap:anywhere}
 .ss-event small{display:block;color:#5d7167}
-.ss-note{padding:.7rem .9rem;border-left:3px solid #438b78;background:#82958f13;margin:.3rem 0;overflow-wrap:anywhere}
-.ss-note p{margin:0 0 .25rem}.ss-note small{color:#597168}
 .ss-outcome{display:inline-block;font-weight:650;border-radius:999px;padding:.24rem .65rem;background:#e3e8e4;color:#294034;font-size:.75rem;line-height:1.4}
 .ss-outcome.ready{background:#d7ebd9;color:#245530}.ss-outcome.manual{background:#daefe8;color:#185540}
 .ss-outcome.hold{background:#f7e6bd;color:#724b13}.ss-outcome.blocked,.ss-outcome.error{background:#f3d7d4;color:#883b37}
@@ -90,18 +86,22 @@ button[kind=primary]:focus-visible,.ss-chain a:focus-visible{outline:3px solid #
 .ss-batch table{width:100%;border-collapse:collapse;font-size:.84rem}.ss-batch th,.ss-batch td{padding:.35rem .45rem;text-align:center;border-bottom:1px solid #dce4dd}
 .ss-batch thead th{font-size:.72rem;font-weight:600;color:#506458;background:#f1f5f1}.ss-batch tr>:first-child,.ss-batch tr>:last-child{text-align:left}
 .ss-batch th[scope=row]{width:40%;font-weight:620;overflow-wrap:anywhere}.ss-batch td:last-child{width:18%;font-size:.78rem;font-weight:600}
-.ss-batch summary{cursor:pointer}.ss-batch details p{font-size:.8rem;line-height:1.4;font-weight:400;color:#4c6255;margin:.4rem 0 .1rem}
 .ss-step{display:inline-grid;place-items:center;width:1.12rem;height:1.12rem;border-radius:50%;font:700 .74rem/1 sans-serif;color:#7c8a7e}
 .ss-step.done{color:#146649;background:#dfefe4}.ss-step.working{color:#195849;background:#d9eee4;outline:2px solid #508d71;outline-offset:1px}
 .ss-step.stopped{background:#f8ebd1;color:#81560c}.ss-batch tbody tr:has(.working){background:#f5faf6}
 .ss-status{display:inline-flex;align-items:center;gap:.4rem;line-height:1.3}.ss-status.active::before{content:'';border:2px solid #a5c8b7;border-top-color:#195849;width:.75rem;height:.75rem;box-sizing:border-box;border-radius:50%;animation:ss-spin 1s linear infinite}
 @keyframes ss-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.ss-status.active::before{animation:none}}
-.ss-batch summary:focus-visible{outline:2px solid #27704d;outline-offset:2px}
 .ss-batch tr:has(.ss-following) th[scope=row]{box-shadow:inset 3px 0 #27704d;padding-left:.7rem}
 .ss-following{display:inline-block;margin-left:.5rem;color:#286147;font-size:.72rem;font-weight:650}
 @media(max-width:830px){.ss-batch .stage-col{display:none}.ss-batch th[scope=row]{width:62%}.ss-batch td:last-child{width:auto}.ss-batch header{gap:.25rem}}
 @media(max-width:1150px){.stMainBlockContainer{padding-inline:1.6rem}.ss-chain{grid-template-columns:repeat(2,minmax(0,1fr))}.ss-card:nth-child(2)::after{display:none}}
-@media(max-width:700px){.stMainBlockContainer{padding:4.2rem 1rem 1rem}.ss-chain{grid-template-columns:minmax(0,1fr);gap:.5rem}.ss-card:not(:last-child)::after{display:none}.ss-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ss-metric{padding:.43rem}.ss-event{grid-template-columns:4rem 4rem 1fr}}
+@media(max-width:700px){.stMainBlockContainer{padding:4.2rem 1rem 1rem}.ss-chain{grid-template-columns:minmax(0,1fr);gap:.5rem}.ss-card:not(:last-child)::after{display:none}.ss-event{grid-template-columns:4rem 4rem 1fr}}
+
+.ss-queue{border-top:1px solid #cbd8cf}.ss-lead{display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(220px,1.3fr) auto;align-items:center;gap:1.5rem;padding:1.05rem .35rem;border-bottom:1px solid #d9e3dc}
+.ss-lead h3{font:600 1.12rem system-ui;margin:0 0 .2rem;color:#213c2d}.ss-lead small{color:#597164}.ss-contacts{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem 1.1rem;font-size:.93rem}.ss-contacts a{max-width:100%;overflow-wrap:anywhere}
+.ss-queue a,.ss-inspect{color:#175c45}.ss-draft-link{font-weight:650}.ss-inspect{text-decoration:none}.ss-inspect:hover,.ss-inspect:focus-visible{text-decoration:underline}
+.ss-draft{padding:0 0 .4rem;user-select:text}.ss-draft p{color:#263f30;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;font-size:1rem;margin:1rem 0}.ss-draft strong{display:block;font-size:.85rem;color:#52675b}
+@media(max-width:700px){.ss-lead{grid-template-columns:1fr auto;gap:.45rem 1rem}.ss-contacts{grid-column:1/-1;grid-row:2}.ss-draft-link{grid-column:2;grid-row:1}}
 </style>
 """)
 
@@ -276,7 +276,7 @@ def handoff_chain(events, lead=None, *, synthetic=False):
         )
 
 
-def batch_board(events, leads=(), *, focused_id=None, interrupted=False):
+def batch_board(events, leads=(), *, focused_id=None, interrupted=False, route, cursor=None):
     """Build each row from events already observed. Stored results are only passed after completion."""
     names = {}
     activity = {}
@@ -331,21 +331,12 @@ def batch_board(events, leads=(), *, focused_id=None, interrupted=False):
             state = "Interrupted" if interrupted else verbs.get(stage, "Waiting")
             if active and latest.get("status") == "repair":
                 state = "Revising"
-        message = latest.get("message") or state
-        if finished:
-            message = (
-                (lead.get("qualification") or {}).get("reason")
-                or steps.get("Qualify", {}).get("message")
-                or message
-            )
-        preview = lead.get("preview") or {}
-        public_url = (
-            preview.get("url")
-            if preview.get("published")
-            else steps.get("Publish", {}).get("handoff", {}).get("url")
-        )
         marker = ' <small class="ss-following">Shown below</small>' if lead_id == focused_id else ""
-        business = f"<details><summary>{escape(display_name(name))}{marker}</summary><p>{escape(message)}</p>{link(public_url, 'Open website preview')}</details>"
+        query = {**route, "business": lead_id}
+        if cursor is not None:
+            query["at"] = cursor
+        inspect_url = escape("?" + urlencode(query) + "#business-detail", quote=True)
+        business = f'<a class="ss-inspect" href="{inspect_url}" target="_self">{escape(display_name(name))}</a>{marker}'
         cells = []
         for step, label in stages.items():
             status = steps.get(step, {}).get("status", "")
@@ -369,6 +360,9 @@ def batch_board(events, leads=(), *, focused_id=None, interrupted=False):
         summary += f" · {waiting} interrupted"
     elif working or waiting:
         summary += f" · {working} working · {waiting} waiting"
+    elif records:
+        contactable = sum(lead["status"] in {"ready", "manual"} for lead in records.values())
+        summary += f" · {contactable} ready to contact"
     headings = "".join(f'<th scope="col" class="stage-col">{name}</th>' for name in stages.values())
     st.html(
         f'<section class="ss-batch" aria-label="Batch activity"><header><h2>Batch activity</h2><small role="status">{summary}</small></header>'
@@ -376,24 +370,47 @@ def batch_board(events, leads=(), *, focused_id=None, interrupted=False):
     )
 
 
-def show_activity(events, *, synthetic=False):
-    # Keep the detail on an active builder until it finishes, then follow the next worker.
+def show_activity(events, run_id, *, replay=False, synthetic=False, cursor=None):
+    # Only the visible prefix can disclose a business, stage, or link.
+    names = {}
+    for event in events:
+        for item in (event.get("handoff") or {}).get("candidates", []):
+            names[item["id"]] = item["name"]
+        if event.get("lead_id"):
+            names[event["lead_id"]] = event["lead_name"]
     ended = {e["lead_id"] for e in events if e["stage"] == "Queue" and e.get("lead_id")}
     active = [e for e in events if e.get("lead_id") and e["lead_id"] not in ended]
-    focus = next(
+    automatic = next(
         (e["lead_id"] for e in active if e["stage"] == "Build"),
-        active[-1]["lead_id"] if active else events[-1].get("lead_id"),
+        active[-1]["lead_id"] if active else (events[-1].get("lead_id") if events else None),
     )
-    selected = [e for e in events if e.get("lead_id") == focus] if focus else []
-    batch_board(events, focused_id=focus)
-    if selected:
-        st.caption("Agent handoffs · automatically following one business")
-        st.subheader(display_name(selected[-1]["lead_name"]))
-        handoff_chain(selected, synthetic=synthetic)
-    else:
-        st.caption("Discovering businesses")
-    st.caption("Latest events across the batch")
-    timeline(events[-3:])
+    key = f"follow_{run_id}"
+    if st.session_state.get(key) not in names:
+        st.session_state[key] = ""
+    focus = st.session_state[key] or automatic
+    batch_board(events, focused_id=focus, route={"replay" if replay else "run": run_id}, cursor=cursor)
+    if names:
+        st.selectbox(
+            "Inspect business",
+            ["", *names],
+            format_func=lambda i: display_name(names[i]) if i else "Follow active business",
+            key=key,
+            on_change=select_business,
+            args=(run_id, key, replay, cursor),
+        )
+    if focus in names:
+        st.html(
+            f'<div id="business-detail" class="ss-companyline"><h2 class="ss-company">{escape(display_name(names[focus]))}</h2></div>'
+        )
+        selected = [e for e in events if e.get("lead_id") == focus]
+        if selected:
+            handoff_chain(selected, synthetic=synthetic)
+        else:
+            st.caption("Waiting to start research on this business.")
+    elif not names:
+        st.caption("Discovering businesses…")
+    with st.expander("Latest activity across the batch"):
+        timeline(events[-4:])
 
 
 def timeline(events):
@@ -413,41 +430,24 @@ def timeline(events):
     st.html('<div class="ss-timeline">' + "".join(rows) + "</div>")
 
 
-def run_batch(mode, limit):
-    activity = st.empty()
-    seen = []
+def start_batch(mode, limit):
+    """Detach the graph from Streamlit reruns so navigation cannot interrupt discovery."""
+    started = Future()
 
-    def on_event(event):
-        seen.append(event)
-        with activity.container():
-            show_activity(seen, synthetic=mode == "demo")
+    def announce(event):
+        if not started.done():
+            started.set_result(event["run_id"])
 
-    try:
-        run_id = pipeline.run_batch(limit=limit, mode=mode, on_event=on_event)
-    except Exception as error:
-        st.error(f"The batch stopped. {error}")
-        return
-    st.session_state[f"selected_{mode}"] = run_id
-    st.rerun()
+    def work():
+        try:
+            pipeline.run_batch(limit=limit, mode=mode, on_event=announce)
+        except Exception as error:
+            # The pipeline records errors after startup in the run's own activity.
+            if not started.done():
+                started.set_exception(error)
 
-
-def metrics(leads):
-    counts = Counter(lead.get("status") for lead in leads)
-    values = (
-        ("Businesses", len(leads)),
-        ("Email ready", counts["ready"]),
-        ("Manual contact", counts["manual"]),
-        ("Held, blocked or failed", sum(counts[k] for k in ("hold", "blocked", "error"))),
-        ("Skipped or dismissed", counts["skip"] + counts["dismissed"]),
-    )
-    st.html(
-        '<div class="ss-metrics">'
-        + "".join(
-            f'<div class="ss-metric"><strong>{value}</strong><small>{label}</small></div>'
-            for label, value in values
-        )
-        + "</div>"
-    )
+    Thread(target=work, daemon=True).start()
+    return started.result(timeout=10)
 
 
 def copy_draft(subject, body):
@@ -470,34 +470,28 @@ def copy_draft(subject, body):
     )
 
 
-def message_panel(lead, run_id, replay):
+def message_panel(lead, run_id, replay, *, synthetic=False):
     pitch = lead.get("pitch") or {}
     if not pitch.get("body"):
         st.caption("This lead has no outreach draft.")
         return
     key = f"{'replay_' if replay else ''}{run_id}_{lead['id']}"
     editable = not replay and lead["status"] in ("ready", "manual")
-    channel = lead.get("channel") or "Manual review"
     q = lead.get("qualification") or {}
-    recipient = lead.get("email") or q.get("email")
-    if channel == "Phone":
-        recipient = q.get("phone") or lead.get("phone")
-        number = re.sub(r"[^+0-9]", "", recipient or "")
-        if number:
-            st.html(
-                f'<div class="ss-context">Manual follow-up · <a href="tel:{number}">Call {escape(str(recipient))}</a></div>'
-            )
-    if channel == "Social profile" and web_url(q.get("social")):
-        st.link_button("Open public business profile ↗", q["social"])
-    if channel != "Phone":
-        st.caption(" · ".join(filter(None, [str(channel).replace("_", " ").title(), recipient])))
-    subject = st.text_input(
-        "Subject", value=pitch.get("subject", ""), key=f"subject_{key}", disabled=not editable
+    contacts = contact_links(
+        {
+            "email": lead.get("email") or q.get("email"),
+            "social": q.get("social"),
+            "phone": q.get("phone") or lead.get("phone"),
+        }
     )
-    body = st.text_area(
-        "Message", value=pitch["body"], height=180, key=f"body_{key}", disabled=not editable
-    )
+    if synthetic:
+        st.caption("Rehearsal contact · " + (lead.get("channel") or "Manual follow-up"))
+    elif contacts:
+        st.html('<div class="ss-context">Contact · ' + " · ".join(contacts) + "</div>")
     if editable:
+        subject = st.text_input("Subject", value=pitch.get("subject", ""), key=f"subject_{key}")
+        body = st.text_area("Message", value=pitch["body"], height=225, key=f"body_{key}")
         link = (lead.get("preview") or {}).get("url")
         valid = bool(subject.strip() and body.strip() and (not link or link in body))
         if not valid:
@@ -514,6 +508,12 @@ def message_panel(lead, run_id, replay):
         with actions[1]:
             if valid:
                 copy_draft(subject, body)
+    else:
+        # A recording stays immutable. Ordinary document text supports selection and Cmd+C.
+        st.html(
+            f'<article class="ss-draft"><p><strong>Subject</strong>{escape(pitch.get("subject", ""))}</p><p><strong>Message</strong>{escape(pitch["body"])}</p></article>'
+        )
+        copy_draft(pitch.get("subject", ""), pitch["body"])
     if pitch.get("angle"):
         st.caption(f"Selected angle · {pitch['angle']}")
     angles = pitch.get("angles") or []
@@ -564,36 +564,16 @@ def preview_panel(lead):
 
 def evidence_panel(lead, *, synthetic=False):
     qualification = lead.get("qualification") or {}
-    chunks = qualification.get("evidence") or []
     if qualification.get("website_status"):
         st.caption(f"Website finding · {qualification['website_status'].replace('_', ' ')}")
     if synthetic:
         st.caption("These excerpts come from synthetic source snapshots.")
     elif web_url(qualification.get("website")):
         st.link_button("Open identified business site ↗", qualification["website"])
-    selected = set(qualification.get("retrieved_ids") or [])
-    if selected:
-        st.caption(
-            f"Retrieval supplied {len(selected)} of {len(chunks)} recorded passages to the qualifier."
-        )
-    for item in sorted(chunks, key=lambda item: item.get("id") not in selected):
-        url = web_url(item.get("url"))
-        source = (
-            (
-                f' · <a href="{escape(url, quote=True)}" target="_blank" rel="noreferrer">'
-                f"{escape(urlsplit(url).hostname)} ↗</a>"
-            )
-            if url and not synthetic
-            else (f" · {escape(urlsplit(url).hostname)} · synthetic" if url else "")
-        )
-        st.html(
-            f'<div class="ss-note"><p>{escape(str(item.get("text", "")))}</p><small>{escape(str(item.get("id", "")))}{" · Retrieved" if item.get("id") in selected else ""}{source}</small></div>'
-        )
-    if not chunks:
-        st.caption("No supporting passages recorded.")
+    desk_views.retrieval_view(lead, synthetic=synthetic)
 
 
-def lead_panel(lead, run_id, events, replay, *, synthetic=False):
+def lead_panel(lead, run_id, events, replay, *, synthetic=False, from_queue=False):
     qualification = lead.get("qualification") or {}
     review = lead.get("review") or {}
     relevant = [
@@ -608,10 +588,11 @@ def lead_panel(lead, run_id, events, replay, *, synthetic=False):
         if v
     )
     st.html(
-        f'<div class="ss-companyline"><h2 class="ss-company">{escape(display_name(lead["name"]))}</h2>'
+        f'<div id="business-detail" class="ss-companyline"><h2 class="ss-company">{escape(display_name(lead["name"]))}</h2>'
         f'<span class="ss-outcome {status}">{escape(OUTCOMES.get(status, status))}</span><small>{escape(identity)}</small></div>'
     )
-    handoff_chain(relevant, lead, synthetic=synthetic)
+    if not from_queue:
+        handoff_chain(relevant, lead, synthetic=synthetic)
     follow_up = qualification.get("follow_up") or {}
     if follow_up.get("reason"):
         listing = "" if synthetic else link(follow_up.get("source_url"), "Directory source")
@@ -621,19 +602,22 @@ def lead_panel(lead, run_id, events, replay, *, synthetic=False):
             f'<div class="ss-context"><b>Manual verification</b> · {escape(follow_up["reason"])}<br>{sources}</div>'
         )
     draft, preview, evidence, trace = st.tabs(
-        ["Outreach draft", "Website preview", "Evidence", "Agent trace"]
+        ["Outreach draft", "Website preview", "Research & RAG", "Agent trace"]
     )
     with draft:
-        message_panel(lead, run_id, replay)
+        message_panel(lead, run_id, replay, synthetic=synthetic)
         if not replay and lead["status"] in ("ready", "manual", "hold"):
             if st.button("Dismiss lead", key=f"dismiss_{run_id}_{lead['id']}"):
                 pipeline.dismiss(run_id, lead["id"])
                 st.rerun()
     with preview:
+        desk_views.customization_notes(lead)
         preview_panel(lead)
     with evidence:
         evidence_panel(lead, synthetic=synthetic)
     with trace:
+        if from_queue:
+            handoff_chain(relevant, lead, synthetic=synthetic)
         if review:
             st.write("**Reviewer decision**", "Passed" if review.get("passed") else "Held")
             if review.get("feedback"):
@@ -648,90 +632,73 @@ def lead_panel(lead, run_id, events, replay, *, synthetic=False):
 def workspace(run, replay=False):
     run_id = run["id"]
     replay = replay or run["mode"] == "sample"
-    events = pipeline.events(run_id)
-    mode = MODES.get(run["mode"], run["mode"])
     synthetic = run["mode"] in ("demo", "sample")
-    origin = "Synthetic businesses" if synthetic else "Real businesses"
-    date = local_time(run.get("started_at"))
-    heading, action = st.columns([3, 1], vertical_alignment="center")
-
-    def open_replay():
-        st.session_state["data_source"] = "replay"
-        st.session_state["saved_run"] = run_id
-        st.session_state["play_run"] = run_id
-
-    with heading:
-        status = "" if replay else " · " + run["status"].replace("_", " ")
-        st.caption(
-            f"{'Saved replay' if replay else 'Saved result'} · {mode} · {origin} · {date} PT{status}"
-        )
-    with action:
-        if events and not replay:
-            st.button(
-                "Replay saved run",
-                on_click=open_replay,
-                key=f"open_replay_{run_id}",
-                width="stretch",
-            )
-        play = (
-            replay
-            and events
-            and st.button(
-                "▶ Play recorded events", key=f"play_{run_id}", type="primary", width="stretch"
-            )
-        )
-    if replay and events:
-        end = len(events)
-        auto_play = st.session_state.pop("play_run", None) == run_id
-        if play or auto_play:
-            screen = st.empty()
-            for index in range(1, end + 1):
-                with screen.container():
-                    st.caption(f"Playing saved event {index} of {end}")
-                    show_activity(events[:index], synthetic=synthetic)
-                time.sleep(min(0.52, 16 / end))
-            screen.empty()
-            st.session_state[f"cursor_{run_id}"] = end
-        cursor = st.slider("Recorded event", 1, end, end, key=f"cursor_{run_id}") if end > 1 else 1
-        if cursor < end:
-            show_activity(events[:cursor], synthetic=synthetic)
-            return
-    leads = sorted(
-        pipeline.leads(run_id, replay=replay), key=lambda item: QUEUE_ORDER.get(item["status"], 7)
+    events = pipeline.events(run_id)
+    st.caption(
+        f"{MODES.get(run['mode'], run['mode'])} · {'Synthetic' if synthetic else 'Real'} businesses · {local_time(run['started_at'])} PT"
     )
-    metrics(leads)
-    board = st.container()
-    selected = None
-    if leads:
-        queue, business = st.columns([1, 2], gap="medium")
-        with queue:
-            outcomes = list(dict.fromkeys(lead["status"] for lead in leads))
-            selected_status = st.selectbox(
-                "Filter queue",
-                ["all", *outcomes],
-                format_func=lambda k: OUTCOMES.get(k, "All outcomes"),
-                key=f"filter_{run_id}",
+    if run["status"] == "running":
+        st.markdown("**Discovery is running**")
+        show_activity(events, run_id, synthetic=synthetic)
+        return
+    if events:
+        cursor_key = f"cursor_{run_id}"
+        playing = st.session_state.get("playing")
+        if playing and playing[0] == run_id:
+            cursor = min(
+                len(events),
+                playing[1] + int((time.monotonic() - playing[2]) * max(2, len(events) / 16)),
             )
-        with business:
-            records = {item["id"]: item for item in leads if selected_status in ("all", item["status"])}
-            selected = st.selectbox(
-                "Inspect business",
-                list(records),
-                format_func=lambda i: (
-                    f"{display_name(records[i]['name'])} · {OUTCOMES.get(records[i]['status'], records[i]['status'])}"
-                ),
-                key=f"lead_{run_id}_{selected_status}",
-            )
+            st.session_state[cursor_key] = cursor
+            if cursor == len(events) or st.button("Pause replay", key=f"pause_{run_id}"):
+                st.session_state.pop("playing", None)
+                st.rerun()
+            st.progress(cursor / len(events), text=f"Playing recorded event {cursor} of {len(events)}")
+            show_activity(events[:cursor], run_id, replay=True, synthetic=synthetic, cursor=cursor)
+            return
+        start = st.button("Play recorded run" if not replay else "Play replay", key=f"play_{run_id}")
+        if start:
+            old = st.session_state.get(cursor_key, len(events))
+            first = 1 if old == len(events) else old
+            st.session_state.update(replaying=run_id, playing=(run_id, first, time.monotonic()))
+            st.rerun()
+        if replay:
+            end = len(events)
+            cursor = st.slider("Recorded event", 1, end, end, key=cursor_key) if end > 1 else 1
+            if cursor < end:
+                show_activity(events[:cursor], run_id, replay=True, synthetic=synthetic, cursor=cursor)
+                return
+    leads = sorted(pipeline.leads(run_id, replay=replay), key=lambda l: QUEUE_ORDER.get(l["status"], 7))
+    if run["mode"] == "live" and any(
+        event["stage"] == "Discover" and "public listings." in event["message"] for event in events
+    ):
+        matches = sum(bool(lead.get("directory_url")) for lead in leads)
+        st.caption(f"Discovery sources · {matches} directory matches · {len(leads) - matches} registry-only leads")
+    records = {lead["id"]: lead for lead in leads}
+    selected_key = f"inspect_{run_id}"
+    if records and st.session_state.get(selected_key) not in records:
+        followed = st.session_state.get(f"follow_{run_id}")
+        st.session_state[selected_key] = followed if followed in records else next(iter(records))
+    batch_board(
+        events,
+        leads,
+        focused_id=st.session_state.get(selected_key),
+        route={"replay" if replay else "run": run_id},
+        cursor=len(events) if replay and events else None,
+        interrupted=run["status"] in ("failed", "interrupted"),
+    )
+    if records:
+        selected = st.selectbox(
+            "Inspect business",
+            list(records),
+            format_func=lambda i: display_name(records[i]["name"]),
+            key=selected_key,
+            on_change=select_business,
+            args=(run_id, selected_key, replay, len(events)),
+        )
         lead_panel(records[selected], run_id, events, replay, synthetic=synthetic)
     elif not events:
-        st.info("This batch has no saved events yet.")
-    with board:
-        batch_board(
-            events,
-            leads,
-            focused_id=selected,
-            interrupted=run["status"] in ("failed", "interrupted", "superseded"),
-        )
+        st.caption("This batch has no saved activity.")
     with st.expander(f"Full run log · {len(events)} events", expanded=not leads):
         if len(events) > 1:
             first, last = (
@@ -754,92 +721,268 @@ def workspace(run, replay=False):
         timeline([e for e in events if stage == "All stages" or e["stage"] == stage])
 
 
-def main():
-    runs = sorted(pipeline.list_runs(), key=lambda item: item.get("started_at", ""), reverse=True)
-    requested_replay = st.query_params.get("replay")
-    if requested_replay and requested_replay != st.session_state.get("opened_replay"):
-        if any(r["id"] == requested_replay for r in runs):
-            st.session_state.update(
-                data_source="replay", saved_run=requested_replay, play_run=requested_replay
-            )
-        st.session_state["opened_replay"] = requested_replay
-    verified = [
-        r
-        for r in runs
-        if r["mode"] in ("live", "showcase")
-        and r["status"] in ("complete", "complete_with_errors")
-        and r.get("published_count")
-    ]
-    featured = next(iter(verified), None)
-    with st.sidebar:
-        st.html('<div class="ss-brand">Site<b>Scout</b><span>Operator desk</span></div>')
-        st.subheader("Run controls")
-        sources = {k: v for k, v in MODES.items() if k != "sample"}
-        if not getattr(pipeline, "showcase_available", lambda: False)():
-            sources.pop("showcase")
-        if featured:
-            sources = {"featured": "Featured live run", **sources}
-        default_source = "demo"
-        if featured:
-            default_source = "featured"
-        elif any(r["mode"] == "live" for r in runs):
-            default_source = "live"
-        elif any(r["mode"] == "sample" for r in runs):
-            default_source = "replay"
-        mode = st.radio(
-            "Data source",
-            list(sources),
-            format_func=sources.get,
-            key="data_source",
-            index=list(sources).index(default_source),
+def show_contacts(runs):
+    queue = storage.contact_queue()
+    st.header("Ready to contact")
+    if not queue:
+        st.info(
+            "Reviewed businesses and their websites will appear here after discovery finds a contact opportunity."
         )
-        chosen = None
-        launch = False
-        if mode == "featured":
-            chosen = featured
-            st.caption(
-                "Recorded from real businesses. Play the saved run or choose a live source to start a fresh batch."
+        sample = next(
+            (r for r in runs if r["mode"] in ("demo", "sample") and r.get("published_count")), None
+        )
+        if sample:
+            url = escape(
+                "?" + urlencode({"replay": sample["id"], "at": len(pipeline.events(sample["id"]))}),
+                quote=True,
             )
-        elif mode == "replay":
-            if runs:
-                choices = {r["id"]: r for r in runs}
-                saved = st.selectbox(
-                    "Saved run",
-                    list(choices),
-                    key="saved_run",
-                    format_func=lambda i: (
-                        f"{local_time(choices[i]['started_at'])} · {MODES.get(choices[i]['mode'], choices[i]['mode'])} · {str(i)[-6:]}"
-                    ),
-                )
-                chosen = choices[saved]
+            st.html(f'<a href="{url}" target="_self">Open saved rehearsal</a>')
+        return
+    cards = []
+    for lead in queue:
+        url = "?" + urlencode({"contact": lead["id"]}) + "#business-detail"
+        name = escape(display_name(lead["name"]))
+        destinations = [link(lead["preview_url"], "Website preview")]
+        if web_url(lead.get("website")):
+            destinations.append(link(lead["website"], "Current site"))
+        links = "".join([*destinations, *contact_links(lead)])
+        cards.append(
+            f'<article class="ss-lead"><div><h3>{name}</h3><small>{escape(lead["city"] or "")}</small></div>'
+            f'<div class="ss-contacts">{links}</div><a class="ss-draft-link" href="{escape(url, quote=True)}" target="_self">Open draft →</a></article>'
+        )
+    st.html('<section class="ss-queue" aria-label="Ready to contact">' + "".join(cards) + "</section>")
+    lead = next((row for row in queue if row["id"] == st.session_state.get("contact")), None)
+    if lead:
+        record = next((l for l in pipeline.leads(lead["run_id"]) if l["id"] == lead["id"]), None)
+        if record:
+            lead_panel(record, lead["run_id"], pipeline.events(lead["run_id"]), False, from_queue=True)
+
+
+def contact_links(lead):
+    links = []
+    if lead.get("email"):
+        address = str(lead["email"])
+        if re.fullmatch(r"[\w.+%-]+@[\w.-]+\.[A-Za-z]{2,}", address):
+            links.append(f'<a href="mailto:{escape(address, quote=True)}">{escape(address)}</a>')
+    if url := web_url(lead.get("social")):
+        host = (urlsplit(url).hostname or "").removeprefix("www.")
+        links.append(link(url, "Open Instagram" if host == "instagram.com" else "Social profile"))
+    number = re.sub(r"[^+0-9]", "", lead.get("phone") or "")
+    if number:
+        links.append(f'<a href="tel:{number}">Call {escape(lead["phone"])}</a>')
+    return links
+
+
+def set_location(**query):
+    # Header controls and row links should agree on where a browser reload will land.
+    st.query_params.from_dict(query)
+    st.session_state.opened_location = query
+
+
+def select_business(run_id, key, replay, cursor):
+    selected = st.session_state[key]
+    if key == f"follow_{run_id}":
+        st.session_state[f"inspect_{run_id}"] = selected
+    query = {"replay" if replay else "run": run_id}
+    if selected:
+        query["business"] = selected
+    if replay and cursor:
+        query["at"] = str(cursor)
+    set_location(**query)
+
+
+def read_location(runs):
+    """A business row is a bookmarkable link to this exact run and, in replay, event."""
+    query = st.query_params.to_dict()
+    if st.session_state.get("opened_location") == query:
+        return
+    st.session_state.opened_location = query
+    if not query:
+        st.session_state.pop("contact", None)
+        st.session_state.view = "Contact queue"
+        return
+    if query.get("view") == "runs":
+        st.session_state.view = "Runs"
+        return
+    if query.get("view") == "workflow":
+        st.session_state.view = "How it works"
+        return
+    if "contact" in query:
+        st.session_state.update(view="Contact queue", contact=query["contact"])
+        return
+    run_id = query.get("replay") or query.get("run")
+    if run_id not in {r["id"] for r in runs}:
+        return
+    st.session_state.update(
+        view="Runs", saved_run=run_id, replaying=run_id if "replay" in query else None
+    )
+    if "business" in query:
+        st.session_state[f"inspect_{run_id}"] = query["business"]
+        st.session_state[f"follow_{run_id}"] = query["business"]
+    st.session_state.pop("playing", None)
+    if "at" in query and query["at"].isdigit():
+        end = len(pipeline.events(run_id))
+        st.session_state[f"cursor_{run_id}"] = max(1, min(end, int(query["at"])))
+    elif "replay" in query and "business" not in query:
+        st.session_state["playing"] = (run_id, 1, time.monotonic())
+
+
+def main():
+    runs = pipeline.list_runs()
+    read_location(runs)
+    sources = {r["id"]: r for r in runs}
+    schedule = pipeline.autopilot_status()
+    active = next((r for r in runs if schedule["running"] and r["status"] == "running"), None)
+    capable = bool(os.getenv("GOOGLE_API_KEY") and os.getenv("EXA_API_KEY"))
+    title, start = st.columns([3, 1], vertical_alignment="center")
+    with title:
+        st.html('<h1 class="ss-title">SiteScout</h1>')
+        latest = next((r for r in runs if r["mode"] == "live"), None)
+        st.caption(
+            "Discovery running"
+            if active
+            else (
+                "Idle · Last discovery " + local_time(latest["started_at"]) + " PT"
+                if latest
+                else "Ready for the first discovery run"
+            )
+        )
+
+    def launch(mode, limit):
+        try:
+            run_id = start_batch(mode, limit)
+        except Exception as error:
+            st.error(f"Could not start the batch. {error}")
+            return
+        st.session_state.update(view="Runs", saved_run=run_id, replaying=None)
+        set_location(run=run_id)
+        st.session_state.pop("playing", None)
+
+    with start:
+        if active:
+
+            def follow_active():
+                st.session_state.update(view="Runs", saved_run=active["id"], replaying=None)
+                set_location(run=active["id"])
+
+            st.button("View active run", on_click=follow_active, type="primary", width="stretch")
         else:
-            maximum = min(10, len(pipeline.showcase_entries())) if mode == "showcase" else 10
-            limit = st.number_input(
-                "Businesses per batch",
-                min_value=1,
-                max_value=maximum,
-                value=10 if mode == "live" else min(3, maximum),
-                key=f"limit_{mode}",
+            st.button(
+                "Run discovery",
+                type="primary",
+                on_click=launch,
+                args=("live", st.session_state.get("limit_live", 10)),
+                disabled=not capable,
+                help="Search new California painting businesses.",
+                width="stretch",
             )
-            if mode == "showcase":
-                st.caption("Fresh research on a preselected list of actual contractors.")
-            if mode == "live":
-                st.caption(
-                    "Search previously unseen contractor licenses and check their current contact paths."
-                )
-            elif mode == "demo":
-                st.caption(
-                    "Synthetic source records. Configured model and hosting tools can run afresh."
-                )
-            by_mode = [r for r in runs if r["mode"] == mode and r["status"] != "superseded"]
-            chosen = next(
-                (r for r in by_mode if r["id"] == st.session_state.get(f"selected_{mode}")),
-                next(iter(by_mode), None),
+
+    def navigate():
+        st.session_state.pop("playing", None)
+        if st.session_state.view == "How it works":
+            set_location(view="workflow")
+        elif st.session_state.view == "Runs":
+            rid = st.session_state.get("saved_run") or next(iter(sources), None)
+            st.session_state.replaying = None
+            if rid:
+                set_location(run=rid)
+            else:
+                set_location(view="runs")
+        else:
+            st.session_state.pop("contact", None)
+            set_location()
+
+    view = st.segmented_control(
+        "Workspace",
+        ["Contact queue", "Runs", "How it works"],
+        default="Contact queue",
+        required=True,
+        key="view",
+        on_change=navigate,
+        label_visibility="collapsed",
+    )
+    st.html('<div class="ss-rule"></div>')
+
+    # A background discovery can start or finish while any workspace is open.
+    @st.fragment(run_every=4)
+    def refresh_status():
+        if pipeline.autopilot_status()["running"] != schedule["running"]:
+            st.rerun()
+
+    refresh_status()
+
+    if view == "Contact queue":
+        show_contacts(runs)
+        if not capable:
+            st.caption(
+                "Live discovery requires configured services. You can explore the saved rehearsal in Runs."
             )
-        st.divider()
-        schedule = pipeline.autopilot_status()
+        return
+    if view == "How it works":
+        example = next(
+            (
+                r
+                for r in runs
+                if r["mode"] in ("live", "showcase", "recheck")
+                and r["status"] == "complete"
+                and r.get("published_count")
+            ),
+            None,
+        )
+        example = example or next(
+            (r for r in runs if r.get("published_count") and r["status"] == "complete"), None
+        )
+        desk_views.how_it_works(
+            pipeline.events(example["id"]) if example else (),
+            synthetic=bool(example and example["mode"] in ("demo", "sample")),
+        )
+        return
+    st.header("Runs")
+    if not runs:
+        st.caption("Batch activity will appear here when discovery starts.")
+    else:
+        if st.session_state.get("saved_run") not in sources:
+            st.session_state.saved_run = (active or runs[0])["id"]
+
+        def change_run():
+            set_location(run=st.session_state.saved_run)
+            st.session_state.pop("playing", None)
+            st.session_state.pop("replaying", None)
+
+        chosen = st.selectbox(
+            "Run history",
+            list(sources),
+            format_func=lambda rid: (
+                f"{local_time(sources[rid]['started_at'])} · {MODES.get(sources[rid]['mode'], sources[rid]['mode'])} · {rid[-6:]}"
+            ),
+            key="saved_run",
+            on_change=change_run,
+        )
+    with st.expander("Run options"):
+        st.number_input(
+            "Businesses per discovery run", min_value=1, max_value=10, value=10, key="limit_live"
+        )
+        a, b = st.columns(2)
+        with a:
+            st.button(
+                "Start live showcase",
+                on_click=launch,
+                args=("showcase", 3),
+                disabled=not pipeline.showcase_available() or bool(active),
+                help="Start with three known real licenses and research them afresh.",
+            )
+        with b:
+            st.button(
+                "Run synthetic rehearsal",
+                on_click=launch,
+                args=("demo", 10),
+                disabled=bool(active),
+                help="Exercise ten fictional cases with saved source evidence.",
+            )
         enabled = bool(schedule["enabled"])
-        toggle = st.toggle("Daily autopilot", enabled, help="Schedule live discovery on this Mac.")
+        toggle = st.toggle(
+            "Daily autopilot", enabled, help="Discover ten businesses daily at 9 AM on this Mac."
+        )
         if toggle != enabled:
             try:
                 pipeline.set_autopilot(toggle)
@@ -847,44 +990,21 @@ def main():
                 st.error(f"Schedule change failed. {error}")
             else:
                 st.rerun()
-        st.caption(
-            f"{'Batch running' if schedule['running'] else ('Scheduled' if enabled else 'Off')} · 9:00 AM on this Mac · {schedule['limit']} businesses"
-        )
-        st.button("Refresh runs", width="stretch")
-    title, start = st.columns([3, 1], vertical_alignment="center")
-    with title:
-        st.html('<h1 class="ss-title">Lead workspace</h1>')
-    if mode == "featured" and pipeline.showcase_available():
+    if not runs:
+        return
+    run = sources[chosen]
+    running = bool(active and active["id"] == chosen)
+    if run["status"] == "running" and not running:
+        run = {**run, "status": "interrupted"}
 
-        def launch_showcase():
-            st.session_state["data_source"] = "showcase"
-            st.session_state["start_showcase_now"] = True
+    @st.fragment(run_every=0.45 if running or st.session_state.get("playing") else None)
+    def run_view():
+        if running and not pipeline.autopilot_status()["running"]:
+            st.rerun()
+        is_replay = st.session_state.get("replaying") == chosen or run["mode"] == "sample"
+        workspace(run, replay=is_replay)
 
-        with start:
-            st.button(
-                "▶ Start live showcase", type="primary", width="stretch", on_click=launch_showcase
-            )
-    elif mode in ("live", "showcase", "demo"):
-        labels = {
-            "live": "Run live discovery",
-            "showcase": "Run curated showcase",
-            "demo": "Run demo fixtures",
-        }
-        with start:
-            requested = st.session_state.pop("start_showcase_now", False) and mode == "showcase"
-            launch = st.button("▶ " + labels[mode], type="primary", width="stretch") or requested
-    st.html('<div class="ss-rule"></div>')
-    # Clear the previous business immediately before playback or a fresh run begins.
-    desk = st.empty()
-    with desk.container():
-        if launch:
-            run_batch(mode, int(limit))
-        elif chosen:
-            workspace(chosen, replay=mode == "replay")
-        elif mode == "replay":
-            st.info("Saved runs will appear here after your first batch.")
-        else:
-            st.info("Start a batch to see the agents research businesses and prepare eligible leads.")
+    run_view()
 
 
 if __name__ == "__main__":

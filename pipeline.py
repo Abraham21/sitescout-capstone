@@ -247,10 +247,24 @@ def run_lead(run_id, lead, domain, emit, case=None):
     return record
 
 
-def run_batch(limit=3, mode="live", on_event=None):
+def run_batch(limit=3, mode="live", on_event=None, *, recheck=None):
     if mode not in {"live", "showcase", "demo"} or not 1 <= int(limit) <= 30:
         raise ValueError("Choose live, showcase or demo and a batch size between 1 and 30.")
     storage.initialize()
+    listings = {}
+    if recheck:
+        with storage.connect() as db:
+            rows = db.execute(
+                """SELECT leads.id, json_extract(leads.data, '$.directory_url')
+                   FROM leads JOIN runs ON runs.id=leads.run_id
+                   WHERE runs.id=? AND runs.mode IN ('live','showcase','recheck')
+                   AND runs.status IN ('complete','complete_with_errors') ORDER BY leads.rowid""",
+                (recheck,),
+            )
+            listings = dict(rows)
+        if not listings:
+            raise ValueError("Choose a completed run of real businesses to recheck.")
+        mode = "recheck"
     lock = (storage.runtime_dir() / "batch.lock").open("a")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -288,26 +302,36 @@ def run_batch(limit=3, mode="live", on_event=None):
             "live": "Reading fresh candidates.",
             "demo": "Loading labeled synthetic source snapshots.",
             "showcase": "Looking up preselected actual licenses for fresh research.",
+            "recheck": f"Rechecking the licenses from run {recheck} against current sources.",
         }
         emit("Discover", "started", descriptions[mode])
         cases = {}
-        if mode in {"live", "showcase"}:
+        if mode in {"live", "showcase", "recheck"}:
             if not os.getenv("GOOGLE_API_KEY") or not os.getenv("EXA_API_KEY"):
                 raise ValueError("Live mode requires the Gemini and Exa keys in .env.")
             progress = lambda msg: emit("Discover", "info", msg)
             if mode == "live":
-                candidates = research.discover(int(limit), storage.seen_live_ids(), progress)
+                candidates = research.discover(
+                    int(limit), storage.seen_live_ids(), progress, prioritize_directory=True
+                )
             else:
                 active = {row["id"]: row for row in research.discover(100_000, set())}
                 dismissed = storage.dismissed_ids()
                 candidates = []
-                for entry in showcase_entries():
-                    license_id = entry["id"]
+                ids = [entry["id"] for entry in showcase_entries()] if mode == "showcase" else listings
+                for license_id in ids:
                     if license_id in active and license_id not in dismissed:
-                        candidates.append(active[license_id])
+                        lead = active[license_id]
+                        # Revisit the public listing discovery originally found. The qualifier
+                        # reads it anew and matches its current business name, locality and phone.
+                        if source := listings.get(license_id):
+                            canonical = research.gallery_pages([source])
+                            if canonical:
+                                lead = {**lead, "directory_url": canonical[0]}
+                        candidates.append(lead)
                 candidates = candidates[: int(limit)]
                 progress(
-                    "Selected active licenses for the showcase. Research uses the same tools as ordinary discovery."
+                    "Selected active licenses. Research uses the same tools as ordinary discovery."
                 )
 
         else:
@@ -330,7 +354,7 @@ def run_batch(limit=3, mode="live", on_event=None):
             if candidates and os.environ.get("CLOUDFLARE_API_TOKEN")
             else ""
         )
-        if mode in {"live", "showcase"} and not domain:
+        if mode != "demo" and not domain:
             emit("Publish", "held", "Hosting credentials unavailable. Any previews stay local.")
         with ThreadPoolExecutor(max_workers=3) as pool:
             futures = [
@@ -399,20 +423,32 @@ def dismiss(run_id, lead_id):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run SiteScout without the dashboard.")
     parser.add_argument("--mode", choices=["demo", "showcase", "live"], default="demo")
-    parser.add_argument("--limit", type=int, default=3)
+    parser.add_argument(
+        "--limit", type=int, help="Maximum businesses (default 3, or the full batch when rechecking)."
+    )
+    parser.add_argument(
+        "--recheck",
+        metavar="RUN_ID",
+        help="Research a real batch again using its licenses and any public intake listings.",
+    )
     parser.add_argument(
         "--daily", action="store_true", help="Process ten unseen live leads once today."
     )
     args = parser.parse_args()
+    if args.recheck and args.daily:
+        parser.error("Use --daily for fresh discovery or --recheck for a recorded batch.")
     storage.initialize()
     today = datetime.now().date().isoformat()
     if args.daily and storage.setting("last_daily_date") == today:
         print("Today's scheduled batch already ran.")
     else:
         run = run_batch(
-            10 if args.daily else args.limit,
+            10
+            if args.daily
+            else (args.limit if args.limit is not None else (30 if args.recheck else 3)),
             "live" if args.daily else args.mode,
             lambda event: print(event["stage"], event["message"], flush=True),
+            recheck=args.recheck,
         )
         if args.daily:
             storage.set_setting("last_daily_date", today)

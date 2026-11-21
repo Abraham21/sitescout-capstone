@@ -140,6 +140,67 @@ def test_registry_filter_and_city_rotation(tmp_path, monkeypatch):
     first = research.discover(1, set())[0]
     assert first["city"] == "Glendale"
     assert research.discover(1, {first["id"]})[0]["city"] == "Burbank"
+    painter = {**eligible[0], "id": "123450", "name": "Pinturas del Valle"}
+    cache.write_text(json.dumps(eligible + [painter]))
+    assert research.discover(1, set())[0]["id"] == painter["id"]
+    assert {item["id"] for item in research.discover(10, set())} == {
+        item["id"] for item in eligible + [painter]
+    }
+    link = "https://local.yahoo.com/info-123-brush-demo-glendale/"
+    monkeypatch.setattr(research, "directory_matches", lambda *args, **kwargs: {first["id"]: link})
+    monkeypatch.setattr(research, "directory_page", lambda url, day: {})
+    matched = research.discover(2, set(), prioritize_directory=True)
+    assert matched[0]["id"] == first["id"] and matched[0]["directory_url"] == link
+    assert len({lead["id"] for lead in matched}) == 2
+    assert all("directory_url" not in lead for lead in research.discover(2, set()))
+
+
+def test_verified_work_and_estimate_invitation_can_change_batch_membership(tmp_path, monkeypatch):
+    lead = CASES[0]["lead"]
+    records = [
+        {**lead, "id": str(i), "name": f"Painter {i}", "expires": "2099-12-31"}
+        for i in (1001, 1002, 1003, 1004)
+    ]
+    cache = tmp_path / "leads.json"
+    cache.write_text(json.dumps(records))
+    monkeypatch.setattr(research, "CACHE", cache)
+    urls = {r["id"]: f"https://local.yahoo.com/info-{r['id']}-painter/" for r in records}
+    monkeypatch.setattr(research, "directory_matches", lambda *args, **kwargs: urls)
+    visited = []
+
+    def page(url):
+        r = next(r for r in records if urls[r["id"]] == url)
+        visited.append(url)
+        node = {
+            "name": r["name"],
+            "telephone": r["phone"],
+            "url": url,
+            "address": {"addressLocality": r["city"]},
+            "description": "We offer interior painting and cabinet refinishing.",
+        }
+        if r["id"] == "1001":
+            node["description"] += " Call for an estimate."
+        if r["id"] == "1004":
+            node["telephone"] = "(415) 555-0999"
+        website = [{"text": "Website", "url": "https://painter.example/"}] if r["id"] == "1003" else []
+        return {
+            "url": url,
+            "status": 200,
+            "business_nodes": [node],
+            "links": website,
+            "yahoo_reviews": [{"author": "R. Guest", "quote": "Our kitchen looks wonderful."}],
+        }
+
+    monkeypatch.setattr(research, "fetch_page", page)
+    research.directory_page.cache_clear()
+    try:
+        selected = research.discover(2, set(), prioritize_directory=True)
+        assert [r["id"] for r in selected] == ["1001", "1002"]
+        for r in selected:
+            research.directory_page(r["directory_url"], research.date.today())
+        assert sorted(visited) == sorted(urls.values())
+    finally:
+        research.directory_page.cache_clear()
 
 
 def test_disabled_listing_inbox_is_specific_need_and_syndication_is_one_source():
@@ -170,6 +231,9 @@ def test_initials_can_identify_an_owned_trade_domain_but_never_an_unrelated_regi
     assert research.branded(lead, "https://abpaintinginc.example/")
     assert not research.branded(lead, "https://trade-records.example/business/ab-painting")
     assert research.identity(lead, "AB Painting and Design LLC in Fresno. Phone (559) 555-0111.") == 0
+    assert (
+        research.identity(lead, "AB Painting and Design LLC. (818) 555-0190. License (#911113).") == 0
+    )
 
 
 def test_a_bounded_search_cannot_claim_absence_when_a_candidate_remains():
@@ -240,11 +304,124 @@ def test_only_observed_listing_media_is_linked_and_only_for_verified_identity():
         "url": "https://www.yelp.com/biz/example",
         "text": "Copper Finch Painting, Glendale, (818) 555-0101. Photos & videos. See all 9 photos. 3 reviews. Messaging is disabled.",
     }
+    listing = {
+        "url": base["url"],
+        "status": 200,
+        "business_nodes": [
+            {
+                "name": case["lead"]["name"],
+                "telephone": case["lead"]["phone"],
+                "review": {
+                    "@type": "Review",
+                    "author": {"name": "D. Lane"},
+                    "reviewBody": "The trim turned out beautifully.",
+                },
+            }
+        ],
+    }
+    case = {**case, "pages": {**case["pages"], base["url"]: listing}}
     q = run(case, results=[base, case["results"][1]])
     assert q["profile"]["work_links"][0]["label"] == "9 photos on Yelp"
     assert q["profile"]["review_links"][0]["url"] == base["url"] and not q["profile"]["media"]
+    assert [(x["author"], x["source_url"]) for x in q["profile"]["testimonials"]] == [
+        ("D. Lane", base["url"])
+    ]
     other = {**base, "text": base["text"].replace("(818) 555-0101", "(510) 555-0101")}
     assert not any(run(case, results=[other, case["results"][1]])["profile"].values())
+
+
+def test_instagram_uses_the_verified_accounts_own_photo_posts():
+    from bs4 import BeautifulSoup
+    from business_profile import instagram_profile
+
+    url = "https://www.instagram.com/painter/"
+    soup = BeautifulSoup(
+        """
+        <meta property="og:url" content="https://www.instagram.com/painter/">
+        <header>License 1234567 <a href="https://l.instagram.com/?u=https%3A%2F%2Fbusiness.example">Website</a></header>
+        <a href="/painter/"><img alt="Profile" src="https://images.cdninstagram.com/avatar.jpg"></a>
+        <a href="/painter/p/JOB1/"><img src="https://images.cdninstagram.com/job.jpg"></a>
+        <a href="/other/p/JOB2/"><img src="https://images.cdninstagram.com/other.jpg"></a>
+        <a href="/painter/p/JOB3/"><img src="https://unrelated.example/photo.jpg"></a>
+        <footer><a href="https://meta.com">Meta</a></footer>
+    """,
+        "html.parser",
+    )
+    info = instagram_profile(soup, url)
+    assert "1234567" in info["social_bio"] and info["bio_links"] == ["https://business.example"]
+    assert [im["post_url"] for im in info["social_photos"]] == [url + "p/JOB1/"]
+    assert not instagram_profile(soup, "https://www.instagram.com/other/")
+    photos = [
+        dict(info["social_photos"][0], evidence_id="e1"),
+        dict(info["social_photos"][0], evidence_id="e2"),
+    ]
+    profile = {"media": photos.copy()}
+    research.apply_photo_choices(profile, photos, {"portfolio_photos": [2], "hero_photo": 1})
+    assert profile["media"] == [photos[1]] and not profile.get("cover_evidence_id")
+
+
+def test_city_catalog_joins_unique_registry_names_and_qualifies_only_verified_portfolios(monkeypatch):
+    url = "https://local.yahoo.com/info-123-copper-finch-painting-glendale/"
+    case = CASES[0]
+    lead = case["lead"]
+    duplicate = {**lead, "id": "900099", "name": lead["name"] + " LLC"}
+    monkeypatch.setattr(research, "city_catalog", lambda _: [(lead["name"], url)])
+    assert research.directory_matches([lead], set()) == {lead["id"]: url}
+    assert not research.directory_matches([lead, duplicate], {duplicate["id"]})
+    photos = [f"https://s.yimg.com/bj/aa/{i}.jpg" for i in (1, 2)]
+    node = {
+        "url": url,
+        "name": lead["name"],
+        "telephone": lead["phone"],
+        "address": {"addressLocality": lead["city"]},
+        "image": photos[:1],
+        "description": "Interior painting. Call us today for an estimate.",
+    }
+    page = {
+        "url": url,
+        "status": 200,
+        "text": node["description"],
+        "links": [],
+        "business_nodes": [node],
+        "listing_photos": photos,
+    }
+
+    def run_listing():
+        return research.qualify(
+            {**lead, "directory_url": url}, None, lambda _: [], fetcher=lambda _: page
+        )
+
+    assert run_listing()["status"] == "qualified"
+    node["telephone"] = "(415) 555-0000"
+    assert run_listing()["status"] == "hold"
+    node["telephone"] = lead["phone"]
+    node["description"] = "Interior painting."
+    assert run_listing()["status"] == "hold"
+    node["description"] = "We do interior painting and refinish kitchen cabinets."
+    page["listing_photos"] = []
+    assert run_listing()["status"] == "hold"
+
+    from bs4 import BeautifulSoup
+    from business_profile import yahoo_reviews
+
+    reviews = BeautifulSoup(
+        '<section id="local-user-reviews"><article>'
+        '<div><span>C. Guest</span><span>11/21/25</span></div>'
+        '<div><p>The new cabinet paint looks wonderful.</p>'
+        '<a href="https://www.yelp.com/biz/example?hrid=r1">More</a></div>'
+        '<div><span>Unrelated</span><span>11/20/25</span></div>'
+        '<div><p>This has no source for its review.</p>'
+        '<a href="https://www.yelp.com/biz/example">More</a></div></article></section>',
+        "html.parser",
+    )
+    page["yahoo_reviews"] = yahoo_reviews(reviews)
+    assert len(page["yahoo_reviews"]) == 1
+    result = run_listing()
+    assert result["status"] == "qualified"
+    testimonial = result["profile"]["testimonials"][0]
+    assert (testimonial["author"], testimonial["quote"], testimonial["source_url"]) == (
+        "C. Guest", "The new cabinet paint looks wonderful.", url
+    )
 
 
 def test_verified_first_party_gallery_supports_a_real_self_contained_raster():
@@ -472,3 +649,225 @@ def test_first_party_work_and_customer_quotes_keep_their_sources():
         assert "fictional customer" in quote["author"]
         source = next(e for e in q["evidence"] if e["id"] == quote["evidence_id"])
         assert source["url"] == quote["source_url"] and quote["quote"] in source["text"]
+
+
+def test_abbreviated_domain_with_distinct_business_switchboard_and_published_license():
+    lead = {
+        "id": "986754",
+        "name": "Patterson-JCH Construction & Consulting",
+        "city": "Burbank",
+        "phone": "818-555-0119",
+    }
+    url = "https://pat-jch.example/"
+    name = lead["name"]
+    screen = {
+        "url": url,
+        "status": 200,
+        "title": f"Home | {name}",
+        "text": f"{name}. We offer exterior work. California Contractor’s License #986754. Contact (800) 555-0150.",
+        "links": [
+            {"text": "Portfolio", "url": url + "portfolio"},
+            {"text": "Contact", "url": url + "contact"},
+        ],
+    }
+
+    def check(page):
+        return research.qualify(
+            lead,
+            None,
+            lambda _: [{"url": url, "title": name, "text": "Call (800) 555-0150"}],
+            fetcher=lambda _: page,
+        )
+
+    assert check(screen)["status"] == "skip"
+    assert check({**screen, "text": screen["text"].replace("986754", "986755")})["status"] == "hold"
+
+
+def test_social_probe_requires_a_matched_bio_and_checks_its_website(monkeypatch, tmp_path):
+    lead = {"id": "987654", "name": "Avery Gomez Painting", "city": "Pasadena", "phone": "626-555-0150"}
+    handle = "https://www.instagram.com/averygpainting/"
+    website = "https://averygomezpainting.example/"
+    other = {
+        "url": "https://www.yelp.com/biz/avery-gomez",
+        "title": lead["name"],
+        "text": "Pasadena. (626) 555-0150.",
+    }
+    profile = {
+        "url": handle,
+        "status": 200,
+        "social_bio": "Avery Gomez. License 987654 estimates@example.org 10 posts.",
+        "social_photos": [{}],
+        "bio_links": [],
+    }
+    links = []
+
+    def fetch(url):
+        links.append(url)
+        if url == handle:
+            return profile
+        if url == website:
+            return {
+                "url": website,
+                "status": 200,
+                "text": lead["name"] + " License 987654. Call (626) 555-0150.",
+                "links": [],
+            }
+        return {"url": url, "status": 404, "text": "", "links": []}
+
+    monkeypatch.setattr(research, "fetch_page", fetch)
+    monkeypatch.setenv("SITESCOUT_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(research, "fetch_image", lambda *args: "")
+
+    # A previous index may know only this one directory. Licenses establish ownership of proposed handles.
+    def check():
+        return research.qualify(lead, None, lambda _: [other])
+
+    first = check()
+    assert research.qualify(lead, None, lambda _: [])["status"] == "qualified"
+    assert (
+        first["status"] == "qualified"
+        and first["social"] == handle
+        and first["email"] == "estimates@example.org"
+    )
+    profile["bio_links"] = [website]
+    assert check()["status"] == "skip" and website in links
+    profile["social_bio"] = "Someone Else. License 987654. estimates@example.org."
+    assert check()["status"] == "hold"
+    profile["social_bio"] = "Avery Gomez. License 987655. estimates@example.org."
+    assert check()["status"] == "hold"
+
+
+def test_syndicated_facebook_page_must_confirm_registered_phone_before_use():
+    import business_profile
+    from bs4 import BeautifulSoup
+
+    lead = CASES[0]["lead"]
+    source = "https://www.glonstruct.com/US/Glendale/123456789012345/Copper-Finch"
+    url = "https://www.facebook.com/CopperFinch/"
+
+    def card(phone):
+        def contact(owner, value):
+            return {
+                "node": {
+                    "timeline_context_item": {
+                        "renderer": {
+                            "associated_page_id": owner,
+                            "context_item": {"title": {"text": value}},
+                        }
+                    }
+                }
+            }
+
+        items = [
+            {
+                "profile_tile_items": {
+                    "nodes": [
+                        contact("123456789012345", "House Painting"),
+                        contact(None, phone),
+                        contact(None, "estimates@example.com"),
+                    ]
+                }
+            },
+            {"profile_tile_items": {"nodes": [contact("999", "someoneelse@example.com")]}},
+        ]
+        html = f'<meta property="og:url" content="{url}"><meta property="og:description" content="Copper Finch Painting, Glendale. Interior painting."><script type="application/json">{json.dumps(items)}</script>'
+        return {
+            "url": url,
+            "status": 200,
+            **business_profile.facebook_profile(
+                BeautifulSoup(html, "html.parser"), url, "123456789012345"
+            ),
+        }
+
+    for phone, matched in [(lead["phone"], True), ("(213) 555-0181", False)]:
+        records = {source: f"{lead['name']}, {lead['phone']}. Website facebook.com"}
+        research.read_directory_links(lead, records, lambda _: card(phone), lambda _: None)
+        assert (url in records) == matched
+        if matched:
+            assert (
+                "estimates@example.com" in records[url]
+                and "someoneelse@example.com" not in records[url]
+            )
+
+
+def test_exhausted_catalog_advances_one_published_window_on_next_daily_run(tmp_path, monkeypatch):
+    import storage
+
+    lead = CASES[0]["lead"]
+    second = {**lead, "name": "Night Sky Painting", "id": "998877"}
+    visited = []
+
+    def catalog(city, day, start):
+        visited.append(start)
+        return {
+            1: ([], 5),
+            5: ([(lead["name"], "https://local.yahoo.com/info-1-first/")], 9),
+            9: ([(second["name"], "https://local.yahoo.com/info-2-second/")], None),
+        }[start]
+
+    monkeypatch.setenv("SITESCOUT_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(research, "_city_catalog", catalog)
+    active = [lead, second]
+    assert set(research.directory_matches(active, set(), target=1)) == {lead["id"]}
+    assert json.loads(storage.setting("directory_next_pages")) == {lead["city"]: 9}
+    assert set(research.directory_matches(active, {lead["id"]}, target=1)) == {second["id"]}
+    assert visited.count(5) == 1 and visited.count(9) == 1
+
+    storage.set_setting("directory_next_pages", "{}")
+    assert set(research.directory_matches(active, set(), target=1, sample=2)) == {lead["id"], second["id"]}
+    assert storage.setting("directory_next_pages") == "{}"
+    # Ranking selected the later candidate first. The earlier unused painter remains eligible.
+    assert set(research.directory_matches(active, {second["id"]}, target=1, sample=2)) == {lead["id"]}
+
+
+def test_state_license_record_does_not_veto_independently_confirmed_portfolio():
+    case = CASES[0]
+    lead = case["lead"]
+    path = "/record/CA/" + lead["id"]
+    text = f"{lead['name']} in {lead['city']}. California contractor license {lead['id']}. CSLB master license list."
+    url = "https://public-records.example" + path
+    entry = {"title": "Contractor record", "text": text, "url": url}
+    result = run(case, results=case["results"] + [entry])
+    assert result["status"] == "qualified"
+    assert any(e["url"] == url and e["kind"] == "assessment" for e in result["evidence"])
+    assert not research.registry_mirror("https://copperfinchpainting.example" + path, text, lead)
+    assert not research.registry_mirror("https://workshop.example" + path, lead["name"], lead)
+
+
+def test_unverified_directory_phone_matters_only_if_it_identifies_a_plausible_website():
+    case = CASES[0]
+    lead = case["lead"]
+    directory = "https://trade-cards.example/b/painting-4"
+    conflict = {"title": lead["name"], "url": directory, "text": f"{lead['city']} (408) 555-0147."}
+    assert run(case, results=case["results"] + [conflict])["status"] == "qualified"
+    possible_website = "https://copperfinchpainting.example"
+    marked = {**conflict, "text": conflict["text"] + " " + possible_website}
+    calls = []
+    def fetch(url):
+        calls.append(url)
+        assert url == possible_website
+        return {"url": url, "status": 0, "text": ""}
+    result = research.qualify(lead, None, lambda _: case["results"] + [marked], fetcher=fetch)
+    follow_up = result["follow_up"]
+    assert result["status"] == "hold" and calls.count(possible_website) == 2
+    assert follow_up["source_url"] == directory and follow_up["url"] == possible_website
+    assert set(follow_up["evidence_ids"]) <= set(result["retrieved_ids"])
+
+
+def test_an_unknown_marketplace_can_propose_a_real_website_but_cannot_veto_as_owner():
+    case = CASES[0]
+    lead = case["lead"]
+    url = "https://find-pros.example/painters-in/california/glendale/copper-finch?pid=123"
+    hit = {"url": url, "title": lead["name"], "text": f"{lead['city']} {lead['phone']}. Find a local painter. Pro login."}
+    result = run(case, results=[hit, *case["results"]])
+    assert result["status"] == "qualified"
+    assert any(e["url"] == url and "marketplace" in e["text"] for e in result["evidence"])
+    # A business-owned site hosted on a shared platform can be the actual official website.
+    site = "https://sites.google.com/view/finch-studio"
+    hit["text"] += " Website: " + site
+    pages = {site: {"url": site, "status": 200, "title": lead["name"], "text": f"{lead['name']}. Call us {lead['phone']} for an estimate.", "links": []}}
+    linked = run({**case, "pages": pages}, results=[hit, *case["results"]])
+    assert linked["status"] == "skip" and linked["website"] == site
+    add = {"url": "https://unknown.example/ca/glendale/painting/", "title": lead["name"], "text": f"42 painters on this list. {lead['name']} {lead['phone']}. Another company. Website: {site}"}
+    assert run(case, results=[add, *case["results"]])["status"] == "qualified"
+    assert not research.directory_publisher(lead, url.replace("find-pros.example", "copperfinchpainting.example"), hit["text"])

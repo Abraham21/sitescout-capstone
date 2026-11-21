@@ -140,6 +140,35 @@ def test_simultaneous_budget_reservations_cannot_cross_the_limit(isolated):
     assert storage.usage()[0]["dollars"] == 0.01
 
 
+def test_recheck_refetches_current_registry_and_public_intake_listing(isolated, monkeypatch):
+    listing = "https://local.yahoo.com/info-123-grove-painting-burbank/"
+    for mode in ("live", "demo"):
+        storage.new_run(mode, mode)
+        storage.save_lead(
+            mode,
+            {"id": "101", "name": "Archived name", "status": "hold",
+             "directory_url": listing, "website": "https://old.test"},
+        )
+        storage.finish_run(mode, "complete")
+    with pytest.raises(ValueError, match="real businesses"):
+        pipeline.run_batch(recheck="demo")
+    current = {"id": "101", "name": "Current registry name"}
+    monkeypatch.setenv("GOOGLE_API_KEY", "unused")
+    monkeypatch.setenv("EXA_API_KEY", "unused")
+    monkeypatch.delenv("CLOUDFLARE_API_TOKEN", raising=False)
+    monkeypatch.setattr(pipeline.research, "discover", lambda *args: [current])
+    received = []
+
+    def run_lead(run_id, lead, domain, emit, case=None):
+        received.append(lead)
+        return {"status": "hold"}
+
+    monkeypatch.setattr(pipeline, "run_lead", run_lead)
+    new_id = pipeline.run_batch(recheck="live")
+    assert received == [{**current, "directory_url": listing}]
+    assert next(r for r in storage.list_runs() if r["id"] == new_id)["mode"] == "recheck"
+
+
 def test_handoff_records_use_real_artifacts_and_only_publish_exposes_the_hosted_url(
     isolated, monkeypatch
 ):

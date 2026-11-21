@@ -16,4 +16,6 @@ The real Paintastic showcase uses photos from its [Yahoo Local business gallery]
 
 The fictional Linen Leaf rehearsal uses the credited California entry, sunlit stucco and green-room photographs above. Its two customer quotes are authored examples labeled as fictional.
 
+The fictional Copper Finch Instagram gallery uses the credited green-room and paint-roller photographs above. Its Instagram icon opens the staged gallery within the preview. On real websites each accepted Instagram photo links to its public source post.
+
 For other businesses, SiteScout records the original source page and image address for each matched photo or logo. A review excerpt must retain its exact wording, author and source.

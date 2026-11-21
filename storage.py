@@ -125,13 +125,38 @@ def leads(run_id):
         ]
 
 
+def contact_queue():
+    """One current, released draft per real license. Leave the heavy preview HTML in SQLite."""
+    with connect() as db:
+        return [
+            dict(row)
+            for row in db.execute("""
+            WITH ranked AS (
+              SELECT l.run_id,l.id,l.data,r.started_at,
+                     row_number() OVER (PARTITION BY l.id ORDER BY r.started_at DESC,r.rowid DESC) AS n
+              FROM leads l JOIN runs r ON r.id=l.run_id
+              WHERE r.mode IN ('live','showcase','recheck') AND r.status IN ('complete','complete_with_errors')
+            )
+            SELECT id,run_id,started_at,data->>'$.name' AS name,data->>'$.city' AS city,
+                   data->>'$.channel' AS channel,data->>'$.preview.url' AS preview_url,
+                   coalesce(nullif(data->>'$.email',''),data->>'$.qualification.email') AS email,
+                   data->>'$.qualification.social' AS social, data->>'$.qualification.website' AS website,
+                   coalesce(nullif(data->>'$.qualification.phone',''),data->>'$.phone') AS phone
+            FROM ranked WHERE n=1 AND data->>'$.status' IN ('ready','manual')
+              AND data->>'$.preview.published'=1 AND data->>'$.preview.url'!='' AND data->>'$.pitch.body'!=''
+              AND coalesce(data->>'$.preview.content_verified',1)=1
+              AND id NOT IN (SELECT id FROM leads WHERE data->>'$.status'='dismissed')
+            ORDER BY started_at DESC,name COLLATE NOCASE""")
+        ]
+
+
 def seen_live_ids():
     with connect() as db:
         return {
             row[0]
             for row in db.execute("""
             SELECT DISTINCT leads.id FROM leads JOIN runs ON runs.id=leads.run_id
-            WHERE runs.mode IN ('live','showcase') AND runs.status IN ('complete','complete_with_errors','interrupted')
+              WHERE runs.mode IN ('live','showcase','recheck') AND runs.status IN ('complete','complete_with_errors','interrupted')
               AND EXISTS (SELECT 1 FROM events WHERE events.run_id=runs.id AND json_extract(events.data,'$.lead_id')=leads.id
                           AND json_extract(events.data,'$.stage')='Queue') AND json_extract(data,'$.status')
               IN ('ready','manual','skip','hold','blocked','dismissed')""")

@@ -14,8 +14,11 @@ import sqlite3
 import tempfile
 import time
 import unicodedata
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import date, datetime
+from functools import lru_cache
 from itertools import zip_longest
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
@@ -80,7 +83,7 @@ def registry_leads(rows):
     return leads
 
 
-def discover(limit: int, seen: set[str], progress=None) -> list[dict]:
+def discover(limit: int, seen: set[str], progress=None, *, prioritize_directory=False) -> list[dict]:
     """Reuse yesterday's filtered local snapshot; alternate cities to diversify each batch."""
     if limit <= 0:
         return []
@@ -112,22 +115,48 @@ def discover(limit: int, seen: set[str], progress=None) -> list[dict]:
             if not CACHE.is_file():
                 raise
             report("CSLB refresh failed; using the last successful dated local snapshot.")
-    leads = json.loads(CACHE.read_text())
     today = date.today().isoformat()
+    leads = [lead for lead in json.loads(CACHE.read_text()) if lead["expires"] >= today]
     buckets = {city: [] for city in CITIES}
     for lead in leads:
-        if lead["expires"] >= today:
-            buckets[lead["city"]].append(lead)
+        buckets[lead["city"]].append(lead)
+    matches = {}
+    if prioritize_directory:
+        report("Matching the public painting directories in four cities to the active license records.")
+        matches = directory_matches(leads, seen, target=limit, sample=min(24, limit * 2))
+        report(f"Found {len(matches)} unseen name-and-city matches for the researcher to verify.")
     for group in buckets.values():
-        group.sort(key=lambda b: int(b["id"]), reverse=True)
-    selected = []
-    for group in zip_longest(*buckets.values()):
-        for lead in group:
-            if lead and lead["id"] not in seen and len(selected) < limit:
-                selected.append(lead)
-        if len(selected) >= limit:
-            break
-    report(f"Selected {len(selected)} unseen active painter licenses from the CSLB snapshot.")
+        group.sort(
+            key=lambda b: (
+                b["id"] in matches,
+                bool(re.search(r"\b(?:paint\w*|decorat\w*|pintur\w*|pintor\w*)\b", words(b["name"]))),
+                int(b["id"]),
+            ),
+            reverse=True,
+        )
+    ordered = [
+        lead
+        for group in zip_longest(*buckets.values())
+        for lead in group
+        if lead and lead["id"] not in seen
+    ]
+    if matches:
+        candidates = [lead for lead in ordered if lead["id"] in matches][: min(24, limit * 2)]
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            ranks = dict(pool.map(lambda lead: listing_priority(lead, matches[lead["id"]]), candidates))
+        count = sum(rank[0] == 4 for rank in ranks.values())
+        report(
+            f"Checked {len(ranks)} public listings. {count} show verified customer work without a listed website."
+        )
+        # Stable sorting keeps city rotation within each group; raw registry records remain the fallback.
+        ordered.sort(
+            key=lambda lead: ranks.get(lead["id"], (int(lead["id"] in matches), False)), reverse=True
+        )
+    selected = [
+        {**lead, "directory_url": matches[lead["id"]]} if lead["id"] in matches else lead
+        for lead in ordered[:limit]
+    ]
+    report(f"Selected {len(selected)} unseen active C-33 licenses for research.")
     return selected
 
 
@@ -140,6 +169,7 @@ LISTINGS = SOCIAL + (
     "houzz.com",
     "mapquest.com",
     "yellowpages.com",
+    "superpages.com",
     "thumbtack.com",
     "homeadvisor.com",
     "porch.com",
@@ -158,6 +188,18 @@ LISTINGS = SOCIAL + (
     "opencorporates.com",
     "alignable.com",
     "yellowpagesdirectory.com",
+    "homeimprova.com",
+    "glonstruct.com",
+    "localservicebiz.com",
+    "prosgrade.com",
+    "laservices.org",
+    "greenpeople.org",
+    "thebluebook.com",
+    "networx.com",
+    "smallbusinessdb.com",
+    "smallbusinessbay.com",
+    "home8.org",
+    "paintersup.com",
 )
 MIRRORS = (
     "ca.gov",
@@ -180,6 +222,11 @@ MIRRORS = (
     "prelien.co",
     "exa.ai",
     "verifiednode.com",
+    "corporate.ai",
+    "bidroom.io",
+    "dandb.com",
+    "homversa.com",
+    "corpft.com",
 )
 PHONE = re.compile(r"(?<!\d)(?:\+?1[\s.-]*)?\(?[2-9]\d{2}\)?[\s.-]*\d{3}[\s.-]*\d{4}(?!\d)")
 EMAIL = re.compile(r"\b[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}\b")
@@ -207,6 +254,43 @@ def host(url):
 def domain_in(url, domains):
     value = host(url)
     return any(value == d or value.endswith("." + d) for d in domains)
+
+
+def listing_source(url):
+    # Google Sites hosts business-owned websites; its paths are not Google Maps listings.
+    if host(url) == "sites.google.com":
+        return ""
+    return next((d for d in LISTINGS if domain_in(url, (d,))), "")
+
+
+def directory_publisher(lead, url, text):
+    """Require both a catalog-shaped location and evidence of a multi-business publisher."""
+    if branded(lead, url):
+        return ""
+    path = urlsplit(url).path.casefold()
+    if re.search(r"/compan(?:y|ies)/[a-z]{2}-[a-z]{2}/", path) and re.search(
+        r"registry number|company number", text, re.I
+    ) and re.search(r"jurisdiction|legal form", text, re.I):
+        return "The publisher lists company-registration records by jurisdiction."
+    location = words(lead["city"]).replace(" ", "-")
+    geo_path = location in path.strip("/").split("/") or host(url).startswith(location + "-")
+    if not geo_path:
+        return ""
+    if (
+        text.casefold().count("see this listing") >= 2
+        or re.search(r"\d+ (?:painters|businesses|contractors) on this list|tap a business to see its page", text, re.I)
+    ):
+        return "This is a city directory displaying multiple businesses."
+    if re.search(r"/[a-z-]+-in/(?:california|ca)/", path) and (
+        re.search(r"(?:^|&)pid=\d+", urlsplit(url).query)
+        or re.search(r"join as a pro|pro login|find a local (?:painter|contractor)", text, re.I)
+    ):
+        return "This marketplace publishes location-based provider profiles."
+    if re.search(r"related places|nearby public transportation|information about the company", text, re.I) and re.search(
+        r"reviews.{0,12}address.{0,8}(?:phone|telephone)|add review|photos and maps", text, re.I
+    ):
+        return "The publisher provides map, contact and review listings for local businesses."
+    return ""
 
 
 def safe_url(url):
@@ -283,13 +367,29 @@ def fetch_image(url, kind):
 
 def fetch_page(url):
     """Read a bounded public HTML document and its labeled links and media."""
+    requested_path = urlsplit(url).path.strip("/")
     url, status, content_type, body = read_public(url, "text/html,application/xhtml+xml", 1_250_000)
     page = {"url": url, "status": status, "text": "", "links": [], "has_form": False}
     if status != 200 or "html" not in content_type:
         return page
     soup = BeautifulSoup(body, "html.parser")
+    page["title"] = soup.title.get_text(" ", strip=True)[:250] if soup.title else ""
+    if business_profile.instagram_handle(url):
+        page.update(business_profile.instagram_profile(soup, url))
+    elif domain_in(url, ("facebook.com",)):
+        page.update(business_profile.facebook_profile(soup, url, requested_path))
+    else:
+        instagram_links = {
+            urljoin(url, a["href"])
+            for a in soup.select("header a[href], footer a[href]")
+            if business_profile.instagram_handle(urljoin(url, a["href"]))
+        }
+        if len(instagram_links) == 1:
+            page["instagram_url"] = instagram_links.pop()
     page["business_nodes"] = business_profile.business_nodes(soup)
     page["quotes"] = business_profile.quoted_customers(soup)
+    if host(url) == "local.yahoo.com":
+        page["yahoo_reviews"] = business_profile.yahoo_reviews(soup)
     # On this publisher, article-level OG images belong to the individual gallery.
     if host(url) == "local.yahoo.com" and soup.select_one("#business-photo-grid"):
         page["listing_photos"] = list(
@@ -302,7 +402,7 @@ def fetch_page(url):
     for tag in soup(["script", "style", "noscript", "template"]):
         tag.decompose()
     page.update(
-        text=" ".join(soup.stripped_strings)[:30_000],
+        text=(page.get("social_bio", "") + " " + " ".join(soup.stripped_strings)).strip()[:30_000],
         links=[
             {
                 "text": a.get_text(" ", strip=True)[:150] or str(a.get("aria-label", ""))[:150],
@@ -335,41 +435,73 @@ def phones(text):
     return {re.sub(r"\D", "", number)[-10:] for number in PHONE.findall(text)}
 
 
-def identity(lead, text):
-    """Two levels: exact name plus license/phone, or name plus city with no conflicting phone."""
+def published_license(lead, text):
+    # Only a number labeled as a license counts as independent ownership evidence.
+    return re.search(
+        r"(?:\bCSLB(?:\s+licen[cs]e)?|\blicen[cs]e|\blic\.?)\s*(?:no\.?|number)?\s*[:#-]?\s*"
+        + re.escape(str(lead["id"]))
+        + r"(?!\d)",
+        text,
+        re.IGNORECASE,
+    )
+
+
+def names_business(lead, text):
     normalized = " " + words(text) + " "
     names = [
         words(part)
         for part in re.split(r"\s+(?:d/?b/?a|doing business as)\s+", lead["name"], flags=re.IGNORECASE)
     ]
-    if not any(
+    return any(
         " " + re.sub(r" (incorporated|inc|llc|corporation|corp|co)$", "", n) + " " in normalized
         for n in names
         if len(n) > 2
-    ):
+    )
+
+
+def identity(lead, text):
+    """Two levels: exact name plus license/phone, or name plus city with no conflicting phone."""
+    if not names_business(lead, text):
         return 0
     target = re.sub(r"\D", "", lead.get("phone", ""))[-10:]
     found = phones(text)
     lic = str(lead["id"])
+    stated = re.findall(r"\b(?:CSLB|licen[cs]e)\s*(?:no\.?|number)?\s*[:(#\s]*(\d{5,8})\b", text, re.I)
+    if stated and lic not in stated:
+        # A new legal entity may inherit an older contractor's name and public phone.
+        return 0
     if (target and target in found) or (
         len(lic) >= 5 and re.search(r"(?<!\d)" + re.escape(lic) + r"(?!\d)", text)
     ):
         return 2
     if found and target:
         return 0
-    return int(" " + words(lead["city"]) + " " in normalized)
+    return int(" " + words(lead["city"]) + " " in " " + words(text) + " ")
 
 
-def registry_mirror(url, text):
+def registry_mirror(url, text, lead):
     path = urlsplit(url).path.lower()
+    # A state record keyed by this license plus explicit publisher provenance is a
+    # directory entry even when a search provider has never seen its hostname.
+    state_record = re.fullmatch(r"/(?:records?|contractors?|licen[cs]es?)/(?:[a-z]{2}/)?([0-9]{5,8})/?", path)
+    republished = re.search(
+        r"CSLB master license list|public state records|official licensing board|state licen[cs](?:e|ing) (?:records|database)",
+        text,
+        re.I,
+    )
+    if state_record and state_record[1] == str(lead["id"]) and not branded(lead, url):
+        if "licen" in host(url) or republished:
+            return True
     return bool(
         domain_in(url, MIRRORS)
+        or re.search(r"/(?:government_bidders|trucking-company)/|/tel/\d{7,}", path)
         or re.search(r"/(?:licenses?|contractors?|license-lookup)/(?:[a-z]+/)?\d{4,}", path)
         or re.search(
             r"claim (?:this|your) (?:business|listing|profile)|contractor (?:rankings|directory)|license lookup",
             text,
             re.IGNORECASE,
         )
+        or ("/business/" in path and re.search(r"\bLocal Business Overview\b", text, re.I))
     )
 
 
@@ -425,7 +557,7 @@ def owner_voice(page):
     )
 
 
-def ranking(lead, evidence, mode, *, index=":memory:"):
+def ranking(lead, evidence, mode, *, index=":memory:", required=()):
     if mode == "full":
         return evidence
     if mode != "fts":
@@ -441,7 +573,7 @@ def ranking(lead, evidence, mode, *, index=":memory:"):
                 "INSERT INTO passages VALUES (?,?,?,?,?)",
                 [(version, lead["id"], e["id"], e["url"], e["text"]) for e in evidence],
             )
-        chosen = {"registry"}
+        chosen = {"registry", *required}
         for query in (
             f'"{words(lead["name"])}" OR "{words(lead["city"])}"',
             "quote OR estimate OR contact OR website OR message OR booking OR HTTP",
@@ -476,8 +608,14 @@ def contact_email(page):
 
 def apply_photo_choices(profile, photos, review):
     """Visual descriptions supplement an unlabeled gallery. The original source stays attached."""
+    suitable = review.get("portfolio_photos")
+    selected = {n for n in suitable if type(n) is int} if isinstance(suitable, list) else set()
+    # A business may also post personal photos. Only carry its relevant images into the site.
+    for number, photo in enumerate(photos, 1):
+        if photo.get("credit") == "Instagram" and number not in selected:
+            profile["media"].remove(photo)
     hero = review.get("hero_photo")
-    if type(hero) is int and 1 <= hero <= len(photos):
+    if type(hero) is int and 1 <= hero <= len(photos) and photos[hero - 1] in profile["media"]:
         cover = photos[hero - 1]
         profile["media"].remove(cover)
         profile["media"].insert(0, cover)
@@ -520,6 +658,9 @@ def extract_facts(lead, result, selected, model, photo_model=None):
     )
     facts = result["facts"]
     result["model_mode"] = "model-assisted" if model else "deterministic replay"
+    if not (model and photo_model):
+        media = result["profile"]["media"]
+        media[:] = [m for m in media if m.get("credit") != "Instagram"]
     if model:
         photos = [m for m in result["profile"]["media"] if m["kind"] == "project"][:6]
         if photos and photo_model:
@@ -592,7 +733,7 @@ def search_business(lead, search, report):
     phone = lead.get("phone", "")
     report("Checking business identity against public search results and the license listing.")
     queries = [
-        f'"{lead["name"]}" {lead["city"]} CA painting website contact',
+        f"{lead['name']} {lead['city']} California official website services contact",
         f'"{phone}" {lead["name"]} painter'
         if phone
         else f'"{lead["id"]}" {lead["name"]} contractor website',
@@ -604,8 +745,8 @@ def search_business(lead, search, report):
             strong = any(
                 identity(lead, t) == 2
                 and branded(lead, u)
-                and not registry_mirror(u, t)
-                and not domain_in(u, LISTINGS)
+                and not registry_mirror(u, t, lead)
+                and not listing_source(u)
                 for u, t in records.items()
             )
             if strong:
@@ -625,34 +766,91 @@ def search_business(lead, search, report):
     profiles = {
         host(u)
         for u, text in records.items()
-        if identity(lead, text) and domain_in(u, LISTINGS) and not registry_mirror(u, text)
+        if identity(lead, text) and listing_source(u) and not registry_mirror(u, text, lead)
     }
     if lookups == 2 and len(profiles) < 2:
-        report("Evidence is thin. Looking for a trade profile with a website or portfolio link.")
-        query = (
-            f'"{lead["name"]}" {lead["city"]} California Houzz Yelp contractor profile website photos'
-        )
+        report("Looking for a public social or trade profile and its business website.")
+        query = f"{lead['name']} {lead['city']} California Instagram Facebook Yelp Houzz project photos"
         for item in search(query)[:7]:
             url = str(item.get("url") or "").split("#")[0]
             text = " ".join(str(item.get(k) or "") for k in ("title", "text"))
-            if safe_url(url) and (domain_in(url, LISTINGS) or identity(lead, text) == 2):
+            if safe_url(url) and (listing_source(url) or identity(lead, text) == 2):
                 records.setdefault(url, text)
         lookups += 1
     return records, lookups
 
 
-def listing_websites(text):
+def find_instagram(lead, records, fetch, known_url=""):
+    """Check at most three public profiles. A handle alone never establishes identity."""
+    stem = re.sub(r" (?:inc|incorporated|llc|corp|corporation)$", "", words(lead["name"]))
+    handles = [
+        urlsplit(u).path.strip("/").lower()
+        for u in records
+        if domain_in(u, ("instagram.com",)) and re.fullmatch(r"/[\w.]+/?", urlsplit(u).path)
+    ]
+    if domain_in(known_url, ("instagram.com",)):
+        handles.insert(0, urlsplit(known_url).path.strip("/").lower())
+    business = stem.removesuffix(" painting")
+    if business != stem:
+        handles.append(stem.replace(" ", ""))
+        pieces = business.split()
+        if len(pieces) == 2:
+            handles.append(pieces[0] + pieces[1][0] + "painting")
+    for handle in list(dict.fromkeys(h for h in handles if 1 <= len(h) <= 30))[:3]:
+        url = f"https://www.instagram.com/{handle}/"
+        page = fetch(url)
+        if page.get("status") == 429:
+            break
+        bio = page.get("social_bio") or ""
+        if (
+            page.get("status") == 200
+            and page.get("url", "").rstrip("/") == url.rstrip("/")
+            and (
+                published_license(lead, bio)
+                or (url.rstrip("/") == known_url.rstrip("/") and identity(lead, bio) == 2)
+            )
+            and f" {business} " in f" {words(bio)} "
+            and not INJECTION.search(bio)
+        ):
+            return page
+    return None
+
+
+def listing_websites(text, lead=None):
     pattern = r"(?:official (?:website|site)|business website|website)\s*[\]:()\s-]*(?:visit\s+)?((?:https?://)?(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:/[^)\s,;]*)?)"
     sites = []
-    for value in re.findall(pattern, text, re.IGNORECASE):
+    values = re.findall(pattern, text, re.IGNORECASE)
+    if lead:
+        # Public profiles also publish bare links. Only follow an unlabeled link
+        # when the external domain itself carries this registered trade name.
+        values.extend(
+            u for u in re.findall(r"https?://[^\s<>()[\]]+", text, re.I) if branded(lead, u)
+        )
+    for value in dict.fromkeys(values):
         url = (value if "://" in value else "https://" + value).rstrip(".,")
-        if safe_url(url) and not domain_in(url, LISTINGS + MIRRORS):
+        if safe_url(url) and not listing_source(url) and not domain_in(url, MIRRORS):
             sites.append(url)
     return sites
 
 
 def read_directory_links(lead, records, fetch, report):
     # A directory may put its website behind a link that a search excerpt omits.
+    for source, text in list(records.items()):
+        if not domain_in(source, ("homeimprova.com", "glonstruct.com")) or identity(lead, text) != 2:
+            continue
+        page_id = re.search(r"/(\d{10,20})/", urlsplit(source).path)
+        if page_id and re.search(r"\bfacebook\.com\b", text, re.I):
+            report("Checking the Facebook business page referenced by a matched trade listing.")
+            page = fetch("https://www.facebook.com/" + page_id[1] + "/")
+            url, bio = page.get("url", ""), page.get("social_bio", "")
+            if (
+                page.get("status") == 200
+                and domain_in(url, ("facebook.com",))
+                and identity(lead, bio) == 2
+            ):
+                links = " ".join("Website " + u for u in page.get("bio_links", []) if safe_url(u))
+                records[url] = bio + " " + links
+            break
     profiles = [
         u
         for u, t in records.items()
@@ -660,7 +858,10 @@ def read_directory_links(lead, records, fetch, report):
         and words(lead["name"]) in words(t)
         and (
             (domain_in(u, ("houzz.com",)) and "/professionals/" in u)
-            or (domain_in(u, ("bbb.org",)) and re.search(r"visit (?:the )?website", t, re.IGNORECASE))
+            or (
+                domain_in(u, ("bbb.org", "yellowpages.com", "superpages.com"))
+                and re.search(r"visit (?:the )?website", t, re.IGNORECASE)
+            )
         )
     ]
     for url in profiles[:2]:
@@ -692,6 +893,15 @@ def attach_work(lead, page, result, add, fetch, read_image):
     """Use only a confirmed business site and its same-site gallery for inline project imagery."""
     base = page["url"]
     profile = result["profile"]
+    instagram = page.get("instagram_url")
+    if instagram and not profile.get("instagram_url") and business_profile.instagram_handle(instagram):
+        add(
+            instagram,
+            f"The verified company website {base} links to this Instagram profile.",
+            "observation",
+        )
+        profile["instagram_url"] = instagram
+        result["social"] = result["social"] or instagram
     linked_pages = {}
     categories = {
         "work_links": (r"gallery|portfolio|our work|our projects", "Visit the project gallery"),
@@ -745,28 +955,35 @@ def attach_work(lead, page, result, add, fetch, read_image):
     embed_photos(candidates, profile, add, read_image)
 
 
+def customer_excerpt(row):
+    quote, author = row.get("quote"), row.get("author")
+    if not isinstance(quote, str) or not isinstance(author, str) or not 1 <= len(author) <= 70:
+        return ""
+    if len(quote) > 260 or len(quote.split()) > 24:
+        first = re.match(r"^.{12,259}?[.!?](?=\s|$)", quote)
+        quote = first[0] if first and len(first[0].split()) <= 24 else ""
+    text = f"{author}: {quote}"
+    if (
+        len(quote) < 12
+        or INJECTION.search(text)
+        or clean_text(text) != text
+        or EMAIL.search(text)
+        or phones(text)
+    ):
+        return ""
+    return quote
+
+
 def attach_testimonials(rows, source, platform, profile, add):
     saved = profile["testimonials"]
     for row in rows:
-        quote, author = row.get("quote", ""), row.get("author", "")
-        if not (
-            isinstance(quote, str)
-            and 12 <= len(quote) <= 260
-            and isinstance(author, str)
-            and 1 <= len(author) <= 70
-        ):
-            continue
-        joined = f"{author} on {platform}: {quote}"
-        if (
-            INJECTION.search(joined)
-            or clean_text(joined) != joined
-            or EMAIL.search(joined)
-            or phones(joined)
-            or any(item["quote"] == quote for item in saved)
-        ):
+        quote = customer_excerpt(row)
+        if not quote or any(item["quote"] == quote for item in saved):
             continue
         if len(saved) >= 4:
             break
+        author = row["author"]
+        joined = f"{author} on {platform}: {quote}"
         ref = add(source, joined, "source")
         saved.append(
             {
@@ -840,56 +1057,197 @@ def gallery_pages(urls):
     return list(dict.fromkeys(pages))[:2]
 
 
-def attach_listing(lead, pages, profile, add, fetch, read_image):
-    # Search snippets can point to a gallery. Independently match the actual publisher's
-    # structured business identity before using any photo or public customer review.
-    for canonical in pages:
-        page = fetch(canonical)
+def city_catalog(city):
+    return _city_catalog(city, date.today(), 1)[0]
+
+
+@lru_cache(maxsize=24)
+def _city_catalog(city, day, start_page):
+    """Read four linked category pages and return the publisher's next page number, if any."""
+    if city not in CITIES:
+        return (), None
+    section = (
+        "/consumer-services/home-and-garden-services/painting-services/ca/"
+        + city.lower().replace(" ", "-")
+        + "/"
+    )
+    url = "https://local.yahoo.com" + section + (f"{start_page}/" if start_page > 1 else "")
+    entries = {}
+    following = None
+    for _ in range(4):
+        final, status, mime, body = read_public(url, "text/html", 1_250_000)
+        if status != 200 or final.rstrip("/") != url.rstrip("/") or "html" not in mime:
+            break
+        soup = BeautifulSoup(body, "html.parser")
+        for heading in soup.select("h2 a[href]"):
+            canonical = gallery_pages([urljoin(url, heading["href"])])
+            if canonical:
+                entries[canonical[0]] = heading.get_text(" ", strip=True)
+        next_page = soup.select_one('a[aria-label="Next Page"][href]')
+        match = (
+            re.fullmatch(re.escape(section) + r"([0-9]+)/", next_page["href"]) if next_page else None
+        )
+        if not match:
+            following = None
+            break
+        following = int(match[1])
+        url = urljoin(url, next_page["href"])
+    return tuple((name, url) for url, name in entries.items()), following
+
+
+def trade_name(name):
+    return re.sub(r" (?:incorporated|inc|corporation|corp|llc)$", "", words(name))
+
+
+def directory_matches(active_leads, seen, *, target=0, sample=0):
+    """Use an unambiguous name and municipality to propose a listing for independent phone verification."""
+    cities = {l["city"] for l in active_leads if l["city"] in CITIES}
+    by_name = defaultdict(set)
+    for lead in active_leads:
+        by_name[(lead["city"], trade_name(lead["name"]))].add(lead["id"])
+    proposals = defaultdict(set)
+
+    def collect(windows):
+        for city, entries in windows:
+            for name, url in entries:
+                ids = by_name.get((city, trade_name(name)), set())
+                if len(ids) == 1:
+                    proposals[next(iter(ids))].add(url)
+        return {
+            i: next(iter(urls)) for i, urls in proposals.items() if len(urls) == 1 and i not in seen
+        }
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        matches = collect(zip(cities, pool.map(city_catalog, cities)))
+        if len(matches) >= max(target, sample):
+            return matches
+        # Read ahead at most two windows per city. A larger ranking pool can leave unused
+        # candidates behind, so advance the stored position only if all matches fit the batch.
+        import storage
+
+        storage.initialize()
+        cursors = json.loads(storage.setting("directory_next_pages", "{}"))
+        day = date.today()
+        starts = {c: cursors.get(c) or _city_catalog(c, day, 1)[1] for c in cities}
+        following = dict(starts)
+        for _ in range(2 if sample > target else 1):
+            active = [c for c in cities if following[c]]
+            windows = dict(zip(active, pool.map(lambda c: _city_catalog(c, day, following[c]), active)))
+            if not windows:
+                break
+            matches = collect((c, rows) for c, (rows, _) in windows.items())
+            following.update({c: next_page for c, (rows, next_page) in windows.items() if rows})
+            if len(matches) >= max(target, sample):
+                break
+        if len(matches) <= target:
+            storage.set_setting("directory_next_pages", json.dumps(following))
+        return matches
+
+
+@lru_cache(maxsize=48)
+def directory_page(url, day):
+    """Share the public listing between intake and qualification for the current day."""
+    return fetch_page(url)
+
+
+def listing_priority(lead, url):
+    text, work = listing_record(lead, url, directory_page(url, date.today()))
+    if not text:
+        return lead["id"], (1, False)
+    if listing_websites(text):
+        return lead["id"], (2, False)
+    invitation = re.search(
+        r"\b(?:free|(?:request|for|book) (?:an?|your)) (?:estimates?|quotes?)\b", text, re.I
+    )
+    return lead["id"], (4 if work else 3, bool(invitation))
+
+
+def matched_listing(lead, canonical, page):
+    """Verify the listing itself before using its business facts, contact path or photos."""
+    if (
+        page.get("status") != 200
+        or page.get("url", "").rstrip("/") != canonical.rstrip("/")
+        or INJECTION.search(page.get("text", ""))
+    ):
+        return {}, []
+    for node in page.get("business_nodes", []):
+        address = node.get("address")
+        city = address.get("addressLocality", "") if isinstance(address, dict) else ""
+        node_url = node.get("url") or node.get("@id")
         if (
-            page.get("status") != 200
-            or page.get("url", "").rstrip("/") != canonical.rstrip("/")
-            or INJECTION.search(page.get("text", ""))
+            not isinstance(node_url, str)
+            or node_url.rstrip("/") != canonical.rstrip("/")
+            or words(str(city)) != words(lead["city"])
+            or trade_name(node["name"]) != trade_name(lead["name"])
+            or not phones(lead.get("phone", "")).intersection(phones(str(node.get("telephone", ""))))
         ):
             continue
-        for node in page.get("business_nodes", []):
-            address = node.get("address")
-            city = address.get("addressLocality", "") if isinstance(address, dict) else ""
-            node_url = node.get("url") or node.get("@id")
-            if (
-                not isinstance(node_url, str)
-                or node_url.rstrip("/") != canonical.rstrip("/")
-                or words(str(city)) != words(lead["city"])
-                or identity(lead, f"{node['name']} {node.get('telephone', '')}") != 2
-            ):
-                continue
-            attach_testimonials(
-                business_profile.reviews_from(node), canonical, "Yahoo Local", profile, add
+        gallery = [
+            u
+            for u in page.get("listing_photos", [])
+            if re.fullmatch(r"https://s\.yimg\.com/bj/[a-f0-9]+/[a-f0-9]+\.jpg", u)
+        ]
+        primary = node.get("image") or []
+        if isinstance(primary, str):
+            primary = [primary]
+        if not isinstance(primary, list) or not any(url in gallery for url in primary):
+            gallery = []
+        return node, gallery
+    return {}, []
+
+
+def attach_listing(lead, pages, profile, add, fetch, read_image):
+    for url in pages:
+        page = fetch(url)
+        node, gallery = matched_listing(lead, url, page)
+        if not node:
+            continue
+        attach_testimonials(page.get("yahoo_reviews", []), url, "Yelp via Yahoo Local", profile, add)
+        attach_testimonials(business_profile.reviews_from(node), url, "Yahoo Local", profile, add)
+        images = [
+            (
+                url,
+                {
+                    "asset_url": asset,
+                    "kind": "project",
+                    "alt": f"{node['name']} gallery photo {i}",
+                    "credit": "Yahoo Local",
+                    "credit_url": url,
+                },
             )
-            urls_on_page = page.get("listing_photos", [])
-            node_images = node.get("image", [])
-            if isinstance(node_images, str):
-                node_images = [node_images]
-            # Require the matched entity's primary image to also occur in the gallery.
-            if not isinstance(node_images, list) or not any(
-                url in urls_on_page for url in node_images if isinstance(url, str)
-            ):
-                continue
-            images = [
-                (
-                    canonical,
-                    {
-                        "asset_url": u,
-                        "kind": "project",
-                        "alt": f"{node['name']} gallery photo {index}",
-                        "credit": "Yahoo Local",
-                        "credit_url": canonical,
-                    },
-                )
-                for index, u in enumerate(urls_on_page, 1)
-                if re.fullmatch(r"https://s\.yimg\.com/bj/[a-f0-9]+/[a-f0-9]+\.jpg", u)
-            ]
-            embed_photos(images, profile, add, read_image)
-            return
+            for i, asset in enumerate(gallery, 1)
+        ]
+        embed_photos(images, profile, add, read_image)
+        return
+
+
+def listing_record(lead, url, page):
+    """Read company-provided description and labeled website links from a confirmed public listing."""
+    node, gallery = matched_listing(lead, url, page)
+    if not node:
+        return "", False
+    description = str(node.get("description") or "")[:1300]
+    text = f"{node['name']}. {lead['city']}. {node.get('telephone', '')}. {description}"
+    if gallery:
+        text += f" {len(gallery)} photos."
+    # Keep each possible owned website in the existing ownership/contact check.
+    for link in page.get("links", []):
+        if re.fullmatch(
+            r"(?:visit (?:our |the )?)?(?:business )?website", link.get("text", "").strip(), re.I
+        ) and safe_url(link["url"]):
+            text += " Business website: " + link["url"]
+    reviews = page.get("yahoo_reviews", []) or business_profile.reviews_from(node)
+    excerpts = sum(bool(customer_excerpt(r)) for r in reviews)
+    if excerpts:
+        text += f" {excerpts} named customer reviews."
+    services = re.search(
+        r"interior|exterior|cabinet|drywall|wallpaper|refinish|staining|"
+        r"(?:high[ -]rise|rope[ -]access|industrial|commercial|residential) paint(?:ing|work)",
+        description,
+        re.I,
+    )
+    has_work = len(description) >= 25 and bool(services) and (len(gallery) >= 2 or excerpts > 0)
+    return text, has_work
 
 
 def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add):
@@ -904,28 +1262,35 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add):
             "assessment",
         )
         return "blocked", "Instruction-like content detected in a candidate website."
-    if registry_mirror(final_url, body) or domain_in(final_url, LISTINGS):
+    publisher = directory_publisher(lead, final_url, body) if host(url) not in listing_targets else ""
+    if publisher or registry_mirror(final_url, body, lead) or listing_source(final_url):
         add(
             final_url,
-            "Third-party listing or registry mirror; excluded from ownership and demand signals.",
+            publisher or "Third-party listing or registry mirror; excluded from ownership and demand signals.",
             "assessment",
         )
         return None
     if page.get("status") != 200 or not body:
-        unresolved = (
-            f"A possible website could not be inspected (HTTP {page.get('status') or 'unavailable'})."
-        )
+        def observation(checked):
+            code = checked.get("status")
+            if code == 200 and not checked.get("text"):
+                return "HTTP 200 with no readable page content"
+            return f"HTTP {code}" if code else "no HTTP response"
+        first = observation(page)
+        unresolved = f"A possible website could not be inspected ({first})."
         ref = add(final_url, unresolved, "observation")
         if host(url) in listing_targets:
             source = listing_targets[host(url)]
-            again = fetch(url).get("status") or 0
-            if again != 200:
-                codes = [page.get("status") or 0, again]
-                observations = ", ".join(f"HTTP {n}" if n else "no HTTP response" for n in codes)
-                followup = f"The directory-linked website could not be inspected on two checks ({observations})."
+            again = fetch(url)
+            if again.get("status") != 200 or not again.get("text"):
+                second = observation(again)
+                followup = f"The directory-linked website could not be inspected on two checks ({first}, {second})."
                 if not source["matched"]:
-                    followup += " The profile identity also needs confirmation."
-                second = f"HTTP {again}" if again else "no HTTP response"
+                    followup += (
+                        " Its listed phone differs from the registry phone, so its identity needs confirmation."
+                        if source.get("different_phone")
+                        else " The directory profile’s identity also needs confirmation."
+                    )
                 second_ref = add(url, f"Second public check: {second}.", "observation")
                 result["follow_up"] = {
                     "url": url,
@@ -935,7 +1300,40 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add):
                 }
                 unresolved = followup
         return "hold", unresolved
-    owns_domain = branded(lead, final_url) or host(final_url) in corroborated
+    # A similar domain spelling alone can point to a painter in a different jurisdiction.
+    visible_phones = phones(body)
+    registry_phone = re.sub(r"\D", "", lead.get("phone", ""))[-10:]
+    if (
+        registry_phone
+        and visible_phones
+        and registry_phone not in visible_phones
+        and not names_business(lead, body)
+        and not published_license(lead, body)
+        and re.search(
+            r"\b(?:CCB|ROC|CSLB|licen[cs]e)\s*(?:no\.?|number)?\s*[#:]?\s*\d{5,8}\b", body, re.I
+        )
+    ):
+        add(
+            final_url,
+            "The site publishes a different contractor number and phone under a different business name.",
+            "assessment",
+        )
+        return None
+    # A trade-name abbreviation or a city-based domain can still be the contractor's site.
+    # Verify its masthead, labeled license and owner navigation before accepting that case.
+    site_navigation = {
+        a.get("text", "").strip().lower()
+        for a in page.get("links", [])
+        if host(a.get("url", "")) == host(final_url)
+    }
+    title_names_business = names_business(lead, page.get("title", ""))
+    licensed_owner = (
+        title_names_business
+        and published_license(lead, body)
+        and bool(site_navigation & {"portfolio", "gallery", "our work", "our projects"})
+        and bool(site_navigation & {"contact", "contact us", "work order", "request an estimate"})
+    )
+    owns_domain = branded(lead, final_url) or host(final_url) in corroborated or licensed_owner
     demo = re.search(
         r"preview (?:website|site)|unofficial (?:concept|website)|demonstration website|not affiliated",
         body,
@@ -945,7 +1343,16 @@ def inspect_site(lead, url, corroborated, listing_targets, result, fetch, add):
         unresolved = (
             "A candidate domain has insufficient independent evidence of first-party ownership."
         )
-        add(final_url, unresolved, "assessment")
+        if title_names_business and visible_phones and registry_phone and registry_phone not in visible_phones:
+            unresolved = "The site names this business but publishes a different phone from the license record."
+        ref = add(final_url, unresolved, "assessment")
+        if source := listing_targets.get(host(url)):
+            result["follow_up"] = {
+                "url": final_url,
+                "source_url": source["url"],
+                "evidence_ids": [source["id"], ref],
+                "reason": unresolved,
+            }
         return "hold", unresolved
     result.update(website=final_url, website_status="has_site", _owned_page=page)
     website_email = contact_email(page)
@@ -1055,6 +1462,7 @@ def qualify(
         from storage import runtime_dir
 
         owned_page = result.pop("_owned_page", None)
+        social_page = result.pop("_social_page", None)
         if status != "hold" or result["website_status"] == "has_site":
             result.pop("follow_up", None)
         if status == "qualified":
@@ -1062,8 +1470,44 @@ def qualify(
             if owned_page:
                 attach_work(lead, owned_page, result, add, fetch, reader)
             profile = result["profile"]
-            if not any(item["kind"] == "project" for item in profile["media"]):
-                pages = gallery_pages(records)
+            social = profile.get("instagram_url") or result.get("social") or ""
+            if business_profile.instagram_handle(social) and reader and (photo_model or fetcher):
+                if not social_page or business_profile.instagram_handle(
+                    social_page.get("url")
+                ) != business_profile.instagram_handle(social):
+                    social_page = fetch(social)
+                if (
+                    social_page.get("status") == 200
+                    and business_profile.instagram_handle(social_page.get("url"))
+                    == business_profile.instagram_handle(social)
+                    and not INJECTION.search(social_page.get("social_bio", ""))
+                ):
+                    embed_photos(
+                        [(p["post_url"], p) for p in social_page.get("social_photos", [])],
+                        profile,
+                        add,
+                        reader,
+                    )
+            for link in profile["review_links"][:2]:
+                if profile["testimonials"] or not link["label"].startswith("Read reviews on "):
+                    continue
+                source = fetch(link["url"])
+                if source.get("status") != 200 or source.get("url", "").rstrip("/") != link[
+                    "url"
+                ].rstrip("/"):
+                    continue
+                for node in source.get("business_nodes", []):
+                    if identity(lead, f"{node['name']} {node.get('telephone', '')}") == 2:
+                        attach_testimonials(
+                            business_profile.reviews_from(node),
+                            link["url"],
+                            link["label"].removeprefix("Read reviews on "),
+                            profile,
+                            add,
+                        )
+            has_photos = any(item["kind"] == "project" for item in profile["media"])
+            if catalog_pages or not has_photos:
+                pages = list(dict.fromkeys([*catalog_pages, *gallery_pages(records)]))
                 # Use the spare third search only when a known gallery merits a closer look.
                 if not pages and profile["work_links"] and lookups < 3:
                     report("Looking for the business’s published gallery.")
@@ -1074,9 +1518,18 @@ def qualify(
                         pages = gallery_pages(str(hit.get("url", "")) for hit in hits)
                     except (OSError, RuntimeError, ValueError):
                         report("The optional gallery lookup was unavailable.")
-                attach_listing(lead, pages, profile, add, fetch, reader)
+                attach_listing(
+                    lead,
+                    pages,
+                    profile,
+                    add,
+                    lambda url: catalog_pages.get(url) or fetch(url),
+                    None if has_photos else reader,
+                )
         index = ":memory:" if fetcher is not None else runtime_dir() / "research.sqlite"
-        selected = ranking(lead, evidence, retrieval, index=index)
+        selected = ranking(
+            lead, evidence, retrieval, index=index, required=result.get("follow_up", {}).get("evidence_ids", [])
+        )
         result.update(
             status=status,
             reason=reason,
@@ -1096,6 +1549,25 @@ def qualify(
         return result
 
     records, lookups = search_business(lead, search, report)
+    catalog_pages = {}
+    has_listed_work = False
+    portfolio_refs = []
+    urls = gallery_pages([lead.get("directory_url", "")])
+    if not urls and fetcher is None and phone:
+        urls = [
+            url
+            for name, url in city_catalog(lead["city"])
+            if trade_name(name) == trade_name(lead["name"])
+        ]
+    if len(urls) == 1:
+        url = urls[0]
+        catalog_pages[url] = fetch(url) if fetcher else directory_page(url, date.today())
+        text, has_listed_work = listing_record(lead, url, catalog_pages[url])
+        if text:
+            report(
+                "Matched the local painter listing to the registry by name, city and business phone."
+            )
+            records[url] = text
     read_directory_links(lead, records, fetch, report)
     directory = {}
     listing_targets = {}
@@ -1103,7 +1575,6 @@ def qualify(
     disabled_inbox = ""
     candidates = []
     corroborated = set()
-    possible_mismatch = False
     for url, text in records.items():
         match = identity(lead, text)
         if match and INJECTION.search(text):
@@ -1113,7 +1584,7 @@ def qualify(
                 "assessment",
             )
             return finish("blocked", "Instruction-like content detected in external evidence.")
-        if registry_mirror(url, text):
+        if registry_mirror(url, text, lead):
             if match:
                 add(
                     url,
@@ -1121,25 +1592,46 @@ def qualify(
                     "assessment",
                 )
             continue
-        source = next((d for d in LISTINGS if domain_in(url, (d,))), "")
-        if source:
+        source = listing_source(url)
+        publisher = directory_publisher(lead, url, text) if not source else ""
+        # Marketplaces put reviews or local business cards under these URL paths.
+        # Unknown publishers can propose an owner URL, but do not add corroboration.
+        directory_path = re.match(r"/(?:b|biz|listing|listings|reviews)/[^/]", urlsplit(url).path, re.I)
+        if source or publisher or (directory_path and not branded(lead, url)):
             # Check a named profile's outbound website even if its phone conflicts; never
             # attribute that profile's work or reviews to this contractor without an identity match.
             named = words(lead["name"]) in words(text)
-            links = listing_websites(text) if match or named else []
-            ref = add(url, text) if match or links else ""
+            multiple_businesses = publisher == "This is a city directory displaying multiple businesses."
+            links = listing_websites(text, lead) if (match or named) and not multiple_businesses else []
+            ref = add(url, text) if (source and match) or links else ""
+            if publisher and match:
+                add(url, publisher, "assessment")
+            if url in catalog_pages and has_listed_work and match == 2:
+                portfolio_refs.append(ref)
             for linked in links:
                 if match == 2 or branded(lead, linked):
                     candidates.append(linked)
-                    listing_targets[host(linked)] = {"id": ref, "url": url, "matched": match == 2}
+                    listed_phones = phones(text)
+                    listing_targets[host(linked)] = {
+                        "id": ref,
+                        "url": url,
+                        "matched": match == 2,
+                        "different_phone": bool(listed_phones and phone and not listed_phones & phones(phone)),
+                    }
                     if match == 2:
                         corroborated.add(host(linked))
-            if not match:
-                possible_mismatch |= bool(links)
+            if not match or not source:
                 continue
             if match == 2:
                 business_profile.listing_profile(result["profile"], url, text, ref)
-            group = {"homeadvisor.com": "angi.com", "local.yahoo.com": "yelp.com"}.get(source, source)
+            group = {
+                "homeadvisor.com": "angi.com",
+                "local.yahoo.com": "yelp.com",
+                "homeimprova.com": "facebook.com",
+                "glonstruct.com": "facebook.com",
+                "localservicebiz.com": "google.com",
+                "prosgrade.com": "google.com",
+            }.get(source, source)
             if group not in directory or match > directory[group][0]:
                 directory[group] = match, ref
             if re.search(
@@ -1172,15 +1664,21 @@ def qualify(
         if match or identity(lead, text + " " + lead["city"]):
             candidates.append(url)
         elif words(lead["name"]) in words(text):
-            possible_mismatch = True
+            if branded(lead, url) or urlsplit(url).path.rstrip("/").lower() in {"", "/about", "/about-us", "/contact"}:
+                candidates.append(url)
         elif branded(lead, url):
             candidates.append(url)
 
     inspected = set()
-    unresolved = (
-        "A similar business appears with conflicting identity information." if possible_mismatch else ""
-    )
-    candidates.sort(key=lambda u: not (branded(lead, u) or host(u) in corroborated))
+    unresolved = ""
+
+    def candidate_priority(url):
+        path = urlsplit(url).path.rstrip("/").casefold()
+        if branded(lead, url) or host(url) in corroborated:
+            return 0
+        return 1 if path in {"", "/about", "/about-us", "/contact", "/services"} else 2
+
+    candidates.sort(key=candidate_priority)
     for url in candidates:
         domain = host(url)
         if domain in inspected:
@@ -1196,19 +1694,58 @@ def qualify(
             if status != "hold":
                 return finish(status, explanation)
             unresolved = explanation
+    # Frozen cases resolve through their supplied search and page snapshots.
+    if fetcher is None and (not result["social"] or domain_in(result["social"], ("instagram.com",))):
+        report("Checking public Instagram profiles against the contractor's name and license.")
+        profile = find_instagram(lead, records, fetch, result["social"])
+        if profile:
+            url, bio = profile["url"], profile["social_bio"]
+            ref = add(url, bio)
+            result.update(social=url, _social_page=profile)
+            directory["instagram.com"] = 2, ref
+            if email := EMAIL.search(bio):
+                result["email"] = email[0]
+            if profile.get("social_photos"):
+                contact_gap.append(ref)
+                if published_license(lead, bio) and (result["email"] or phone):
+                    portfolio_refs.append(ref)
+                    report(
+                        "The owner’s portfolio and published license independently corroborate the registry record."
+                    )
+            report("Confirmed the public Instagram profile against the registered business identity.")
+            # The owner's bio may already point to a website with a working estimate path.
+            sites = [
+                u
+                for u in profile.get("bio_links", [])
+                if safe_url(u)
+                and not listing_source(u)
+                and not domain_in(u, ("gmail.com", "outlook.com", "yahoo.com"))
+            ]
+            for site in sites[:2]:
+                outcome = inspect_site(lead, site, {host(site)}, {}, result, fetch, add)
+                if outcome:
+                    return finish(*outcome)
+            if sites:
+                unresolved = (
+                    "The verified social profile links to a site whose ownership needs checking."
+                )
     if unresolved:
         return finish("hold", result.get("follow_up", {}).get("reason", unresolved))
     if (
         lookups >= 2
-        and len(directory) >= 2
+        and (len(directory) >= 2 or portfolio_refs)
         and any(match == 2 for match, _ in directory.values())
-        and contact_gap
+        and (contact_gap or portfolio_refs)
         and (phone or result["social"] or result["email"])
     ):
-        refs = list(dict.fromkeys([*contact_gap, *(ref for _, ref in directory.values())]))
+        refs = list(
+            dict.fromkeys([*contact_gap, *portfolio_refs, *(ref for _, ref in directory.values())])
+        )
         issue = f"Customers can find this painter through public profiles. {lookups} targeted searches found no verified business-owned page for estimate inquiries."
         if disabled_inbox:
             issue = f"The matching {disabled_inbox} profile says messaging is disabled. {lookups} targeted searches found no verified business-owned estimate page."
+        elif portfolio_refs and not contact_gap:
+            issue = f"The matched local listing shows the business’s painting services and customer work. {lookups} targeted searches found no verified business-owned estimate page."
         result.update(website_status="no_site_found", issue=issue, issue_evidence_ids=refs)
         return finish("qualified", issue)
     return finish(

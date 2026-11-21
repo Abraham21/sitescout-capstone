@@ -12,7 +12,7 @@
     },
     "results": [
       {
-        "url": "https://www.instagram.com/site_scout_demo_social-estimates/",
+        "url": "https://www.instagram.com/site_scout_demo_copperfinch/",
         "title": "Copper Finch Painting",
         "text": "Copper Finch Painting in Glendale, CA. (818) 555-0101. Message us for a painting estimate. Interior painting. Serving Glendale. Email: estimates@copperfinch.example."
       },
@@ -22,14 +22,45 @@
         "text": "Copper Finch Painting, painter in Glendale. Listed business phone (818) 555-0101."
       }
     ],
-    "pages": {},
+    "pages": {
+      "https://www.instagram.com/site_scout_demo_copperfinch/": {
+        "url": "https://www.instagram.com/site_scout_demo_copperfinch/",
+        "status": 200,
+        "text": "Copper Finch Painting in Glendale, CA. (818) 555-0101. Message us for a painting estimate. Interior painting. Serving Glendale. Email: estimates@copperfinch.example.",
+        "social_bio": "Copper Finch Painting in Glendale, CA. (818) 555-0101. Message us for a painting estimate. Interior painting. Serving Glendale. Email: estimates@copperfinch.example.",
+        "bio_links": [],
+        "links": [],
+        "social_photos": [
+          {
+            "post_url": "https://www.instagram.com/site_scout_demo_copperfinch/p/GREEN/",
+            "asset_url": "https://media.copperfinch.example/green-room.jpg",
+            "kind": "project",
+            "alt": "Green woodwork and pale plaster in a living room. Staged Instagram example.",
+            "credit": "Staged Instagram photo · Max Vakhtbovych",
+            "credit_url": "https://www.pexels.com/photo/an-interior-of-a-home-7746035/"
+          },
+          {
+            "post_url": "https://www.instagram.com/site_scout_demo_copperfinch/p/ROLLER/",
+            "asset_url": "https://media.copperfinch.example/roller.jpg",
+            "kind": "project",
+            "alt": "Brown paint on a roller beside the wall. Staged Instagram example.",
+            "credit": "Staged Instagram photo · Ivan S",
+            "credit_url": "https://www.pexels.com/photo/close-up-shot-of-a-person-holding-a-paint-roller-with-brown-paint-5798972/"
+          }
+        ]
+      }
+    },
     "expected": {
       "status": "qualified",
       "website_status": "no_site_found",
-      "evidence_url": "https://www.instagram.com/site_scout_demo_social-estimates/",
+      "evidence_url": "https://www.instagram.com/site_scout_demo_copperfinch/",
       "evidence_contains": "Message us for a painting estimate"
     },
-    "synthetic": true
+    "synthetic": true,
+    "image_files": {
+      "https://media.copperfinch.example/green-room.jpg": "green-room.jpg",
+      "https://media.copperfinch.example/roller.jpg": "roller.jpg"
+    }
   },
   {
     "id": "broken-estimate",
@@ -248,7 +279,16 @@
         "text": "Birch Step Painting, painter in Glendale. Listed business phone (818) 555-0105."
       }
     ],
-    "pages": {},
+    "pages": {
+      "https://birchstep.example/": {
+        "url": "https://birchstep.example/",
+        "status": 200,
+        "title": "Birch Step Painting",
+        "text": "Birch Step Painting, Fresno painter. Call (559) 555-0144.",
+        "links": [],
+        "has_form": false
+      }
+    },
     "expected": {
       "status": "hold",
       "website_status": "unsure",

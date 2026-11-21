@@ -212,6 +212,7 @@ def test_registry_typography_preserves_identity_and_suffixes():
 
     assert display_name("A & B PAINTING LLC") == "A & B Painting LLC"
     assert display_name("McKenna Painting") == "McKenna Painting"
+    assert display_name("ARAY'S HOUSE PAINTING") == "Aray's House Painting"
 
 
 def test_business_phone_and_gallery_reach_the_artifact_and_pitch():
@@ -315,6 +316,30 @@ def test_testimonial_requires_quote_and_reviewer_in_the_original_source():
     assert "Attributed customer reviews" in build_preview(LEAD, q)["features"]
     q["profile"]["testimonials"][0] = {**item, "author": "Someone else"}
     assert "Attributed customer reviews" not in build_preview(LEAD, q)["features"]
+
+
+def test_instagram_portfolio_in_rehearsal_and_when_a_real_profile_hides_its_photos():
+    import pipeline
+    from bs4 import BeautifulSoup
+
+    case = next(c for c in pipeline.scenarios() if c["id"] == "social-estimates")
+    q = pipeline.qualify_fixture(case)
+    preview = build_preview(case["lead"], q)
+    soup = BeautifulSoup(preview["html"], "html.parser")
+    assert len(soup.select("#work [data-slide]")) == 2
+    assert soup.select_one("footer a[href='#work'] svg")
+    assert "Sample Instagram gallery" in soup.select_one("#work").get_text()
+    assert not soup.select('a[href*="instagram.com"]')
+    assert any("Instagram" in note for note in preview["customizations"])
+
+    profile = "https://www.instagram.com/a_verified_painter/"
+    source = {"id": "profile", "url": profile, "text": "Identity-matched Instagram profile."}
+    q = {**QUALIFIED, "social": profile, "evidence": [*QUALIFIED["evidence"], source]}
+    page = build_preview(LEAD, q)
+    soup = BeautifulSoup(page["html"], "html.parser")
+    assert soup.select_one("#work a")["href"] == profile
+    assert soup.select_one("footer a")["href"] == profile and "profile" in page["evidence_ids"]
+    assert not soup.select("#work img")
 
 
 def test_multiple_services_and_places_only_use_cited_facts():
