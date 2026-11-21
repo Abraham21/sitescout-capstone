@@ -88,8 +88,14 @@ nav{gap:clamp(1.3rem,3.3vw,3.3rem)}.nav-links{gap:clamp(1rem,2vw,2.4rem)}
 .reviews{padding-block:var(--section);background:var(--wash)}
 .reviews .wrap,.services,.details{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:clamp(2rem,6vw,7rem)}
 .review-heading h2{font-size:clamp(2.2rem,4vw,3.8rem)}.review-heading .slide-controls{margin-top:1.3rem}
-.review-stage blockquote{font:400 clamp(1.5rem,2.8vw,2.7rem)/1.23 Georgia,serif;letter-spacing:-.03em;text-wrap:pretty}
-.review-stage figcaption{gap:.6rem;margin-top:1.1rem;font-size:.88rem;font-weight:600}
+.review-card{padding:clamp(1.2rem,3vw,2.4rem);border:1px solid var(--line);border-radius:1.2rem;background:var(--paper);box-shadow:0 8px 30px #23251e0a}
+.review-card figcaption{display:flex;gap:.8rem;align-items:center;margin-bottom:1rem}
+.review-card figcaption small{display:block;font-size:.8rem;line-height:1.4;color:var(--muted)}
+.review-avatar{display:grid;place-items:center;border-radius:50%;width:2.65rem;height:2.65rem;background:var(--deep);color:var(--paper);font-weight:700}
+.review-stars{display:block;color:#815300;letter-spacing:.12em;font-size:1.18rem;margin-bottom:.45rem}
+.review-card blockquote{font:400 clamp(1.1rem,1.65vw,1.48rem)/1.48 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;text-wrap:pretty}
+.estimate .email-contact{display:block;width:fit-content;margin-top:.7rem;color:var(--paper);overflow-wrap:anywhere}
+
 .services{align-items:start}.services h2 em{display:block;font-style:normal;color:var(--muted)}
 .services p,.details p{margin-top:.7rem;max-width:35ch;color:var(--muted)}
 .services ul{padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr));gap:.7rem}
@@ -148,7 +154,7 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:1
  .hero-copy>.title-box{animation-delay:.08s}.hero-copy>.category{animation-delay:.14s}.hero-copy>.intro{animation-delay:.2s}.hero-actions{animation-delay:.26s}
  .hero-art>img{animation:frame-in 1.7s cubic-bezier(.15,.64,.25,1) both}
  .services li.revealed{animation:rise .62s cubic-bezier(.2,.75,.25,1) both;animation-delay:var(--delay,0s)}
- .review-stage [data-slide]:not([hidden]){animation:quote-in .65s cubic-bezier(.2,.75,.25,1) both}
+ .review-stage [data-slide]:not([hidden]),.gallery-stage [data-slide]:not([hidden]){animation:quote-in .65s cubic-bezier(.2,.75,.25,1) both}
  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
  @keyframes frame-in{from{transform:scale(1.08)}to{transform:scale(1)}}
  @keyframes quote-in{from{opacity:.1;transform:translateX(18px)}to{opacity:1;transform:translateX(0)}}
@@ -156,7 +162,7 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:1
 }
 </style>
 </head>
-<body class="$theme">
+<body class="$theme" style="$logo_colors">
 <div class="notice">$source_note</div>
 <header class="wrap"><a href="#main" class="brand">$logo<span class="brand-name">$name</span></a>
 <nav aria-label="Main navigation"><div class="nav-links">$work_nav<a href="#estimate">Estimates</a></div>$contact</nav></header>
@@ -168,7 +174,7 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:1
 </div><div class="hero-credit"><div class="wrap"><span>Based in <strong>$area_note</strong></span><div class="source">$credit</div></div></div></section>
 $sections
 <section id="estimate" class="estimate" aria-labelledby="estimate-title"><div class="wrap">
-<div><h2 id="estimate-title">What would you like painted?</h2>$contact_prompt$contact</div>
+<div><h2 id="estimate-title">What would you like painted?</h2>$contact_prompt$contact$email_contact</div>
 <form id="estimate-form" method="dialog" autocomplete="off">
 <h3>Request an estimate</h3><p class="form-note">Design preview. Use sample details to try the form.</p>
 <div class="fields">
@@ -181,7 +187,7 @@ $service_field
 <p id="form-status" role="status" tabindex="-1"></p></div></form>
 </div></section>
 <section class="details wrap"><div><h2>Business details</h2><p>$name</p></div><dl>$detail_rows</dl></section>
-</main><footer><div class="wrap"><div class="signature"><strong>$name · $city, CA</strong><span>Independent website concept by SiteScout.</span></div>$profiles</div></footer>
+</main><footer><div class="wrap"><div class="signature"><strong>$name · $city, CA</strong><span>Independent website concept by SiteScout · $year</span></div>$profiles</div></footer>
 <script>
 // A landscape window on a vertical exterior photograph keeps the entry and finish in view.
 const heroPhoto = document.querySelector('.hero-art>img');
@@ -255,15 +261,15 @@ document.querySelectorAll('[data-slideshow]').forEach(section => {
       clearInterval(timer);
       rotate.hidden = reduceMotion.matches;
       rotate.textContent = enabled ? 'Pause' : 'Play';
-      rotate.setAttribute('aria-label', (enabled ? 'Pause' : 'Play') + ' review rotation');
+      rotate.setAttribute('aria-label', (enabled ? 'Pause' : 'Play') + ' ' + rotate.dataset.rotate + ' rotation');
       const active = enabled && !reduceMotion.matches && inView && !document.hidden
-        && !(matchMedia('(hover: hover)').matches && section.matches(':hover'))
+        && !(matchMedia('(hover: hover)').matches && section.querySelector('.slide-controls:hover, .photo-strip:hover, .review-card:hover'))
         && !section.matches(':focus-within');
       section.querySelector('[data-position]').setAttribute('aria-live', active ? 'off' : 'polite');
       if (active) timer = setInterval(() => show(current + 1), 7500);
     }
     rotate.addEventListener('click', () => { enabled = !enabled; updateRotation(); });
-    for (const action of ['pointerenter','pointerleave','focusin','focusout'])
+    for (const action of ['pointerover','pointerout','focusin','focusout'])
       section.addEventListener(action, () => setTimeout(updateRotation, 0));
     reduceMotion.addEventListener('change', updateRotation);
     document.addEventListener('visibilitychange', updateRotation);

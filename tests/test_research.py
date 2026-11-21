@@ -146,61 +146,6 @@ def test_registry_filter_and_city_rotation(tmp_path, monkeypatch):
     assert {item["id"] for item in research.discover(10, set())} == {
         item["id"] for item in eligible + [painter]
     }
-    link = "https://local.yahoo.com/info-123-brush-demo-glendale/"
-    monkeypatch.setattr(research, "directory_matches", lambda *args, **kwargs: {first["id"]: link})
-    monkeypatch.setattr(research, "directory_page", lambda url, day: {})
-    matched = research.discover(2, set(), prioritize_directory=True)
-    assert matched[0]["id"] == first["id"] and matched[0]["directory_url"] == link
-    assert len({lead["id"] for lead in matched}) == 2
-    assert all("directory_url" not in lead for lead in research.discover(2, set()))
-
-
-def test_verified_work_and_estimate_invitation_can_change_batch_membership(tmp_path, monkeypatch):
-    lead = CASES[0]["lead"]
-    records = [
-        {**lead, "id": str(i), "name": f"Painter {i}", "expires": "2099-12-31"}
-        for i in (1001, 1002, 1003, 1004)
-    ]
-    cache = tmp_path / "leads.json"
-    cache.write_text(json.dumps(records))
-    monkeypatch.setattr(research, "CACHE", cache)
-    urls = {r["id"]: f"https://local.yahoo.com/info-{r['id']}-painter/" for r in records}
-    monkeypatch.setattr(research, "directory_matches", lambda *args, **kwargs: urls)
-    visited = []
-
-    def page(url):
-        r = next(r for r in records if urls[r["id"]] == url)
-        visited.append(url)
-        node = {
-            "name": r["name"],
-            "telephone": r["phone"],
-            "url": url,
-            "address": {"addressLocality": r["city"]},
-            "description": "We offer interior painting and cabinet refinishing.",
-        }
-        if r["id"] == "1001":
-            node["description"] += " Call for an estimate."
-        if r["id"] == "1004":
-            node["telephone"] = "(415) 555-0999"
-        website = [{"text": "Website", "url": "https://painter.example/"}] if r["id"] == "1003" else []
-        return {
-            "url": url,
-            "status": 200,
-            "business_nodes": [node],
-            "links": website,
-            "yahoo_reviews": [{"author": "R. Guest", "quote": "Our kitchen looks wonderful."}],
-        }
-
-    monkeypatch.setattr(research, "fetch_page", page)
-    research.directory_page.cache_clear()
-    try:
-        selected = research.discover(2, set(), prioritize_directory=True)
-        assert [r["id"] for r in selected] == ["1001", "1002"]
-        for r in selected:
-            research.directory_page(r["directory_url"], research.date.today())
-        assert sorted(visited) == sorted(urls.values())
-    finally:
-        research.directory_page.cache_clear()
 
 
 def test_disabled_listing_inbox_is_specific_need_and_syndication_is_one_source():
@@ -360,14 +305,10 @@ def test_instagram_uses_the_verified_accounts_own_photo_posts():
     assert profile["media"] == [photos[1]] and not profile.get("cover_evidence_id")
 
 
-def test_city_catalog_joins_unique_registry_names_and_qualifies_only_verified_portfolios(monkeypatch):
+def test_listing_qualifies_only_a_phone_matched_painter_with_verified_work():
     url = "https://local.yahoo.com/info-123-copper-finch-painting-glendale/"
     case = CASES[0]
     lead = case["lead"]
-    duplicate = {**lead, "id": "900099", "name": lead["name"] + " LLC"}
-    monkeypatch.setattr(research, "city_catalog", lambda _: [(lead["name"], url)])
-    assert research.directory_matches([lead], set()) == {lead["id"]: url}
-    assert not research.directory_matches([lead, duplicate], {duplicate["id"]})
     photos = [f"https://s.yimg.com/bj/aa/{i}.jpg" for i in (1, 2)]
     node = {
         "url": url,
@@ -406,7 +347,7 @@ def test_city_catalog_joins_unique_registry_names_and_qualifies_only_verified_po
 
     reviews = BeautifulSoup(
         '<section id="local-user-reviews"><article>'
-        '<div><span>C. Guest</span><span>11/21/25</span></div>'
+        f'<div><span>C. Guest</span><span>{research.date.today():%m/%d/%y}</span></div>'
         '<div><p>The new cabinet paint looks wonderful.</p>'
         '<a href="https://www.yelp.com/biz/example?hrid=r1">More</a></div>'
         '<div><span>Unrelated</span><span>11/20/25</span></div>'
@@ -422,6 +363,17 @@ def test_city_catalog_joins_unique_registry_names_and_qualifies_only_verified_po
     assert (testimonial["author"], testimonial["quote"], testimonial["source_url"]) == (
         "C. Guest", "The new cabinet paint looks wonderful.", url
     )
+
+    # A dated public review can establish customer activity even with no company description.
+    node["description"] = ""
+    review = page["yahoo_reviews"][0]
+    activity = {"type": "customer_review", "date": review["date"], "source_url": review["source_url"], "listing_url": url}
+    intake = {**lead, "directory_url": url, "activity": activity}
+    recent = research.qualify(intake, None, lambda _: [], fetcher=lambda _: page)
+    ref = recent["activity"]["evidence_id"]
+    assert recent["status"] == "qualified" and ref in recent["issue_evidence_ids"] and ref in recent["retrieved_ids"]
+    page["yahoo_reviews"] = []
+    assert research.qualify(intake, None, lambda _: [], fetcher=lambda _: page)["status"] == "hold"
 
 
 def test_verified_first_party_gallery_supports_a_real_self_contained_raster():
@@ -790,36 +742,6 @@ def test_syndicated_facebook_page_must_confirm_registered_phone_before_use():
             )
 
 
-def test_exhausted_catalog_advances_one_published_window_on_next_daily_run(tmp_path, monkeypatch):
-    import storage
-
-    lead = CASES[0]["lead"]
-    second = {**lead, "name": "Night Sky Painting", "id": "998877"}
-    visited = []
-
-    def catalog(city, day, start):
-        visited.append(start)
-        return {
-            1: ([], 5),
-            5: ([(lead["name"], "https://local.yahoo.com/info-1-first/")], 9),
-            9: ([(second["name"], "https://local.yahoo.com/info-2-second/")], None),
-        }[start]
-
-    monkeypatch.setenv("SITESCOUT_DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(research, "_city_catalog", catalog)
-    active = [lead, second]
-    assert set(research.directory_matches(active, set(), target=1)) == {lead["id"]}
-    assert json.loads(storage.setting("directory_next_pages")) == {lead["city"]: 9}
-    assert set(research.directory_matches(active, {lead["id"]}, target=1)) == {second["id"]}
-    assert visited.count(5) == 1 and visited.count(9) == 1
-
-    storage.set_setting("directory_next_pages", "{}")
-    assert set(research.directory_matches(active, set(), target=1, sample=2)) == {lead["id"], second["id"]}
-    assert storage.setting("directory_next_pages") == "{}"
-    # Ranking selected the later candidate first. The earlier unused painter remains eligible.
-    assert set(research.directory_matches(active, {second["id"]}, target=1, sample=2)) == {lead["id"]}
-
-
 def test_state_license_record_does_not_veto_independently_confirmed_portfolio():
     case = CASES[0]
     lead = case["lead"]
@@ -871,3 +793,114 @@ def test_an_unknown_marketplace_can_propose_a_real_website_but_cannot_veto_as_ow
     add = {"url": "https://unknown.example/ca/glendale/painting/", "title": lead["name"], "text": f"42 painters on this list. {lead['name']} {lead['phone']}. Another company. Website: {site}"}
     assert run(case, results=[add, *case["results"]])["status"] == "qualified"
     assert not research.directory_publisher(lead, url.replace("find-pros.example", "copperfinchpainting.example"), hit["text"])
+    zip_page = "https://trade-directory.example/find-a-pro/painting/90304"
+    assert research.directory_publisher(lead, zip_page, "10 providers listed in Inglewood")
+    assert not research.directory_publisher(lead, zip_page, "Copper Finch Painting serves Inglewood.")
+
+
+
+def test_license_query_and_owner_site_retry_after_timeout():
+    # A business can publish a sales line that differs from the registry phone.
+    lead = CASES[0]["lead"]
+    website = "https://copperfinchpainting.example/"
+    called, queries = [], []
+
+    def search(query):
+        queries.append(query)
+        if lead["id"] in query:
+            return [{"url": website, "title": lead["name"], "text": f"License #{lead['id']}. {lead['city']}."}]
+        return []
+
+    def fetch(url):
+        assert url == website
+        called.append(url)
+        if len(called) == 1:
+            return {"url": url, "status": 0}
+        return {
+            "url": url, "status": 200, "title": lead["name"],
+            "text": f"{lead['name']} · CSLB #{lead['id']}. Call us for an estimate on 310-555-0102.",
+            "links": [],
+        }
+
+    result = research.qualify(lead, None, search, fetcher=fetch)
+    assert len(called) == 2 and len(queries) <= 3
+    assert result["website"] == website and result["status"] == "skip"
+
+
+@pytest.mark.parametrize("contact_status, expected", [(200, "skip"), (403, "hold")])
+def test_restricted_service_page_checks_home_and_another_search_result(contact_status, expected):
+    lead = CASES[0]["lead"]
+    home = "https://copperfinchpainting.example/"
+    service, contact = home + "service-areas/glendale", home + "contact"
+    hits = [{"url": u, "title": lead["name"], "text": lead["city"]} for u in (service, contact)]
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        if url == contact and contact_status == 200:
+            return {"url": url, "status": 200, "text": f"{lead['name']}. Call us on {lead['phone']}.", "links": []}
+        return {"url": url, "status": 403, "text": ""}
+
+    q = research.qualify(lead, None, lambda query: hits, fetcher=fetch)
+    assert calls == [service, home, contact]
+    assert q["status"] == expected
+    if expected == "skip":
+        assert q["website"] == contact
+    else:
+        assert q["follow_up"]["url"] == service
+        assert "HTTP 403" in q["reason"] and q["website_status"] == "unsure"
+
+
+def test_disconnected_homepage_requires_registered_phone_and_repeat_host_error(monkeypatch):
+    lead = CASES[0]["lead"]
+    domain, listing = "https://copperfinchpainting.example", "https://www.contractorsup.com/123/copper-finch"
+    hits = [{"url": listing, "title": lead["name"], "text": lead["city"]}]
+    markup = b"<html><title>ConnectYourDomain Error | Wix.com</title></html>"
+    monkeypatch.setattr(research, "read_public", lambda url, accept, limit: (url, 404, "text/html", markup))
+    error_page = research.fetch_page(domain)
+    assert error_page["disconnected_domain"]
+    for phone, second_error, expected in [(lead["phone"], True, "qualified"),
+                                          (lead["phone"], False, "hold"), ("310-555-0101", True, "hold")]:
+        calls = []
+
+        def fetch(url):
+            if url == listing:
+                return {"url": listing, "status": 200, "text": f"{lead['name']}. {lead['city']}.",
+                        "links": [{"text": "Call", "url": f"tel:{phone}"}, {"text": "Website", "url": domain}]}
+            assert url == domain
+            calls.append(url)
+            return {**error_page, "disconnected_domain": len(calls) == 1 or second_error}
+
+        q = research.qualify(lead, None, lambda query: hits, fetcher=fetch)
+        assert q["status"] == expected and calls == [domain, domain]
+        if expected == "qualified":
+            assert q["site_issue"] == "listed_homepage_disconnected"
+            assert set(q["issue_evidence_ids"]) <= set(q["retrieved_ids"])
+
+
+def test_trade_name_paint_or_painting_requires_the_same_registered_phone():
+    lead = {**CASES[0]["lead"], "name": "Copper Finch Paint"}
+    for phone, expected in [(lead["phone"], 2), ("310-555-0123", 0)]:
+        assert research.identity(lead, f"Copper Finch Painting serves Glendale. Call {phone}.") == expected
+
+
+def test_namesake_needs_a_declared_base_and_two_foreign_cities_to_dismiss():
+    lead = CASES[0]["lead"]
+    website = "https://copperfinch.example/"
+    text = "Other Construction Co. Our projects in Paterson NJ and Elmwood NJ. Call 201-555-0123."
+    notes = []
+
+    def check(body):
+        page = {"url": website, "status": 200, "text": body, "links": []}
+        return research.inspect_site(lead, website, set(), {}, {"email": ""}, lambda url: page,
+                                     lambda url, note, kind: notes.append(note))
+
+    assert check(text)[0] == "hold"
+    assert check(text + " Family-owned and operated in North Jersey.") is None
+    assert check(text + " Based in New Jersey. Now serving California.")[0] == "hold"
+    assert research.registry_mirror("https://directory.example/c/123", "Is this your company? Claim it free.", lead)
+    thin = {"email": ""}
+    research.inspect_site(lead, website, set(), {}, thin,
+                          lambda u: {"url": u, "status": 200, "text": "Copper Finch Painting", "links": []},
+                          lambda *args: "e1")
+    assert thin["follow_up"]["url"] == website and "Open it in a browser" in thin["follow_up"]["reason"]

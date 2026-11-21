@@ -11,6 +11,49 @@ import streamlit as st
 from studio import display_name, web_url
 
 
+# A normal click selects in-place. The links still support copying a URL or opening a new tab.
+batch_table = st.components.v2.component(
+    "sitescout_batch",
+    html='<div class="ss-table-root"></div>',
+    isolate_styles=False,
+    js="""export default function({parentElement, data, setTriggerValue}) {
+      const root = parentElement.querySelector('.ss-table-root');
+      root.innerHTML = data;
+      root.onclick = event => {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        const link = event.target.closest('tbody tr')?.querySelector('a.ss-inspect');
+        if (!link) return;
+        event.preventDefault();
+        setTriggerValue('business', new URL(link.href).searchParams.get('business'));
+      };
+    }""",
+)
+
+
+def decision_notes(lead):
+    q = lead.get("qualification") or {}
+    if not q.get("reason"):
+        return
+    built = bool((lead.get("preview") or {}).get("html"))
+    st.markdown("**Why this site was built**" if built else "**Research decision**")
+    notes = []
+    activity = q.get("activity") or {}
+    social = q.get("social", "")
+    platform = (urlsplit(social).hostname or "").removeprefix("www.").split(".")[0] if web_url(social) else ""
+    if activity.get("date") and activity["date"] not in q["reason"]:
+        notes.append(f"A customer reviewed this business on Yelp on {activity['date']}.")
+    elif built and platform:
+        notes.append(f"The researcher matched the business to its public {platform.title()} profile.")
+    notes.append(q["reason"])
+    if built:
+        features = (lead.get("preview") or {}).get("features", [])
+        if "Sourced project photography" in features:
+            notes.append("Homeowners can see this painter’s work and try an estimate request on the same page.")
+        else:
+            notes.append("The concept gives homeowners a dedicated place to find the business contact and plan an estimate.")
+    st.html("<ul>" + "".join(f"<li>{escape(note)}</li>" for note in notes) + "</ul>")
+
+
 def customization_notes(lead):
     preview = lead.get("preview") or {}
     notes = preview.get("customizations") or re.split(r"(?<=\.)\s+", preview.get("handoff", ""))
@@ -35,14 +78,17 @@ def retrieval_view(lead, *, synthetic=False):
     total.metric("Saved passages", len(passages))
     chosen.metric("Retrieved", len(retrieved))
     used.metric("Cited for the finding", len(decisive))
-    st.caption(
-        "SQLite searches this business’s evidence for identity, contact and services. "
-        + (
-            "Gemini received the retrieved passages."
-            if inferred
-            else "Evidence rules determined this route."
-        )
-    )
+    if inferred:
+        st.write("Before Gemini describes this business, SiteScout searches its saved sources for the "
+                 "passages about identity, contact details and services. Gemini can suggest a fact for the "
+                 "website or flag conflicting evidence. SiteScout checks the cited words before using a fact.")
+        extracted = [(fact, ref) for fact, ref in facts.items() if ref in retrieved and ref != "registry"]
+        if extracted:
+            fact, ref = extracted[0]
+            st.html(f"<p><b>Example from this business</b> · {escape(str(fact))} · passage {escape(str(ref))}</p>")
+    else:
+        st.write("The researcher reached this decision using identity and website checks. "
+                 "The saved passages below let you verify what it found.")
     if synthetic:
         st.caption("These passages come from fictional source snapshots.")
     for chosen in (True, False):

@@ -5,6 +5,7 @@ import io
 import json
 import re
 import warnings
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urljoin, urlsplit
 
@@ -47,10 +48,21 @@ def business_nodes(soup):
     return records
 
 
+def review_date(value):
+    """Normalize dates printed on individual reviews. Ignore relative or invalid dates."""
+    if isinstance(value, str):
+        for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+            try:
+                return datetime.strptime(value.strip(), fmt).date().isoformat()
+            except ValueError:
+                continue
+    return ""
+
+
 def reviews_from(node):
-    """Keep complete, short, attributed reviews attached to this particular business."""
-    reviews = node.get("review", [])
+    """Keep named, individual reviews attached to this business's structured record."""
     rows = []
+    reviews = node.get("review", [])
     for review in (reviews if isinstance(reviews, list) else [reviews])[:12]:
         if not isinstance(review, dict) or review.get("@type") != "Review":
             continue
@@ -60,13 +72,40 @@ def reviews_from(node):
         author = review.get("author", "")
         author = author.get("name") if isinstance(author, dict) else author
         quote = review.get("reviewBody")
-        if isinstance(quote, str) and isinstance(author, str):
-            rows.append({"quote": " ".join(quote.split()), "author": " ".join(author.split())})
+        if not isinstance(quote, str) or not isinstance(author, str):
+            continue
+        row = {"quote": " ".join(quote.split()), "author": " ".join(author.split())}
+        score = review.get("reviewRating") or {}
+        if (
+            isinstance(score, dict)
+            and str(score.get("bestRating", 5)) in {"5", "5.0"}
+            and re.fullmatch(r"[1-5](?:\.0)?", str(score.get("ratingValue")))
+        ):
+            row["rating"] = int(float(score["ratingValue"]))
+        if day := review_date(review.get("datePublished")):
+            row["date"] = day
+        rows.append(row)
     return rows
 
 
+def recent_yelp_review(review, today):
+    """One dated Yelp review for an identifiable business within the last year."""
+    try:
+        posted = date.fromisoformat(review.get("date", ""))
+        link = urlsplit(review.get("source_url", ""))
+        return (
+            today - timedelta(days=365) <= posted <= today
+            and link.scheme in {"https", "http"}
+            and link.hostname in {"yelp.com", "www.yelp.com"}
+            and link.path.startswith("/biz/")
+            and bool(parse_qs(link.query).get("hrid"))
+        )
+    except (TypeError, ValueError):
+        return False
+
+
 def yahoo_reviews(soup):
-    """Match the name/date row to the excerpt and Yelp review link in the listing’s reviews section."""
+    """Read each Yelp card's author, publication date, original link and individual score."""
     rows = []
     for link in soup.select("#local-user-reviews p + a[href]")[:12]:
         target = urlsplit(link["href"])
@@ -76,16 +115,78 @@ def yahoo_reviews(soup):
             continue
         heading = link.parent.find_previous_sibling()
         labels = heading.find_all("span", recursive=False) if heading else []
-        if len(labels) == 2 and re.fullmatch(
-            r"\d{1,2}/\d{1,2}/\d{2,4}", labels[1].get_text(strip=True)
-        ):
-            rows.append(
+        if len(labels) != 2 or not (day := review_date(labels[1].get_text(strip=True))):
+            continue
+        row = {
+            "author": labels[0].get_text(" ", strip=True),
+            "quote": link.find_previous_sibling("p").get_text(" ", strip=True),
+            "date": day,
+            "source_url": link["href"],
+        }
+        icon = heading.select_one("svg.yelp")
+        for cls in icon.get("class", ()) if icon else ():
+            if match := re.fullmatch(r"rating-fill-([1-5])", cls):
+                row["rating"] = int(match[1])
+        rows.append(row)
+    return rows
+
+
+def prosgrade_portfolio(soup, name, url):
+    """Collect only this business's labeled gallery and named Google review cards."""
+    images = []
+    for image in soup.select(".core-profile-gallery a[href] img[alt]"):
+        if not re.fullmatch(re.escape(name) + r" photo [1-9]\d*", image["alt"], re.I):
+            continue
+        src = image.parent.get("href", "")
+        if src.startswith("https://blob.prosgrade.com/uploads/business-gallery/"):
+            images.append(
                 {
-                    "author": labels[0].get_text(" ", strip=True),
-                    "quote": link.find_previous_sibling("p").get_text(" ", strip=True),
+                    "asset_url": src,
+                    "kind": "project",
+                    "alt": f"{name} gallery photo {len(images) + 1}",
+                    "credit": "ProsGrade",
+                    "credit_url": url,
                 }
             )
-    return rows
+    reviews = []
+    for card in soup.select('#reviews article[id^="google-public-review-"]'):
+        author, body = card.select_one("h4"), card.select_one("p.core-preserve-lines")
+        stars = card.select_one('[aria-label^="Rated "]')
+        score = re.fullmatch(r"Rated ([1-5]) out of 5", stars["aria-label"]) if stars else None
+        if author and body and score:
+            reviews.append(
+                {
+                    "author": author.get_text(" ", strip=True),
+                    "quote": " ".join(body.stripped_strings).replace("\n", " "),
+                    "rating": int(score[1]),
+                }
+            )
+    return {"portfolio_images": images[:6], "customer_reviews": reviews[:12]}
+
+
+def endorses_work(text, rating=None):
+    """A testimonial must contain explicit praise. Look for reservations in the full source text."""
+    if not isinstance(text, str) or (
+        rating is not None and (type(rating) is not int or rating not in {4, 5})
+    ):
+        return False
+    if re.search(
+        r"\b(?:not|never|but|however|although|except|unprofessional|disappoint\w*|poor\w*|"
+        r"terrible|awful|slow|rude|damage[ds]?|refund|incomplete|complaint|avoid|overcharg\w*)\b"
+        r"|n['’]t\b",
+        text,
+        re.I,
+    ):
+        return False
+    return bool(
+        re.search(
+            r"\b(?:great|excellent|beautiful\w*|awesome|love[dl]?|wonderful|"
+            r"recommend(?:ed)?|pleased|happy|crisp|professional|lovely|outstanding|"
+            r"quality work|friendly|knowledgeable|exceeded|flawless|impeccable|fantastic)\b",
+            text,
+            re.I,
+        )
+    )
 
 
 def named_service_areas(text):
@@ -173,7 +274,17 @@ def facebook_profile(soup, url, page_id):
                             r"(?:https?://)?(?:www\.)?[\w.-]+\.[a-zA-Z]{2,}(?:/\S*)?", label
                         ):
                             websites.append(label if "://" in label else "https://" + label)
-    return {"social_bio": " ".join(details)[:2500], "bio_links": websites}
+    profile = {"social_bio": " ".join(details)[:2500], "bio_links": websites}
+    avatar = soup.select_one('meta[property="og:image"][content]')
+    if avatar and (urlsplit(avatar["content"]).hostname or "").endswith(".fbcdn.net"):
+        profile["profile_image"] = {
+            "asset_url": avatar["content"],
+            "kind": "logo",
+            "alt": "Business profile image from the verified Facebook page",
+            "credit": "Facebook",
+            "credit_url": url,
+        }
+    return profile
 
 
 def instagram_profile(soup, url):

@@ -13,6 +13,7 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+import activity_intake
 import publication
 import research
 import services
@@ -247,23 +248,29 @@ def run_lead(run_id, lead, domain, emit, case=None):
     return record
 
 
-def run_batch(limit=3, mode="live", on_event=None, *, recheck=None):
+def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=()):
     if mode not in {"live", "showcase", "demo"} or not 1 <= int(limit) <= 30:
         raise ValueError("Choose live, showcase or demo and a batch size between 1 and 30.")
     storage.initialize()
     listings = {}
+    if licenses and not recheck:
+        raise ValueError("Choose a previous real run to recheck specific licenses.")
     if recheck:
         with storage.connect() as db:
             rows = db.execute(
-                """SELECT leads.id, json_extract(leads.data, '$.directory_url')
+                """SELECT leads.id, json_extract(leads.data, '$.directory_url'), json_extract(leads.data, '$.activity')
                    FROM leads JOIN runs ON runs.id=leads.run_id
                    WHERE runs.id=? AND runs.mode IN ('live','showcase','recheck')
                    AND runs.status IN ('complete','complete_with_errors') ORDER BY leads.rowid""",
                 (recheck,),
             )
-            listings = dict(rows)
+            listings = {license_id: (url, activity) for license_id, url, activity in rows}
         if not listings:
             raise ValueError("Choose a completed run of real businesses to recheck.")
+        if licenses:
+            if not set(licenses).issubset(listings):
+                raise ValueError("Each selected license must belong to the recorded batch.")
+            listings = {key: listings[key] for key in licenses}
         mode = "recheck"
     lock = (storage.runtime_dir() / "batch.lock").open("a")
     try:
@@ -306,14 +313,13 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None):
         }
         emit("Discover", "started", descriptions[mode])
         cases = {}
+        intake = {}
         if mode in {"live", "showcase", "recheck"}:
             if not os.getenv("GOOGLE_API_KEY") or not os.getenv("EXA_API_KEY"):
                 raise ValueError("Live mode requires the Gemini and Exa keys in .env.")
             progress = lambda msg: emit("Discover", "info", msg)
             if mode == "live":
-                candidates = research.discover(
-                    int(limit), storage.seen_live_ids(), progress, prioritize_directory=True
-                )
+                candidates = activity_intake.discover(int(limit), storage.seen_live_ids(), progress, audit=intake)
             else:
                 active = {row["id"]: row for row in research.discover(100_000, set())}
                 dismissed = storage.dismissed_ids()
@@ -324,10 +330,13 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None):
                         lead = active[license_id]
                         # Revisit the public listing discovery originally found. The qualifier
                         # reads it anew and matches its current business name, locality and phone.
-                        if source := listings.get(license_id):
+                        source, activity = listings.get(license_id, (None, None))
+                        if source:
                             canonical = research.gallery_pages([source])
                             if canonical:
                                 lead = {**lead, "directory_url": canonical[0]}
+                                if activity:
+                                    lead["activity"] = json.loads(activity)
                         candidates.append(lead)
                 candidates = candidates[: int(limit)]
                 progress(
@@ -347,7 +356,10 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None):
             "Discover",
             "completed",
             f"{len(candidates)} businesses selected.",
-            handoff={"candidates": [{"id": lead["id"], "name": lead["name"]} for lead in candidates]},
+            handoff={
+                "candidates": [{"id": lead["id"], "name": lead["name"]} for lead in candidates],
+                **({"intake": intake} if intake else {}),
+            },
         )
         domain = (
             publication.ensure_project()
@@ -434,6 +446,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--daily", action="store_true", help="Process ten unseen live leads once today."
     )
+    parser.add_argument("--licenses", nargs="+", default=(), help="Limit a recheck to these licenses from that run.")
     args = parser.parse_args()
     if args.recheck and args.daily:
         parser.error("Use --daily for fresh discovery or --recheck for a recorded batch.")
@@ -448,7 +461,7 @@ if __name__ == "__main__":
             else (args.limit if args.limit is not None else (30 if args.recheck else 3)),
             "live" if args.daily else args.mode,
             lambda event: print(event["stage"], event["message"], flush=True),
-            recheck=args.recheck,
+            recheck=args.recheck, licenses=args.licenses,
         )
         if args.daily:
             storage.set_setting("last_daily_date", today)

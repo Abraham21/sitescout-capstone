@@ -1,0 +1,227 @@
+{
+  "frozen_at": "2026-11-20T21:54:00.777342-08:00",
+  "seen_count": 92,
+  "selection_rule": "Yelp review in prior 365 days, exact registered phone and city and one qualifying trade-name match. Among previously unseen licenses rank profiles without a listed website first, then by newest review, then by license ID. No independent website search before freeze.",
+  "audit": {
+    "source_listings": 539,
+    "reviewed_listings_with_phone": 319,
+    "recent_profiles": 145,
+    "unique_active_license_matches": 31,
+    "previously_seen": 7,
+    "eligible_unseen": 24,
+    "unseen_without_listed_website": 11,
+    "selected": 10,
+    "activity_cutoff": "2025-11-20"
+  },
+  "selected": [
+    {
+      "id": "1073517",
+      "name": "ISLAND PRO PAINTING",
+      "city": "Inglewood",
+      "activity": {
+        "type": "customer_review",
+        "platform": "Yelp",
+        "date": "2026-11-12",
+        "source_url": "https://www.yelp.com/biz/island-pro-painting-inglewood?adjust_creative=yahoo&hrid=Vggryf7gEmf-vtdalbJTog&utm_campaign=yelp_feed&utm_medium=feed_v2&utm_source=yahoo",
+        "listing_url": "https://local.yahoo.com/info-206288273-island-pro-painting-inglewood/"
+      },
+      "listed_website": false,
+      "outcome": "skip",
+      "reason": "The verified business website already offers a published phone, email, or request form.",
+      "website": "https://www.islandpropaintinginc.com/",
+      "channel": "",
+      "preview_url": null
+    },
+    {
+      "id": "779420",
+      "name": "J M N PAINTING COMPANY",
+      "city": "Long Beach",
+      "activity": {
+        "type": "customer_review",
+        "platform": "Yelp",
+        "date": "2026-11-11",
+        "source_url": "https://www.yelp.com/biz/jmn-painting-company-long-beach?adjust_creative=yahoo&hrid=i6nbvKuUKVb_QJTXlS51Aw&utm_campaign=yelp_feed&utm_medium=feed_v2&utm_source=yahoo",
+        "listing_url": "https://local.yahoo.com/info-185753297-jmn-painting-company-long-beach/"
+      },
+      "listed_website": false,
+      "outcome": "manual",
+      "reason": "A customer reviewed this business on Yelp on 2026-11-11. 3 targeted searches found no verified business-owned estimate page.",
+      "website": "",
+      "channel": "Phone",
+      "preview_url": "https://p-2e5d7ba42762adf068.sitescout-previews-ec8f1c9e.pages.dev"
+    },
+    {
+      "id": "1109363",
+      "name": "PINE TREE PAINTING INC",
+      "city": "North Hollywood",
+      "activity": {
+        "type": "customer_review",
+        "platform": "Yelp",
+        "date": "2026-11-03",
+        "source_url": "https://www.yelp.com/biz/pinetree-painting-north-hollywood?adjust_creative=yahoo&hrid=KHLGUwTV1hJ_znK4FN4HCA&utm_campaign=yelp_feed&utm_medium=feed_v2&utm_source=yahoo",
+        "listing_url": "https://local.yahoo.com/info-20695617-pinetree-painting-north-hollywood/"
+      },
+      "listed_website": false,
+      "outcome": "hold",
+      "reason": "A candidate domain has insufficient independent evidence of first-party ownership.",
+      "website": "",
+      "channel": "",
+      "preview_url": null
+    },
+    {
+      "id": "1137302",
+      "name": "NICE DAY PAINTING CO",
+      "city": "Torrance",
+      "activity": {
+        "type": "customer_review",
+        "platform": "Yelp",
+        "date": "2026-10-29",
+        "source_url": "https://www.yelp.com/biz/nice-day-painting-torrance?adjust_creative=yahoo&hrid=WsTWuVBdA9stTJvzBhVzHg&utm_campaign=yelp_feed&utm_medium=feed_v2&utm_source=yahoo",
+        "listing_url": "https://local.yahoo.com/info-239604903-nice-day-painting-torrance/"
+      },
+      "listed_website": false,
+      "outcome": "hold",
+      "reason": "A possible website could not be inspected (HTTP 403).",
+      "website": "",
+      "channel": "",
+      "preview_url": null
+    },
+    {
+      "id": "896108",
+      "name": "VALLEY PAINTING SERVICE INC",
+      "city": "Van Nuys",
+      "activity": {
+        "type": "customer_review",
+        "platform": "Yelp",
+        "date": "2026-09-09",
+        "source_url": "https://www.yelp.com/biz/valley-painting-service-van-nuys?adjust_creative=yahoo&hrid=NsciPgVqKV-l1EhuXf_L5g&utm_campaign=yelp_feed&utm_medium=feed_v2&utm_source=yahoo",
+        "listing_url": "https://local.yahoo.com/info-20684667-valley-painting-service-van-nuys/"
+      },
+      "listed_website": false,
+      "outcome": "hold",
+      "reason": "A candidate domain has insufficient independent evidence of first-party ownership.",
+      "website": "",
+      "channel": "",
+      "preview_url": null
+    },
+    {
+      "id": "1009167",
+      "name": "MATEO'S PAINTING",
+      "city": "Woodland Hills",
+      "activity": {
+        "type": "customer_review",
+        "platform": "Yelp",
+        "date": "2026-09-03",
+        "source_url": "https://www.yelp.com/biz/mateos-painting-and-construction-woodland-hills?adjust_creative=yahoo&hrid=py6Ig_GiZdvBUF7U7kfE6A&utm_campaign=yelp_feed&utm_medium=feed_v2&utm_source=yahoo",
+        "listing_url": "https://local.yahoo.com/info-193158391-mateo-s-painting-construction-woodland-hills/"
+      },
+      "listed_website": false,
+      "outcome": "skip",
+      "reason": "The verified business website already offers a published phone, email, or request form.",
+      "website": "https://mateospainting.com/contact/",
+      "channel": "",
+      "preview_url": null
+    },
+    {
+      "id": "1007766",
+      "name": "PRO STYLE PAINTING CO INC",
+      "city": "Monrovia",
+      "activity": {
+        "type": "customer_review",
+        "platform": "Yelp",
+        "date": "2026-08-09",
+        "source_url": "https://www.yelp.com/biz/pro-style-painting-company-monrovia?adjust_creative=yahoo&hrid=YqJujF_bOKJ6zN_jCicxdg&utm_campaign=yelp_feed&utm_medium=feed_v2&utm_source=yahoo",
+        "listing_url": "https://local.yahoo.com/info-214795645-pro-style-painting-company-monrovia/"
+      },
+      "listed_website": false,
+      "outcome": "hold",
+      "reason": "The lookup limit left a possible first-party domain unverified.",
+      "website": "",
+      "channel": "",
+      "preview_url": null
+    },
+    {
+      "id": "1156004",
+      "name": "ZUNIGAS PAINTING CORP",
+      "city": "Inglewood",
+      "activity": {
+        "type": "customer_review",
+        "platform": "Yelp",
+        "date": "2026-07-17",
+        "source_url": "https://www.yelp.com/biz/zunigas-painting-inglewood-2?adjust_creative=yahoo&hrid=e386BMtpYDLHqP5WSIIQSw&utm_campaign=yelp_feed&utm_medium=feed_v2&utm_source=yahoo",
+        "listing_url": "https://local.yahoo.com/info-241446136-zunigas-painting-inglewood/"
+      },
+      "listed_website": false,
+      "outcome": "hold",
+      "reason": "The lookup limit left a possible first-party domain unverified.",
+      "website": "",
+      "channel": "",
+      "preview_url": null
+    },
+    {
+      "id": "759955",
+      "name": "ACTION PAINT INC",
+      "city": "Whittier",
+      "activity": {
+        "type": "customer_review",
+        "platform": "Yelp",
+        "date": "2026-07-10",
+        "source_url": "https://www.yelp.com/biz/action-paint-inc-whittier-5?adjust_creative=yahoo&hrid=0NT40ZEY3UUPuewNf2jKHQ&utm_campaign=yelp_feed&utm_medium=feed_v2&utm_source=yahoo",
+        "listing_url": "https://local.yahoo.com/info-196700016-action-paint-inc-whittier/"
+      },
+      "listed_website": false,
+      "outcome": "hold",
+      "reason": "A candidate domain has insufficient independent evidence of first-party ownership.",
+      "website": "",
+      "channel": "",
+      "preview_url": null
+    },
+    {
+      "id": "1137734",
+      "name": "THE LUXURY CONTRACTOR PAINT",
+      "city": "Long Beach",
+      "activity": {
+        "type": "customer_review",
+        "platform": "Yelp",
+        "date": "2026-06-29",
+        "source_url": "https://www.yelp.com/biz/the-luxury-contractor-painting-long-beach-2?adjust_creative=yahoo&hrid=sPQm5YNhJ3uEd72c_q3SHA&utm_campaign=yelp_feed&utm_medium=feed_v2&utm_source=yahoo",
+        "listing_url": "https://local.yahoo.com/info-234840237-the-luxury-contractor-painting-long-beach/"
+      },
+      "listed_website": false,
+      "outcome": "hold",
+      "reason": "A candidate domain has insufficient independent evidence of first-party ownership.",
+      "website": "",
+      "channel": "",
+      "preview_url": null
+    }
+  ],
+  "run_id": "6372a8b0d5db",
+  "independent_discovery": true,
+  "no_previously_processed_licenses": true,
+  "prior_seen_at_run": 92,
+  "outcomes": {
+    "skip": 2,
+    "hold": 7,
+    "manual": 1
+  },
+  "elapsed_seconds": 33.2,
+  "costs": [
+    {
+      "service": "Exa",
+      "state": "reported",
+      "calls": 21,
+      "dollars": 0.147,
+      "input_tokens": 0,
+      "output_tokens": 0
+    },
+    {
+      "service": "Gemini",
+      "state": "reported",
+      "calls": 4,
+      "dollars": 0.004528,
+      "input_tokens": 4242,
+      "output_tokens": 359
+    }
+  ],
+  "acquired_by": "Date and link of an individual Yelp review displayed on a public Yahoo Local painter listing; independent website searches run after cohort selection."
+}

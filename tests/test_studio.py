@@ -318,6 +318,47 @@ def test_testimonial_requires_quote_and_reviewer_in_the_original_source():
     assert "Attributed customer reviews" not in build_preview(LEAD, q)["features"]
 
 
+def test_testimonial_selection_checks_full_feedback_and_preserves_individual_stars():
+    import research
+    from bs4 import BeautifulSoup
+
+    evidence = list(QUALIFIED["evidence"])
+    profile = {"testimonials": []}
+    url = "https://reviews.example/painter"
+
+    def add(source, text, kind):
+        eid = f"review-{len(evidence)}"
+        evidence.append({"id": eid, "url": source, "text": text})
+        return eid
+
+    research.attach_testimonials(
+        [
+            {"author": "One", "rating": 2, "quote": "Unprofessional. Doesn't respond to messages."},
+            {
+                "author": "Two",
+                "rating": 5,
+                "quote": "Great ceiling work. However, they damaged our trim.",
+            },
+            {"author": "Three", "rating": 5, "quote": "The ceiling looks wonderful."},
+            {"author": "Four", "quote": "The room looks beautiful."},
+        ],
+        url,
+        "Review source",
+        profile,
+        add,
+    )
+    q = {**QUALIFIED, "evidence": evidence, "profile": profile}
+    page = BeautifulSoup(build_preview(LEAD, q)["html"], "html.parser")
+    cards = page.select("#reviews figure")
+    assert len(cards) == 2
+    assert cards[0].select_one('[aria-label="5 out of 5 stars"]')
+    assert not cards[1].select_one(".review-stars")
+    profile["testimonials"][1]["rating"] = 5
+    assert (
+        len(BeautifulSoup(build_preview(LEAD, q)["html"], "html.parser").select("#reviews figure")) == 1
+    )
+
+
 def test_instagram_portfolio_in_rehearsal_and_when_a_real_profile_hides_its_photos():
     import pipeline
     from bs4 import BeautifulSoup

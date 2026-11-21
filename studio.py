@@ -9,6 +9,8 @@ import hashlib
 import json
 import math
 import re
+from collections import Counter
+from datetime import date
 from functools import lru_cache
 from html import escape
 from io import BytesIO
@@ -17,7 +19,7 @@ from string import Template
 from urllib.parse import urlsplit
 
 from PIL import Image
-from business_profile import instagram_handle
+from business_profile import endorses_work, instagram_handle
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 THEMES = {
@@ -185,8 +187,15 @@ def evidence_profile(q, sources):
                 if (
                     " ".join(quote.split()) not in evidence_text
                     or author.casefold() not in evidence_text.casefold()
+                    or not endorses_work(quote, item.get("rating"))
+                    or (
+                        "rating" in item
+                        and f"Individual rating: {item['rating']}/5." not in evidence_text
+                    )
                 ):
                     continue
+                if item.get("review_url") and item["review_url"] not in evidence_text:
+                    item = {k: v for k, v in item.items() if k != "review_url"}
                 identity = quote
             elif identity.rstrip("/") != source_url.rstrip("/") or not item.get("label"):
                 continue
@@ -208,6 +217,31 @@ def hero_ground(data_uri):
         return "#" + "".join(f"{tone:02x}" for tone in tones)
     except (ValueError, OSError, IndexError):
         return "#ece7d9"
+
+
+@lru_cache(maxsize=16)
+def logo_colors(data_uri):
+    """Use a flat-color emblem's common ink and accent. Keep photographs on the theme palette."""
+    try:
+        with Image.open(BytesIO(base64.b64decode(data_uri.split(",", 1)[1]))) as image:
+            icon = image.convert("RGBA")
+            paper = Image.new("RGBA", icon.size, "white")
+            paper.alpha_composite(icon)
+            pixels = paper.convert("RGB").resize((96, 96)).getcolors(maxcolors=96 * 96)
+    except (OSError, ValueError, IndexError):
+        return ""
+    # Group nearby shades so small gold or colored lettering survives compression.
+    tones = Counter()
+    for count, rgb in pixels:
+        tones[tuple(v // 32 * 32 + 16 for v in rgb)] += count
+    dark = [rgb for rgb in tones if max(rgb) < 100]
+    colors = [rgb for rgb in tones if max(rgb) - min(rgb) >= 60 and max(rgb) >= 125]
+    if not dark or not colors or max(tones.values()) < 2800 or sum(tones[rgb] for rgb in colors) < 40:
+        return ""
+    ink, accent = max(dark, key=tones.get), max(colors, key=tones.get)
+    # Pale accent behind dark text and dark ink behind light text preserve legibility.
+    light = tuple(round(0.6 * v + 0.4 * 255) for v in accent)
+    return "--deep:#%02x%02x%02x;--accent:#%02x%02x%02x" % (*ink, *light)
 
 
 PROFILE_ICONS = {
@@ -261,9 +295,9 @@ def slide_controls(total, label):
     return (
         '<div class="slide-controls">'
         f'<button type="button" data-step="-1" aria-label="Previous {label}">←</button>'
-        f'<span data-position aria-live="{"off" if label == "review" else "polite"}">1 / {total}</span>'
+        f'<span data-position aria-live="off">1 / {total}</span>'
         f'<button type="button" data-step="1" aria-label="Next {label}">→</button>'
-        + ('<button type="button" data-rotate hidden>Pause</button>' if label == "review" else "")
+        + f'<button type="button" data-rotate="{label}" hidden>Pause</button>'
         + "</div>"
     )
 
@@ -345,14 +379,25 @@ def reviews_section(reviews, links, staged):
     for index, item in enumerate(reviews):
         author = escape(item["author"])
         platform = item.get("platform") or urlsplit(item["source_url"]).hostname or "source"
-        credit = source_link(item["source_url"], str(platform))
+        original = item.get("review_url", "")
+        credit = source_link(original if web_url(original) else item["source_url"], str(platform))
+        rating = item.get("rating")
+        stars = (
+            f'<span class="review-stars" role="img" aria-label="{rating} out of 5 stars">'
+            f'<span aria-hidden="true">{"★" * rating}{"☆" * (5 - rating)}</span></span>'
+            if rating
+            else ""
+        )
+        initials = escape("".join(part[0] for part in item["author"].split()[:2]).upper())
         slides.append(
-            f"<figure data-slide {'' if index == 0 else 'hidden'}><blockquote>“{escape(item['quote'])}”</blockquote>"
-            f"<figcaption>{author} <span>·</span> {credit}</figcaption></figure>"
+            f'<figure class="review-card" data-slide {"" if index == 0 else "hidden"}>'
+            f'<figcaption><span class="review-avatar" aria-hidden="true">{initials}</span>'
+            f"<span><strong>{author}</strong><small>{credit}</small></span></figcaption>"
+            f"{stars}<blockquote>“{escape(item['quote'])}”</blockquote></figure>"
         )
     return (
         '<section class="reviews" id="reviews" data-slideshow aria-labelledby="reviews-title"><div class="wrap">'
-        '<div class="review-heading"><h2 id="reviews-title">Customer reviews</h2>'
+        '<div class="review-heading"><h2 id="reviews-title">Selected customer reviews</h2>'
         f'{slide_controls(len(reviews), "review")}</div><div class="review-stage">{"".join(slides)}</div></div></section>'
     )
 
@@ -486,8 +531,10 @@ def build_preview(lead, qualification):
         )
         record = source_link(registry["url"], ("Sample license #" + license_id) if staged else label)
     features = ["Preview estimate request form"]
-    if phone or email:
-        features.append("Published phone number" if phone else "Published business email")
+    if phone:
+        features.append("Published phone number")
+    if email:
+        features.append("Published business email")
     if work:
         features.append("Business gallery link")
     if reviews:
@@ -497,7 +544,9 @@ def build_preview(lead, qualification):
     if quotes:
         features.append("Attributed customer reviews")
     if logo:
-        features.append("Business logo")
+        features.append(
+            "Business profile image" if logo.get("credit") == "Facebook" else "Business logo"
+        )
     else:
         features.append("SiteScout concept wordmark")
 
@@ -558,15 +607,24 @@ def build_preview(lead, qualification):
         )
     place = f"{city}, California"
     intro = (
-        f"See {name}’s project photos and start planning your own painting project."
+        "Explore the finishes up close, then tell us what you have in mind."
         if photos
-        else f"Planning a painting project? Talk to {name} about the space, colors and finish you have in mind."
+        else "Tell us about the surfaces, colors and finish you have in mind."
     )
+    palette = logo_colors(logo["url"]) if logo else ""
     handoff = []
+    if logo:
+        handoff.append(
+            "Used the verified business profile image in the header."
+            if logo.get("credit") == "Facebook"
+            else "Used the business’s logo in the header."
+        )
+    if palette:
+        handoff.append("Sampled the header mark for the site’s ink and accent colors.")
     if phone:
         handoff.append(f"Placed {phone} in the header and estimate section.")
-    elif email:
-        handoff.append(f"Linked {email} in the header and estimate section.")
+    if email:
+        handoff.append(f"Added the published email {email} to the estimate section.")
     if photos:
         handoff.append(
             f"Built a gallery of {len(photos)} sourced project photo{'s' if len(photos) != 1 else ''} "
@@ -596,6 +654,13 @@ def build_preview(lead, qualification):
     title_words = " ".join(f"<span>{escape(word)}</span>" for word in name.split())
     html = Template((ASSETS / "painter.html").read_text()).substitute(
         theme=theme["theme"],
+        logo_colors=palette,
+        year=date.today().year,
+        email_contact=(
+            f'<a class="email-contact" href="mailto:{escape(email)}">{escape(email)}</a>'
+            if phone and email
+            else ""
+        ),
         font=embedded_file(f"fonts/{theme['font']}.woff2"),
         weight=theme["weight"],
         font_license=(ASSETS / "fonts" / (theme["font"] + "-LICENSE.txt"))
@@ -639,7 +704,9 @@ def build_preview(lead, qualification):
     if not photos:
         notes.append("No matched project photos were available to embed.")
     if not quotes:
-        notes.append("No attributed customer review text was verified.")
+        notes.append(
+            "No clearly favorable, attributable customer excerpt was available for a testimonial."
+        )
     return {
         "asset_note": " ".join(notes),
         "html": html,
@@ -672,10 +739,11 @@ def angles_for(lead, q, preview):
     if q["website_status"] == "has_site" and ids:
         checked = [i for i in ids if issue and normalized(issue) in normalized(sources[i]["text"])]
         if checked and re.search(r"\bHTTP (404|410)\b", issue, re.I):
-            where = "estimate" if re.search("estimate|quote", issue, re.I) else "contact"
-            finding += (
-                f" I tried the {where} link on your site twice and landed on a missing page both times."
-            )
+            if q.get("site_issue") == "listed_homepage_disconnected":
+                finding += " I tried the website link on your business listing twice and got a domain-connection error both times."
+            else:
+                where = "estimate" if re.search("estimate|quote", issue, re.I) else "contact"
+                finding += f" I tried the {where} link on your site twice and landed on a missing page both times."
             key, label, ids, priority = "site", "A customer’s estimate path", checked, 3
     elif q["website_status"] == "no_site_found":
         social = q.get("social")
@@ -691,11 +759,7 @@ def angles_for(lead, q, preview):
                 "facebook.com": "Facebook",
             }.get(host)
             if platform:
-                if photo_ids:
-                    finding = f"I came across your project photos while looking at painters in {city}."
-                    profiles = list(dict.fromkeys([*profiles, photo_ids[0]]))
-                else:
-                    finding = f"I came across your {platform} page while looking at painters in {city}."
+                finding = f"I came across your {platform} page while looking at painters in {city}."
                 if re.search(
                     r"(?:has not|hasn[’']t) enabled messaging|messaging (?:is )?(?:disabled|unavailable)",
                     sources[i]["text"],
@@ -712,6 +776,8 @@ def angles_for(lead, q, preview):
         else:
             if len(profiles) >= 2:
                 key, label, priority = "profile", "From a listing to an estimate", 3
+        if ids and "messaging was turned off" not in finding:
+            finding += " I looked for a website where a customer could ask you for an estimate and couldn’t find one."
     angle_ids = {}
     for feature in ("phone", "email"):
         angle_ids[feature] = [c["evidence_id"] for c in preview["claims"] if c["kind"] == feature]
@@ -941,6 +1007,9 @@ def review(lead, qualification, preview, pitch, model):
                 )
                 for item in profile["work_links"]
             )
+        checks["Selected testimonials are favorable and individually sourced"] = all(
+            endorses_work(row["quote"], row.get("rating")) for row in profile["testimonials"]
+        )
         href = str(preview.get("url", ""))
         checks["Assigned preview link is present"] = bool(
             href
@@ -980,11 +1049,15 @@ def review(lead, qualification, preview, pitch, model):
     response = ask(
         model,
         "STUDIO_REVIEW",
-        'Review this email against the cited business evidence and actual website features. Generic invitations are acceptable only when the real business and locality are evidenced. The estimate form is a preview that illustrates a future request flow. It does not deliver requests. A published business phone or email on the site is a real manual contact path. A photo gallery can be embedded on the page or linked from the business details. A draft offering to set up the concept is an invitation. Reject ungrounded defect claims, promises, negative claims about having no site, and false affiliations. Return {"passed":true|false,"feedback":"short reason"}.',
+        'Review this email against the cited business evidence and actual website features. Generic invitations are acceptable only when the real business and locality are evidenced. The estimate form is a preview that illustrates a future request flow. It does not deliver requests. A published business phone or email on the site is a real manual contact path. A photo gallery can be embedded on the page or linked from the business details. A draft offering to set up the concept is an invitation. Read each selected customer quotation. Reject a negative, sarcastic, mixed, or unrelated endorsement even if it has a high star rating. If the search found no owned estimate site, the sender may say they could not find one. Reject assertions the business has no website, unsupported defect claims, promises, and false affiliations. Return {"passed":true|false,"feedback":"short reason"}.',
         {
             "pitch": pitch["body"],
             "evidence": cited,
             "features": rebuilt["features"],
+            "selected_testimonials": [
+                {"quote": item["quote"], "rating": item.get("rating"), "source": item["source_url"]}
+                for item in profile["testimonials"]
+            ],
             "website_status": qualification["website_status"],
         },
     )

@@ -279,9 +279,10 @@ class OperatorDeskTest(unittest.TestCase):
             self.assertEqual(app.selectbox(key="saved_run").value, run_id)
 
             def board():
-                markup = next(
-                    h.value for h in app.get("html") if '<section class="ss-batch"' in h.value
-                )
+                import json
+                component = next(c for c in app.get("bidi_component")
+                                 if c.proto.component_name == "sitescout_batch")
+                markup = json.loads(component.proto.json)
                 return BeautifulSoup(markup, "html.parser")
 
             self.assertEqual(board().find(role="status").get_text(), "10 of 10 finished · 0 ready to contact")

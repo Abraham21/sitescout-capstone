@@ -35,8 +35,8 @@
         "matched": 12,
         "total": 12
       },
-      "selected_passages": 37,
-      "selected_chars": 5439,
+      "selected_passages": 39,
+      "selected_chars": 5555,
       "qualified_selected_chars": 2558
     },
     "full": {
@@ -71,8 +71,8 @@
         "matched": 12,
         "total": 12
       },
-      "selected_passages": 55,
-      "selected_chars": 12028,
+      "selected_passages": 56,
+      "selected_chars": 12059,
       "qualified_selected_chars": 8665
     }
   },
@@ -204,10 +204,10 @@
       "fts": {
         "status": "hold",
         "website_status": "unsure",
-        "selected_passages": 3,
+        "selected_passages": 4,
         "available_passages": 4,
-        "selected_chars": 393,
-        "context_sha256": "a1ef99137ff3d4ceaa4987fa5379be32780e6b0c3dfc15a46d61f849375296cc",
+        "selected_chars": 478,
+        "context_sha256": "fa715ed2ad83be3a0f5ad4ac542e0a41efc5909f47677c4091a01ce5e7a2ff48",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
@@ -291,20 +291,20 @@
       "fts": {
         "status": "hold",
         "website_status": "unsure",
-        "selected_passages": 2,
-        "available_passages": 2,
-        "selected_chars": 201,
-        "context_sha256": "fa9df568fe134500df158af76f0908c3a8c71df1ac9f70350af79a377e26e40d",
+        "selected_passages": 3,
+        "available_passages": 3,
+        "selected_chars": 232,
+        "context_sha256": "8c055afd6cb824d1e20ae5e13b87f94775b2cf310619652b56d0d767b8f8982f",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       },
       "full": {
         "status": "hold",
         "website_status": "unsure",
-        "selected_passages": 2,
-        "available_passages": 2,
-        "selected_chars": 201,
-        "context_sha256": "fa9df568fe134500df158af76f0908c3a8c71df1ac9f70350af79a377e26e40d",
+        "selected_passages": 3,
+        "available_passages": 3,
+        "selected_chars": 232,
+        "context_sha256": "8c055afd6cb824d1e20ae5e13b87f94775b2cf310619652b56d0d767b8f8982f",
         "expected_url_in_selection": true,
         "expected_passage_in_selection": true
       }

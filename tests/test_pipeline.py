@@ -164,7 +164,9 @@ def test_recheck_refetches_current_registry_and_public_intake_listing(isolated, 
         return {"status": "hold"}
 
     monkeypatch.setattr(pipeline, "run_lead", run_lead)
-    new_id = pipeline.run_batch(recheck="live")
+    with pytest.raises(ValueError, match="must belong"):
+        pipeline.run_batch(recheck="live", licenses=["999"])
+    new_id = pipeline.run_batch(recheck="live", licenses=["101"])
     assert received == [{**current, "directory_url": listing}]
     assert next(r for r in storage.list_runs() if r["id"] == new_id)["mode"] == "recheck"
 

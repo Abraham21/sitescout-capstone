@@ -14,6 +14,7 @@ import streamlit as st
 
 import pipeline
 import desk_views
+import services
 import storage
 from storage import usage
 from studio import display_name
@@ -364,10 +365,22 @@ def batch_board(events, leads=(), *, focused_id=None, interrupted=False, route, 
         contactable = sum(lead["status"] in {"ready", "manual"} for lead in records.values())
         summary += f" · {contactable} ready to contact"
     headings = "".join(f'<th scope="col" class="stage-col">{name}</th>' for name in stages.values())
-    st.html(
+    run_id = next(iter(route.values()))
+    board_key = f"batch_table_{run_id}"
+
+    def inspect_row():
+        business = st.session_state[board_key].business
+        if business in names:
+            for target in ("follow", "inspect"):
+                st.session_state[f"{target}_{run_id}"] = business
+            st.session_state.pop("playing", None)
+            select_business(run_id, f"inspect_{run_id}", "replay" in route, cursor)
+
+    markup = (
         f'<section class="ss-batch" aria-label="Batch activity"><header><h2>Batch activity</h2><small role="status">{summary}</small></header>'
         f'<table aria-label="Business progress by stage"><thead><tr><th scope="col">Business</th>{headings}<th scope="col">Status</th></tr></thead><tbody>{"".join(rows)}</tbody></table></section>'
     )
+    desk_views.batch_table(key=board_key, on_business_change=inspect_row, data=markup)
 
 
 def show_activity(events, run_id, *, replay=False, synthetic=False, cursor=None):
@@ -591,6 +604,7 @@ def lead_panel(lead, run_id, events, replay, *, synthetic=False, from_queue=Fals
         f'<div id="business-detail" class="ss-companyline"><h2 class="ss-company">{escape(display_name(lead["name"]))}</h2>'
         f'<span class="ss-outcome {status}">{escape(OUTCOMES.get(status, status))}</span><small>{escape(identity)}</small></div>'
     )
+    desk_views.decision_notes(lead)
     if not from_queue:
         handoff_chain(relevant, lead, synthetic=synthetic)
     follow_up = qualification.get("follow_up") or {}
@@ -669,7 +683,22 @@ def workspace(run, replay=False):
                 show_activity(events[:cursor], run_id, replay=True, synthetic=synthetic, cursor=cursor)
                 return
     leads = sorted(pipeline.leads(run_id, replay=replay), key=lambda l: QUEUE_ORDER.get(l["status"], 7))
-    if run["mode"] == "live" and any(
+    intake = next(
+        (event["handoff"]["intake"] for event in events if event.get("handoff", {}).get("intake")),
+        None,
+    )
+    if intake:
+        with st.expander(f"How discovery chose {intake['selected']} businesses"):
+            st.write(
+                f"SiteScout found {intake['recent_profiles']} painter profiles with a Yelp review "
+                f"in the past year. Of those, {intake['unique_active_license_matches']} matched one "
+                f"active painting license by phone, city and name. {intake['eligible_unseen']} were new."
+            )
+            st.caption(
+                "Profiles without a listed website come first, followed by the most recent review. "
+                "The researcher then independently checks for an existing business website."
+            )
+    elif run["mode"] == "live" and any(
         event["stage"] == "Discover" and "public listings." in event["message"] for event in events
     ):
         matches = sum(bool(lead.get("directory_url")) for lead in leads)
@@ -873,9 +902,17 @@ def main():
                 on_click=launch,
                 args=("live", st.session_state.get("limit_live", 10)),
                 disabled=not capable,
-                help="Search new California painting businesses.",
+                help="Find recently reviewed painters, match their licenses, then check their websites.",
                 width="stretch",
             )
+            if capable:
+                spent = sum(row["dollars"] for row in usage() if row["service"] == "Exa")
+                available = max(0, services.EXA_LIMIT - spent)
+                if available < 0.25:
+                    st.caption(
+                        f"Local search budget has ${available:.2f} left. "
+                        "A live batch may stop early. Saved replays are free."
+                    )
 
     def navigate():
         st.session_state.pop("playing", None)
