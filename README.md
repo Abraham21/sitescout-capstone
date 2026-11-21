@@ -8,7 +8,7 @@ The fresh discovery trial produced a reviewed phone follow-up for a Long Beach p
 
 ## Open the desk
 
-On Abraham’s prepared Mac, double-click **Open SiteScout.command** in Finder. It opens the running desk or starts it. You can also use these commands when the desk is closed. Open **http://127.0.0.1:8501** in a browser.
+On Abraham’s prepared Mac, double-click **Open SiteScout.command** in Finder. It opens the desk and keeps it running if you close Terminal or Codex. After signing back in or restarting the Mac, double-click it again. Saved runs and contacts appear in the same desk. To run the dashboard in the foreground instead, use these commands and open **http://127.0.0.1:8501** in a browser.
 
 ```sh
 cd /Users/abe/agent/cmu-agentic-ai/sitescout-capstone
