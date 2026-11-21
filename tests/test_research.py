@@ -616,6 +616,23 @@ def test_qualified_lead_discovers_and_matches_a_gallery_before_importing_it(
         assert evidence["url"] == page_url and quote in evidence["text"] and "A. R." in evidence["text"]
 
 
+def test_second_matched_listing_contributes_new_reviews_with_existing_gallery():
+    lead = CASES[0]["lead"]
+    pages = {}
+    for number, author, quote in [(1, "A. R.", "Wonderful work on the exterior."),
+                                  (2, "B. S.", "The team went above and beyond.")]:
+        url = f"https://local.yahoo.com/info-{number}-painter/"
+        node = {"url": url, "name": lead["name"], "address": {"addressLocality": lead["city"]},
+                "telephone": lead["phone"]}
+        pages[url] = {"url": url, "status": 200, "business_nodes": [node],
+                      "yahoo_reviews": [{"author": author, "quote": quote, "rating": 5}]}
+    profile = {"testimonials": [], "media": [{"kind": "project"}]}
+    research.attach_listing(lead, pages, profile, lambda url, text, kind: url, pages.__getitem__, None)
+    assert [(row["author"], row["source_url"]) for row in profile["testimonials"]] == list(
+        zip(["A. R.", "B. S."], pages)
+    )
+
+
 def test_first_party_work_and_customer_quotes_keep_their_sources():
     import business_profile
     from bs4 import BeautifulSoup
@@ -637,6 +654,35 @@ def test_first_party_work_and_customer_quotes_keep_their_sources():
         assert "fictional customer" in quote["author"]
         source = next(e for e in q["evidence"] if e["id"] == quote["evidence_id"])
         assert source["url"] == quote["source_url"] and quote["quote"] in source["text"]
+
+
+@pytest.mark.parametrize(("registered", "printed", "domain"), [
+    ("Canopy Lane Painting Inc", "Canopy Lane Painting", "clpstudio.example"),
+    ("Canopy Lane Painting 2", "Canopy Lane Painting", "canopylanepainting2inc.example"),
+])
+def test_owner_record_with_registry_phone_and_working_contact(registered, printed, domain):
+    lead = {**CASES[0]["lead"], "name": registered}
+    home = "https://" + domain + "/"
+    node = {"name": printed, "url": home, "telephone": lead["phone"]}
+    contact = home + "contact-us/"
+    page = {"url": contact, "status": 200, "title": "Contact our painters", "business_nodes": [node],
+            "text": f"{printed}. Call {lead['phone']}. Email: hello@{domain}.", "has_form": True,
+            "links": [{"text": "Services", "url": home + "services"}, {"text": "Contact", "url": contact}]}
+    def inspect():
+        return research.inspect_site(lead, contact, set(), {}, {}, lambda url: page, lambda *args: "ref")
+    assert inspect()[0] == "skip"
+    node["url"] = "https://different-company.example/"
+    assert inspect()[0] == "hold"
+    node["url"] = home
+    page["text"] += " CSLB license #989899."
+    assert inspect()[0] == "hold"
+
+
+def test_explicit_out_of_state_service_area_needs_corroboration():
+    local = "Service area: Chicago, IL and its suburbs. Call our Chicago, IL office."
+    assert research.based_outside_california(local, "Pomona")
+    assert not research.based_outside_california("Gallery: Chicago, IL. Project in Chicago, IL.", "Pomona")
+    assert not research.based_outside_california(local + " Also serving California.", "Pomona")
 
 
 def test_abbreviated_domain_with_distinct_business_switchboard_and_published_license():
@@ -854,6 +900,63 @@ def test_verified_directory_profile_paths_do_not_hide_a_possible_owner_site():
     assert not research.directory_publisher(lead, "https://prismpaintingcompany.com/contact", "")
     assert not research.directory_publisher({"name": "Prism Painting Company", "city": "Glendale"}, urls[1], "")
 
+
+def test_carrier_records_and_city_catalogs_do_not_use_website_checks():
+    case = CASES[0]
+    lead = case["lead"]
+    identity_text = f"{lead['name']}, {lead['city']}, {lead['phone']}."
+    carrier_path = "/trucking-companies/california/glendale/copper-finch-3734539"
+    fmcsa_path = "/fmcsa-carriers/carrier/3734539"
+    catalog_path = "/comp/copper-finch-painting.html"
+    urls = ["https://bubba.ai" + carrier_path, "https://newbizbot.ai" + fmcsa_path,
+            "https://glendale-ca.superlocalfirm.com" + catalog_path]
+    hits = [{"title": lead["name"], "url": url, "text": identity_text} for url in urls]
+    q = run(case, results=[*hits, *case["results"]])
+    assert q["status"] == "qualified"
+    assert set(urls) <= {e["url"] for e in q["evidence"] if e["kind"] == "assessment"}
+
+    other = "https://local-guide.example"
+    assert research.registry_mirror(other + carrier_path, "FMCSA carrier record with USDOT number", lead)
+    assert research.directory_publisher(lead, other + catalog_path, "All US companies. Add Company.")
+    for path in (carrier_path, fmcsa_path):
+        assert not research.registry_mirror(other + path, identity_text, lead)
+        assert not research.registry_mirror("https://copperfinchpainting.example" + path, "USDOT", lead)
+    assert not research.registry_mirror("https://newbizbot.ai/services", identity_text, lead)
+    assert not research.directory_publisher(lead, other + catalog_path, identity_text)
+    assert not research.directory_publisher(lead, "https://glendale-ca.superlocalfirm.com/contact", identity_text)
+
+
+def test_catalog_profiles_need_publisher_evidence_and_preserve_outbound_websites():
+    lead = CASES[0]["lead"]
+    pages, calls = {}, []
+    def fetch(url):
+        calls.append(url)
+        return pages[url]
+    def inspect(path, profile_text, home_text="", *, status=200, external="", root_redirect="", title="Contractor Index"):
+        base = "https://contractorindex.example/"
+        url = base + path
+        body = f"{lead['name']} in {lead['city']}. {lead['phone']}. " + profile_text
+        links = [{"text": "Website", "url": external}] if external else []
+        pages[url] = {"url": url, "title": title, "status": status, "text": body if status == 200 else "", "links": links}
+        pages[base] = {"url": root_redirect or base, "status": 200, "text": home_text}
+        calls.clear()
+        return research.inspect_site(lead, url, set(), {}, {}, fetch, lambda *args: "ref")
+    profile = "business/copper-finch"
+    assert inspect(profile, "Reviews from external sources. Claim Business. Add Photos. Edit Business.") is None
+    assert inspect(profile, "For Contractors. Own this business? Claim it free. Write a review.") is None
+    assert inspect(profile, "Customer reviews courtesy of another site. Own this business? Claim it free. Write a review.", title=lead["name"])[0] == "hold"
+    assert inspect("company/", "This company profile is compiled from third party sources. Database of B2B credit info.") is None
+    footer = "Log in. Start for free. Copyright © 2026 ContractorIndex."
+    catalog = "Trade partner sourcing and engagement. 1M+ verified trade partners."
+    assert inspect("contractor/copper-finch", footer, catalog) is None and len(calls) == 2
+    assert inspect(profile, footer, "Build your business website with our hosting platform.")[0] == "hold"
+    assert inspect(profile, "© 2026 Copper Finch Painting. Powered by ContractorIndex.", catalog)[0] == "hold"
+    assert inspect(profile, footer, catalog, root_redirect="https://another.example/")[0] == "hold"
+    assert inspect(profile, footer, catalog, status=403)[0] == "hold" and len(calls) == 1
+    assert inspect("services", footer, catalog)[0] == "hold" and len(calls) == 1
+    assert inspect(profile, footer, catalog, external="https://finch-site.example/")[0] == "hold"
+
+
 def test_license_query_and_owner_site_retry_after_timeout():
     # A business can publish a sales line that differs from the registry phone.
     lead = CASES[0]["lead"]
@@ -962,6 +1065,99 @@ def test_disconnected_homepage_requires_registered_phone_and_repeat_host_error(m
         {"url": replacement, "title": lead["name"], "text": f"{lead['city']} {lead['phone']}"}
     ], fetcher=competing)
     assert q["status"] == "skip" and q["website"] == replacement
+
+
+def test_listed_defect_survives_only_after_competing_domains_are_ruled_out():
+    lead = CASES[0]["lead"]
+    listing = "https://www.contractorsup.com/123/copper-finch"
+    home = "https://copperfinchpainting.example/"
+    other = "https://copperfinch-other.example/"
+    for alternatives, order, state, expected in [
+        ([other], "first", "different", "qualified"), ([other], "last", "different", "qualified"),
+        ([other], "last", "unclear", "hold"), ([other], "first", "unclear", "hold"),
+        ([other], "last", "working", "skip"),
+        ([other, "https://copperfinch-two.example/", "https://copperfinch-three.example/"], "last", "different", "hold"),
+    ]:
+        checked = []
+        def fetch(url):
+            if url == listing:
+                return {"url": url, "status": 200, "text": f"{lead['name']}, {lead['city']}.",
+                        "links": [{"text": "Call", "url": "tel:" + lead["phone"]}, {"text": "Website", "url": home}]}
+            checked.append(url)
+            if url == home:
+                return {"url": url, "status": 404, "text": ""}
+            if state == "unclear":
+                return {"url": url, "status": 403, "text": ""}
+            text = (f"{lead['name']}. Call us on {lead['phone']} for estimates." if state == "working"
+                    else "I am Red Forest Co. License #123456. Call (310) 555-0161 for an estimate.")
+            return {"url": url, "status": 200, "text": text, "links": []}
+        hits = [{"url": u, "title": lead["name"], "text": f"{lead['city']} {lead['phone']}"} for u in alternatives]
+        hits.insert(0 if order == "last" else len(hits), {"url": listing, "title": lead["name"], "text": lead["city"]})
+        q = research.qualify(lead, None, lambda _: hits, fetcher=fetch)
+        assert checked[0] == (other if order == "first" else home), checked
+        assert q["status"] == expected, q["reason"]
+        if expected == "hold":
+            assert q["follow_up"]["url"] == (alternatives[-1] if len(alternatives) > 1 else other)
+        else:
+            assert not q.get("follow_up")
+            assert q["website"] == (home if expected == "qualified" else other)
+
+
+def test_missing_domain_requires_matching_nxdomain_from_both_resolvers(monkeypatch):
+    domain = "copperfinchpainting.example"
+    reply = {"Status": 3, "Question": [{"type": 1, "name": domain}], "Authority": [{"type": 6, "name": "example."}]}
+    for status, other, confirmed in [
+        (200, reply, True), (503, reply, False), (200, {}, False), (200, {**reply, "Status": 2}, False),
+        (200, {**reply, "Status": 0}, False), (200, {**reply, "Answer": [{"type": 1}]}, False),
+        (200, {**reply, "Question": [{"type": 1, "name": "wrong.example"}]}, False),
+    ]:
+        def dns(url, *_):
+            first = research.host(url) == "dns.google"
+            return url, 200 if first else status, "", json.dumps(reply if first else other).encode()
+        monkeypatch.setattr(research, "read_public", dns)
+        assert bool(research.missing_domain_sources(domain)) is confirmed
+
+
+def test_only_a_canonical_listed_homepage_can_earn_the_dns_pitch():
+    from studio import build_preview, write_pitch
+    lead = dict(CASES[0]["lead"], directory_url="https://local.yahoo.com/info-12345-copper-finch-painting/")
+    listing = lead["directory_url"]
+    home = "https://www.copperfinchpainting.example/"
+    healthy = "https://copperfinchpaintingnew.example/"
+    for destination, city, reachable, competing, expected in [
+        (home, lead["city"], False, False, "qualified"), (home, "Different city", False, False, "hold"),
+        ("https://other.example/", lead["city"], False, False, "hold"),
+        (home + "services", lead["city"], False, False, "hold"), (home, lead["city"], True, False, "hold"),
+        (home, lead["city"], False, True, "skip"),
+    ]:
+        attempts = []
+        def fetch(url):
+            if url == listing:
+                return {"url": listing, "status": 200, "text": "", "links": [{"text": "Website", "url": destination}],
+                        "business_nodes": [{"name": lead["name"], "address": {"addressLocality": city},
+                                            "telephone": lead["phone"], "url": listing}]}
+            if url == healthy:
+                return {"url": url, "status": 200, "text": f"{lead['name']}. Call us at {lead['phone']} for a quote.",
+                        "has_form": True, "links": []}
+            attempts.append(url)
+            return {"url": url, "status": 403 if reachable and len(attempts) == 2 else 0, "text": ""}
+        hits = [{"url": healthy, "title": lead["name"], "text": f"{lead['city']} {lead['phone']}"}] if competing else []
+        lookups = []
+        def dns_check(domain):
+            lookups.append(domain)
+            return ["https://dns.google/resolve", "https://cloudflare-dns.com/dns-query"]
+        q = research.qualify(lead, None, lambda _: hits, fetcher=fetch, dns_check=dns_check)
+        assert q["status"] == expected
+        if expected == "qualified":
+            assert attempts == [home, home] and lookups == ["copperfinchpainting.example"]
+            assert set(q["issue_evidence_ids"]) <= {e["id"] for e in q["evidence"]}
+            pitch = write_pitch(lead, q, {**build_preview(lead, q), "url": "/p/site"}, None)
+            assert "website address on your business listing didn’t open when I checked" in pitch["body"]
+            assert "expired" not in pitch["body"].lower()
+        elif expected == "hold":
+            assert not lookups
+        else:
+            assert q["website"] == healthy
 
 
 def test_procurement_pdf_is_evidence_and_never_the_business_website():
@@ -1117,8 +1313,13 @@ def test_a_launching_homepage_needs_a_matched_gallery_to_offer_a_portfolio():
     assets = Path(__file__).resolve().parents[1] / "assets"
     images = {u:"data:image/jpeg;base64," + base64.b64encode((assets / f).read_bytes()).decode()
               for u, f in zip(photos, ("green-room.jpg","white-stucco.jpg"))}
-    q = research.qualify(lead, None, lambda _: [], fetcher=fetch, image_reader=lambda u, _: images.get(u, ""))
+    passages = []
+    def qualifier(prompt):
+        passages.extend(json.loads(prompt.split("\n", 1)[1])["passages"])
+        return {"services": []}
+    q = research.qualify(lead, qualifier, lambda _: [], fetcher=fetch, image_reader=lambda u, _: images.get(u, ""))
     assert q["status"] == "qualified" and q["site_issue"] == "launch_portfolio"
+    assert any(p["url"] == home and "Launching Soon" in p["text"] for p in passages)
     preview = {**build_preview(lead, q), "url": "/p/site"}
     draft = write_pitch(lead, q, preview, None)
     assert "Launching Soon" in draft["body"] and "projects onto one page" in draft["body"]

@@ -180,6 +180,20 @@ def test_recheck_refetches_current_registry_and_public_intake_listing(isolated, 
     assert received == [{**current, "directory_url": listing}]
     assert next(r for r in storage.list_runs() if r["id"] == new_id)["mode"] == "recheck"
 
+    current.update(name="Grove Painting", phone="818-555-0101", city="Pasadena")
+    active = [current]
+    mark = {"type": "customer_review", "listing_url": listing, "date": "2026-11-19"}
+    storage.save_lead("live", {**current, "directory_url": listing, "activity": {**mark, "listing_city": "Burbank"}})
+    monkeypatch.setattr(pipeline.research, "discover", lambda *args: active)
+    monkeypatch.setattr(pipeline.activity_intake, "recent_profile", lambda *_: {
+        **current, "city": "Burbank", "state": "CA", "printed_licenses": [], "activity": mark,
+    })
+    pipeline.run_batch(recheck="live", licenses=["101"])
+    assert received[-1]["city"] == "Pasadena" and received[-1]["activity"]["listing_city"] == "Burbank"
+    active.append({**current, "id": "102"})
+    pipeline.run_batch(recheck="live", licenses=["101"])
+    assert "directory_url" not in received[-1]
+
 
 def test_handoff_records_use_real_artifacts_and_only_publish_exposes_the_hosted_url(
     isolated, monkeypatch

@@ -1,5 +1,6 @@
 """Exercise the operator's edit, replay and dismiss actions using an isolated database."""
 
+import json
 import tempfile
 import unittest
 from html import escape
@@ -145,19 +146,21 @@ class OperatorDeskTest(unittest.TestCase):
                 storage.finish_run(mode, "complete")
             self.assertEqual([r["run_id"] for r in storage.contact_queue()], ["recheck"])
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py"))
+            app.run()
+            card = json.loads(app.get("bidi_component")[0].proto.json)
+            channels = ("mailto:paint@example.test", "instagram.com/test_painter/", "tel:8185551234")
+            self.assertTrue(all(channel in card for channel in channels))
+            self.assertIn("?contact=abc&amp;group=ready", card)
             app.query_params["contact"] = "abc"
             app.run()
             self.assertFalse(app.exception)
-            for marker in ['class="ss-queue"', 'class="ss-context"']:
-                blocks = [h.value for h in app.get("html") if marker in h.value]
-                self.assertTrue(
-                    any(
-                        "mailto:paint@example.test" in h
-                        and "instagram.com/test_painter/" in h
-                        and "tel:8185551234" in h
-                        for h in blocks
-                    )
-                )
+            self.assertFalse(app.get("bidi_component"))
+            self.assertTrue(any(all(channel in h.value for channel in channels) for h in app.get("html")))
+            next(b for b in app.button if b.label == "← Back to queue").click().run()
+            self.assertEqual(app.session_state.opened_location, {"group": "ready"})
+            self.assertFalse(app.text_input)
+            app.query_params["contact"] = "abc"
+            app.run()
             app.button(key="contacted_recheck_abc").click().run()
             self.assertEqual(storage.contact_queue(), [])
             self.assertEqual([r["run_id"] for r in storage.contact_queue("contacted")], ["recheck"])
@@ -318,9 +321,8 @@ class OperatorDeskTest(unittest.TestCase):
             self.assertEqual(app.selectbox(key="saved_run").value, run_id)
 
             def board():
-                import json
                 component = next(c for c in app.get("bidi_component")
-                                 if c.proto.component_name == "sitescout_batch")
+                                 if c.proto.component_name == "sitescout_business_links")
                 markup = json.loads(component.proto.json)
                 return BeautifulSoup(markup, "html.parser")
 

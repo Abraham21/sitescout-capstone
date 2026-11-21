@@ -381,7 +381,7 @@ def batch_board(events, leads=(), *, focused_id=None, interrupted=False, route, 
         f'<section class="ss-batch" aria-label="Batch activity"><header><h2>Batch activity</h2><small role="status">{summary}</small></header>'
         f'<table aria-label="Business progress by stage"><thead><tr><th scope="col">Business</th>{headings}<th scope="col">Status</th></tr></thead><tbody>{"".join(rows)}</tbody></table></section>'
     )
-    desk_views.batch_table(key=board_key, on_business_change=inspect_row, data=markup)
+    desk_views.business_links(key=board_key, on_business_change=inspect_row, data=markup)
 
 
 def show_activity(events, run_id, *, replay=False, synthetic=False, cursor=None):
@@ -593,6 +593,8 @@ def record_contact_action(run_id, lead_id, action):
     except ValueError as error:
         st.toast(str(error))
         return
+    if st.session_state.get("view") == "Contact queue":
+        return_to_queue()
     notice = {
         "contacted": "Marked contacted. You can find this business under Contacted.",
         "dismissed": "Moved to Dismissed. You can restore it there.",
@@ -623,9 +625,18 @@ def lead_panel(lead, run_id, events, replay, *, synthetic=False, from_queue=Fals
     if not from_queue:
         handoff_chain(relevant, lead, synthetic=synthetic)
     follow_up = qualification.get("follow_up") or {}
+    if not follow_up and lead["status"] == "hold":
+        reason = qualification.get("reason")
+        candidate = next((p.get("url") for p in reversed(qualification.get("evidence") or [])
+                          if p.get("kind") in {"assessment", "observation"} and p.get("text") == reason), "")
+        if candidate:
+            follow_up = {"url": candidate, "reason": "Compare this page’s business name, phone and license with the registry record."}
+        elif (qualification.get("activity") or {}).get("listing_city"):
+            follow_up = {"source_url": lead.get("directory_url"),
+                         "reason": "Look for the same business phone or license on a second business profile."}
     if follow_up.get("reason"):
         listing = "" if synthetic else link(follow_up.get("source_url"), "Directory source")
-        candidate = "" if synthetic else link(follow_up.get("url"), "Listed candidate site")
+        candidate = "" if synthetic else link(follow_up.get("url"), "Open candidate site")
         sources = " · ".join(filter(None, (listing, candidate)))
         st.html(
             f'<div class="ss-context"><b>Manual verification</b> · {escape(follow_up["reason"])}<br>{sources}</div>'
@@ -719,23 +730,29 @@ def workspace(run, replay=False):
         None,
     )
     if intake:
+        if intake.get("selected") == 0 and "deferred_without_signal" in intake:
+            st.info("No new painters showed a website opportunity in this scan. SiteScout finished without starting paid research.")
         with st.expander(f"How discovery chose {intake['selected']} businesses"):
             if intake.get("source_limited"):
                 st.caption("Yahoo Local temporarily limited requests. These counts cover the listings available that day.")
             st.write(
                 f"SiteScout searched Yahoo Local’s city painting directories and found {intake['recent_profiles']} "
                 f"profiles with a dated Yelp review in the past year. Of those, {intake['unique_active_license_matches']} matched one "
-                f"active painting license by phone, city and name. {intake['eligible_unseen']} were new."
+                f"active painting license. {intake['eligible_unseen']} were new."
             )
             if "priority_candidates" in intake:
                 signals = [
                     f"{intake['unseen_without_listed_website']} without a website link",
-                    f"{intake['unseen_with_missing_link']} with a link returning a missing page",
+                    f"{intake['unseen_with_missing_link']} with a missing listed website",
                 ]
+                if intake.get("unseen_with_broken_estimate_link"):
+                    signals.append(f"{intake['unseen_with_broken_estimate_link']} with a broken estimate link")
                 if "unseen_with_launch_page_and_gallery" in intake:
                     signals.append(f"{intake['unseen_with_launch_page_and_gallery']} with a launch page and project photos")
                 st.caption("New matches included " + ", ".join(signals) + ".")
-                if intake["priority_candidates"] < intake["selected"]:
+                if intake.get("deferred_without_signal"):
+                    st.caption(f"{intake['deferred_without_signal']} new painters had a listed website with no observed issue. They can be checked in a later scan.")
+                elif intake["priority_candidates"] < intake["selected"]:
                     st.caption("To fill this batch, SiteScout also researched painters who already listed a website.")
             else:
                 st.caption("Profiles without a listed website came first, followed by the most recent review.")
@@ -791,15 +808,24 @@ def workspace(run, replay=False):
         timeline([e for e in events if stage == "All stages" or e["stage"] == stage])
 
 
-def show_contacts(runs):
-    def change_group():
-        st.session_state.pop("contact", None)
-        set_location(group=st.session_state.queue_group)
+def return_to_queue():
+    st.session_state.pop("contact", None)
+    set_location(group=st.session_state.queue_group)
 
+
+def show_contacts(runs):
     st.header("Contact queue")
     group = st.segmented_control("Business status", list(CONTACT_GROUPS), format_func=CONTACT_GROUPS.get,
-                                 default="ready", key="queue_group", required=True, on_change=change_group)
+                                 default="ready", key="queue_group", required=True, on_change=return_to_queue)
     queue = storage.contact_queue(group)
+    selected = next((row for row in queue if row["id"] == st.session_state.get("contact")), None)
+    if selected:
+        run_id = selected["run_id"]
+        record = next((row for row in pipeline.leads(run_id) if row["id"] == selected["id"]), None)
+        if record:
+            st.button("← Back to queue", on_click=return_to_queue)
+            lead_panel(record, run_id, pipeline.events(run_id), False, from_queue=True)
+            return
     if not queue:
         if group != "ready":
             st.info("Businesses you mark contacted will appear here." if group == "contacted"
@@ -820,7 +846,7 @@ def show_contacts(runs):
         return
     cards = []
     for lead in queue:
-        url = "?" + urlencode({"contact": lead["id"], "group": group}) + "#business-detail"
+        url = "?" + urlencode({"contact": lead["id"], "group": group})
         when = local_time(lead["changed_at"]) if lead["changed_at"] else ""
         detail = " · ".join(filter(None, (lead["city"], when)))
         open_label = "Open draft" if lead["preview_url"] else "Open business"
@@ -833,12 +859,14 @@ def show_contacts(runs):
             f'<article class="ss-lead"><div><h3>{name}</h3><small>{escape(detail)}</small></div>'
             f'<div class="ss-contacts">{links}</div><a class="ss-draft-link" href="{escape(url, quote=True)}" target="_self">{open_label} →</a></article>'
         )
-    st.html(f'<section class="ss-queue" aria-label="{CONTACT_GROUPS[group]}">' + "".join(cards) + "</section>")
-    lead = next((row for row in queue if row["id"] == st.session_state.get("contact")), None)
-    if lead:
-        record = next((l for l in pipeline.leads(lead["run_id"]) if l["id"] == lead["id"]), None)
-        if record:
-            lead_panel(record, lead["run_id"], pipeline.events(lead["run_id"]), False, from_queue=True)
+    def open_draft():
+        lead_id = st.session_state.queue_links.business
+        if any(row["id"] == lead_id for row in queue):
+            st.session_state.contact = lead_id
+            set_location(contact=lead_id, group=group)
+
+    markup = f'<section class="ss-queue" aria-label="{CONTACT_GROUPS[group]}">' + "".join(cards) + "</section>"
+    desk_views.business_links(key="queue_links", on_business_change=open_draft, data=markup)
 
 
 def contact_links(lead):
@@ -1076,7 +1104,7 @@ def main():
             )
         enabled = bool(schedule["enabled"])
         toggle = st.toggle(
-            "Daily autopilot", enabled, help="Discover ten businesses daily at 9 AM on this Mac."
+            "Daily autopilot", enabled, help="Research up to ten painters with a website opportunity daily at 9 AM on this Mac."
         )
         if toggle != enabled:
             try:

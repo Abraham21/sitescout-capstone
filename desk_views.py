@@ -12,19 +12,21 @@ from studio import display_name, web_url
 
 
 # A normal click selects in-place. The links still support copying a URL or opening a new tab.
-batch_table = st.components.v2.component(
-    "sitescout_batch",
-    html='<div class="ss-table-root"></div>',
+business_links = st.components.v2.component(
+    "sitescout_business_links",
+    html='<div class="ss-links-root" style="scroll-margin-top:4rem"></div>',
     isolate_styles=False,
     js="""export default function({parentElement, data, setTriggerValue}) {
-      const root = parentElement.querySelector('.ss-table-root');
+      const root = parentElement.querySelector('.ss-links-root');
       root.innerHTML = data;
       root.onclick = event => {
         if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-        const link = event.target.closest('tbody tr')?.querySelector('a.ss-inspect');
+        const draft = event.target.closest('a.ss-draft-link');
+        const link = draft || event.target.closest('tbody tr')?.querySelector('a.ss-inspect');
         if (!link) return;
         event.preventDefault();
-        setTriggerValue('business', new URL(link.href).searchParams.get('business'));
+        if (draft) root.scrollIntoView({behavior: 'instant', block: 'start'});
+        setTriggerValue('business', new URL(link.href).searchParams.get(draft ? 'contact' : 'business'));
       };
     }""",
 )

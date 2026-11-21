@@ -20,7 +20,7 @@ from string import Template
 from urllib.parse import urlsplit
 
 from PIL import Image
-from business_profile import endorses_work, instagram_handle
+from business_profile import endorses_work, instagram_handle, review_date
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 THEMES = {
@@ -208,6 +208,10 @@ def evidence_profile(q, sources):
                     continue
                 if item.get("review_url") and item["review_url"] not in evidence_text:
                     item = {k: v for k, v in item.items() if k != "review_url"}
+                if "date" in item:
+                    day = review_date(item["date"])
+                    if not day or day != item["date"] or f"Review date: {day}." not in evidence_text:
+                        item = {k: v for k, v in item.items() if k != "date"}
                 identity = quote
             elif identity.rstrip("/") != source_url.rstrip("/") or not item.get("label"):
                 continue
@@ -389,6 +393,9 @@ def reviews_section(reviews, staged):
         platform = item.get("platform") or urlsplit(item["source_url"]).hostname or "source"
         original = item.get("review_url", "")
         credit = source_link(original if web_url(original) else item["source_url"], str(platform))
+        if day := item.get("date"):
+            month = date.fromisoformat(day).strftime("%B %Y")
+            credit += f' · <time datetime="{day}">{month}</time>'
         rating = item.get("rating")
         stars = (
             f'<span class="review-stars" role="img" aria-label="{rating} out of 5 stars">'
@@ -765,6 +772,9 @@ def angles_for(lead, q, preview):
                 return []
             finding += f' I saw “{headline}” on your homepage and found your project photos on your listing.'
             key, label, priority = "portfolio", "A portfolio for the upcoming site", 3
+        elif checked and q.get("site_issue") == "listed_homepage_missing" and "NXDOMAIN" in issue:
+            finding += " The website address on your business listing didn’t open when I checked."
+            key, label, priority = "site", "The website link on the listing", 3
         elif checked and re.search(r"\bHTTP (404|410)\b", issue, re.I):
             if q.get("site_issue") == "listed_homepage_disconnected":
                 finding += " I tried the website link on your business listing twice and got a domain-connection error both times."

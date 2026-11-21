@@ -98,6 +98,13 @@ nav{gap:clamp(1.3rem,3.3vw,3.3rem)}.nav-links{gap:clamp(1rem,2vw,2.4rem)}
 .review-avatar{display:grid;place-items:center;border-radius:50%;width:2.65rem;height:2.65rem;background:var(--deep);color:var(--paper);font-weight:700}
 .review-stars{display:block;color:#815300;letter-spacing:.12em;font-size:1.18rem;margin-bottom:.45rem}
 .review-card blockquote{max-width:55ch;font:400 clamp(1.1rem,1.65vw,1.48rem)/1.48 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;text-wrap:pretty}
+@media(min-width:701px){
+ .reviews:has(.review-card:only-child){padding-block:clamp(2.5rem,5vw,4.5rem)}
+ .reviews:has(.review-card:only-child) .wrap{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);align-items:center;gap:clamp(1.5rem,5vw,5rem)}
+ .reviews:has(.review-card:only-child) .review-heading{margin:0}
+ .review-stage:has(>.review-card:only-child){width:100%;max-width:35rem;padding:0}
+ .review-card:only-child{padding:clamp(1.2rem,2vw,1.8rem)}
+}
 .estimate .email-contact{display:block;width:fit-content;margin-top:.7rem;color:var(--paper);overflow-wrap:anywhere}
 
 .services{align-items:start}.services h2 em{display:block;font-style:normal;color:var(--muted)}

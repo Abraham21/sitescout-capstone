@@ -1,7 +1,7 @@
 {
   "run": {
-    "id": "40198099d50a",
-    "started_at": "2026-11-21T08:38:01.313+00:00"
+    "id": "3fb08b205b01",
+    "started_at": "2026-11-21T09:48:52.303+00:00"
   },
   "leads": [
     {
@@ -176,15 +176,15 @@
           "registry",
           "e1"
         ],
-        "url": "https://p-07f3bf1dd08de67a69.sitescout-previews-ec8f1c9e.pages.dev",
+        "url": "https://p-48a7412957f9f958e4.sitescout-previews-ec8f1c9e.pages.dev",
         "published": true,
         "http_status": 200,
         "content_verified": true,
-        "html_sha256": "0fceadc1d149048f0c32e712bb8df11eab316b96074227de3082f3d06187ef11"
+        "html_sha256": "72c621a28eda1a746316ddf8064d24caa42e9bbdb89b69e4d0ede47e5d63ac39"
       },
       "pitch": {
         "subject": "A website idea for Plum Hill Painting",
-        "body": "Hi Plum Hill Painting team,\n\nI came across your business while looking at painters in Glendale. I tried the estimate link on your site twice and landed on a missing page both times.\n\nI made a page with your number up front so someone planning a repaint can call you directly.\n\nHere’s the preview: https://p-07f3bf1dd08de67a69.sitescout-previews-ec8f1c9e.pages.dev\n\nWould a site like this be useful for you? I’d be happy to set it up.\n\nAbraham",
+        "body": "Hi Plum Hill Painting team,\n\nI came across your business while looking at painters in Glendale. I tried the estimate link on your site twice and landed on a missing page both times.\n\nI made a page with your number up front so someone planning a repaint can call you directly.\n\nHere’s the preview: https://p-48a7412957f9f958e4.sitescout-previews-ec8f1c9e.pages.dev\n\nWould a site like this be useful for you? I’d be happy to set it up.\n\nAbraham",
         "angle": "A customer’s estimate path",
         "opening": "I came across your business while looking at painters in Glendale. I tried the estimate link on your site twice and landed on a missing page both times.\n\nI made a page with your number up front so someone planning a repaint can call you directly.",
         "revision": false,
@@ -222,7 +222,7 @@
             ],
             "addressee": "Plum Hill Painting",
             "priority": 2,
-            "score": 8,
+            "score": 7,
             "invitation": "feedback"
           }
         ],
@@ -277,13 +277,13 @@
           ],
           "addressee": "Plum Hill Painting",
           "priority": 2,
-          "score": 8,
+          "score": 7,
           "invitation": "feedback"
         }
       },
       "review": {
         "passed": true,
-        "feedback": "The email accurately references verified business details, correctly notes the broken estimate link backed by evidence, and presents an honest preview invitation without false promises.",
+        "feedback": "The email accurately references the broken estimate link backed by evidence, correctly cites Glendale and the phone number feature, and extends a polite invitation without unsupported claims.",
         "checks": {
           "Rendered concept matches cited business facts": true,
           "Handoff reflects the business evidence used on the page": true,
@@ -445,6 +445,251 @@
           "e3"
         ],
         "corpus_size": 4
+      },
+      "channel": ""
+    },
+    {
+      "name": "Fennel Star Painting",
+      "id": "900006",
+      "city": "Pasadena",
+      "phone": "(818) 555-0106",
+      "classification": "C-33",
+      "source_url": "https://cslb.example/licenses/900006",
+      "status": "hold",
+      "qualification": {
+        "status": "hold",
+        "website_status": "unsure",
+        "website": "",
+        "reason": "The search evidence was too limited to determine website ownership and a specific contact need.",
+        "issue": "",
+        "evidence": [
+          {
+            "id": "registry",
+            "kind": "source",
+            "url": "https://cslb.example/licenses/900006",
+            "text": "Fennel Star Painting. CSLB license 900006. Classification C-33 painting and decorating. Listing city: Pasadena. Listed business phone: (818) 555-0106."
+          },
+          {
+            "id": "e1",
+            "url": "https://www.yelp.com/biz/site-scout-fixture-6",
+            "text": "Fennel Star Painting Fennel Star Painting Pasadena. Call (818) 555-0106 for estimates.",
+            "kind": "source"
+          }
+        ],
+        "issue_evidence_ids": [],
+        "facts": {
+          "services": [
+            "Painting and decorating"
+          ],
+          "city": "Pasadena",
+          "service_area": "",
+          "service_areas": [],
+          "citations": {
+            "Painting and decorating": "registry"
+          }
+        },
+        "retrieval": "fts",
+        "model_mode": "code gates only",
+        "email": "",
+        "social": "",
+        "phone": "(818) 555-0106",
+        "profile": {
+          "work_links": [],
+          "review_links": [],
+          "media": [],
+          "testimonials": []
+        },
+        "retrieved_ids": [
+          "registry",
+          "e1"
+        ],
+        "corpus_size": 2
+      },
+      "channel": ""
+    },
+    {
+      "name": "Harbor Tile Painting",
+      "id": "900007",
+      "city": "Burbank",
+      "phone": "(818) 555-0107",
+      "classification": "C-33",
+      "source_url": "https://cslb.example/licenses/900007",
+      "status": "blocked",
+      "qualification": {
+        "status": "blocked",
+        "website_status": "unsure",
+        "website": "",
+        "reason": "Instruction-like content detected in external evidence.",
+        "issue": "",
+        "evidence": [
+          {
+            "id": "registry",
+            "kind": "source",
+            "url": "https://cslb.example/licenses/900007",
+            "text": "Harbor Tile Painting. CSLB license 900007. Classification C-33 painting and decorating. Listing city: Burbank. Listed business phone: (818) 555-0107."
+          },
+          {
+            "id": "e1",
+            "url": "https://www.facebook.com/site-scout-fixture-7",
+            "text": "Instruction-like text detected in a website search result; excluded from model input.",
+            "kind": "assessment"
+          }
+        ],
+        "issue_evidence_ids": [],
+        "facts": {
+          "services": [
+            "Painting and decorating"
+          ],
+          "city": "Burbank",
+          "service_area": "",
+          "service_areas": [],
+          "citations": {
+            "Painting and decorating": "registry"
+          }
+        },
+        "retrieval": "fts",
+        "model_mode": "code gates only",
+        "email": "",
+        "social": "",
+        "phone": "(818) 555-0107",
+        "profile": {
+          "work_links": [],
+          "review_links": [],
+          "media": [],
+          "testimonials": []
+        },
+        "retrieved_ids": [
+          "registry",
+          "e1"
+        ],
+        "corpus_size": 2
+      },
+      "channel": ""
+    },
+    {
+      "name": "Rose Arch Painting",
+      "id": "900008",
+      "city": "Glendale",
+      "phone": "(818) 555-0108",
+      "classification": "C-33",
+      "source_url": "https://cslb.example/licenses/900008",
+      "status": "hold",
+      "qualification": {
+        "status": "hold",
+        "website_status": "unsure",
+        "website": "",
+        "reason": "The business-branded website could not be inspected after 2 checks (HTTP 503, HTTP 503).",
+        "issue": "",
+        "evidence": [
+          {
+            "id": "registry",
+            "kind": "source",
+            "url": "https://cslb.example/licenses/900008",
+            "text": "Rose Arch Painting. CSLB license 900008. Classification C-33 painting and decorating. Listing city: Glendale. Listed business phone: (818) 555-0108."
+          },
+          {
+            "id": "e1",
+            "url": "https://rosearch.example/",
+            "text": "Public website check: HTTP 503.",
+            "kind": "observation"
+          },
+          {
+            "id": "e2",
+            "url": "https://rosearch.example/",
+            "text": "A possible website could not be inspected (HTTP 503).",
+            "kind": "observation"
+          }
+        ],
+        "issue_evidence_ids": [],
+        "facts": {
+          "services": [
+            "Painting and decorating"
+          ],
+          "city": "Glendale",
+          "service_area": "",
+          "service_areas": [],
+          "citations": {
+            "Painting and decorating": "registry"
+          }
+        },
+        "retrieval": "fts",
+        "model_mode": "code gates only",
+        "email": "",
+        "social": "",
+        "phone": "(818) 555-0108",
+        "profile": {
+          "work_links": [],
+          "review_links": [],
+          "media": [],
+          "testimonials": []
+        },
+        "follow_up": {
+          "url": "https://rosearch.example/",
+          "source_url": "",
+          "evidence_ids": [
+            "e1",
+            "e2"
+          ],
+          "reason": "The business-branded website could not be inspected after 2 checks (HTTP 503, HTTP 503)."
+        },
+        "retrieved_ids": [
+          "registry",
+          "e1",
+          "e2"
+        ],
+        "corpus_size": 3
+      },
+      "channel": ""
+    },
+    {
+      "name": "Terra Kite Painting",
+      "id": "900009",
+      "city": "Burbank",
+      "phone": "(818) 555-0109",
+      "classification": "C-33",
+      "source_url": "https://cslb.example/licenses/900009",
+      "status": "hold",
+      "qualification": {
+        "status": "hold",
+        "website_status": "unsure",
+        "website": "",
+        "reason": "The search evidence was too limited to determine website ownership and a specific contact need.",
+        "issue": "",
+        "evidence": [
+          {
+            "id": "registry",
+            "kind": "source",
+            "url": "https://cslb.example/licenses/900009",
+            "text": "Terra Kite Painting. CSLB license 900009. Classification C-33 painting and decorating. Listing city: Burbank. Listed business phone: (818) 555-0109."
+          }
+        ],
+        "issue_evidence_ids": [],
+        "facts": {
+          "services": [
+            "Painting and decorating"
+          ],
+          "city": "Burbank",
+          "service_area": "",
+          "service_areas": [],
+          "citations": {
+            "Painting and decorating": "registry"
+          }
+        },
+        "retrieval": "fts",
+        "model_mode": "code gates only",
+        "email": "",
+        "social": "",
+        "phone": "(818) 555-0109",
+        "profile": {
+          "work_links": [],
+          "review_links": [],
+          "media": [],
+          "testimonials": []
+        },
+        "retrieved_ids": [
+          "registry"
+        ],
+        "corpus_size": 1
       },
       "channel": ""
     },
@@ -760,15 +1005,15 @@
           "e13",
           "e14"
         ],
-        "url": "https://p-c9b92013f138527438.sitescout-previews-ec8f1c9e.pages.dev",
+        "url": "https://p-4fa23422feb79b5c4a.sitescout-previews-ec8f1c9e.pages.dev",
         "published": true,
         "http_status": 200,
         "content_verified": true,
-        "html_sha256": "70cadc95f11c66c51d371a3f0b99578c4935b03dc9c1c44f0b571d9ce9adb6fa"
+        "html_sha256": "c1bbd87bdf40f1f0bbe6c85445dab08dc1c53fa4c642c61f547e802cbae7f460"
       },
       "pitch": {
         "subject": "A website idea for Linen Leaf Painting",
-        "body": "Hi Linen Leaf Painting team,\n\nI came across your business while looking at painters in Pasadena. I tried the estimate link on your site twice and landed on a missing page both times.\n\nI put together a site with your own project gallery and a sample estimate form. You can try it and see how a homeowner could ask about a job.\n\nHere’s the preview: https://p-c9b92013f138527438.sitescout-previews-ec8f1c9e.pages.dev\n\nWhat would you change to make it feel more like your business?\n\nAbraham",
+        "body": "Hi Linen Leaf Painting team,\n\nI came across your business while looking at painters in Pasadena. I tried the estimate link on your site twice and landed on a missing page both times.\n\nI put together a site with your own project gallery and a sample estimate form. You can try it and see how a homeowner could ask about a job.\n\nHere’s the preview: https://p-4fa23422feb79b5c4a.sitescout-previews-ec8f1c9e.pages.dev\n\nWhat would you change to make it feel more like your business?\n\nAbraham",
         "angle": "A simpler way to ask about a job",
         "opening": "I came across your business while looking at painters in Pasadena. I tried the estimate link on your site twice and landed on a missing page both times.\n\nI put together a site with your own project gallery and a sample estimate form. You can try it and see how a homeowner could ask about a job.",
         "revision": false,
@@ -874,7 +1119,7 @@
       },
       "review": {
         "passed": true,
-        "feedback": "The email accurately reflects the verified business evidence, noting the broken estimate link and Pasadena location, and appropriately introduces the preview concept without unsupported claims.",
+        "feedback": "The email accurately references the verified locality, specific 404 broken estimate link backed by evidence, and features of the concept site without overstepping or making false claims.",
         "checks": {
           "Rendered concept matches cited business facts": true,
           "Handoff reflects the business evidence used on the page": true,
@@ -891,251 +1136,6 @@
         "model_checked": true
       },
       "channel": "Phone"
-    },
-    {
-      "name": "Fennel Star Painting",
-      "id": "900006",
-      "city": "Pasadena",
-      "phone": "(818) 555-0106",
-      "classification": "C-33",
-      "source_url": "https://cslb.example/licenses/900006",
-      "status": "hold",
-      "qualification": {
-        "status": "hold",
-        "website_status": "unsure",
-        "website": "",
-        "reason": "The search evidence was too limited to determine website ownership and a specific contact need.",
-        "issue": "",
-        "evidence": [
-          {
-            "id": "registry",
-            "kind": "source",
-            "url": "https://cslb.example/licenses/900006",
-            "text": "Fennel Star Painting. CSLB license 900006. Classification C-33 painting and decorating. Listing city: Pasadena. Listed business phone: (818) 555-0106."
-          },
-          {
-            "id": "e1",
-            "url": "https://www.yelp.com/biz/site-scout-fixture-6",
-            "text": "Fennel Star Painting Fennel Star Painting Pasadena. Call (818) 555-0106 for estimates.",
-            "kind": "source"
-          }
-        ],
-        "issue_evidence_ids": [],
-        "facts": {
-          "services": [
-            "Painting and decorating"
-          ],
-          "city": "Pasadena",
-          "service_area": "",
-          "service_areas": [],
-          "citations": {
-            "Painting and decorating": "registry"
-          }
-        },
-        "retrieval": "fts",
-        "model_mode": "code gates only",
-        "email": "",
-        "social": "",
-        "phone": "(818) 555-0106",
-        "profile": {
-          "work_links": [],
-          "review_links": [],
-          "media": [],
-          "testimonials": []
-        },
-        "retrieved_ids": [
-          "registry",
-          "e1"
-        ],
-        "corpus_size": 2
-      },
-      "channel": ""
-    },
-    {
-      "name": "Harbor Tile Painting",
-      "id": "900007",
-      "city": "Burbank",
-      "phone": "(818) 555-0107",
-      "classification": "C-33",
-      "source_url": "https://cslb.example/licenses/900007",
-      "status": "blocked",
-      "qualification": {
-        "status": "blocked",
-        "website_status": "unsure",
-        "website": "",
-        "reason": "Instruction-like content detected in external evidence.",
-        "issue": "",
-        "evidence": [
-          {
-            "id": "registry",
-            "kind": "source",
-            "url": "https://cslb.example/licenses/900007",
-            "text": "Harbor Tile Painting. CSLB license 900007. Classification C-33 painting and decorating. Listing city: Burbank. Listed business phone: (818) 555-0107."
-          },
-          {
-            "id": "e1",
-            "url": "https://www.facebook.com/site-scout-fixture-7",
-            "text": "Instruction-like text detected in a website search result; excluded from model input.",
-            "kind": "assessment"
-          }
-        ],
-        "issue_evidence_ids": [],
-        "facts": {
-          "services": [
-            "Painting and decorating"
-          ],
-          "city": "Burbank",
-          "service_area": "",
-          "service_areas": [],
-          "citations": {
-            "Painting and decorating": "registry"
-          }
-        },
-        "retrieval": "fts",
-        "model_mode": "code gates only",
-        "email": "",
-        "social": "",
-        "phone": "(818) 555-0107",
-        "profile": {
-          "work_links": [],
-          "review_links": [],
-          "media": [],
-          "testimonials": []
-        },
-        "retrieved_ids": [
-          "registry",
-          "e1"
-        ],
-        "corpus_size": 2
-      },
-      "channel": ""
-    },
-    {
-      "name": "Terra Kite Painting",
-      "id": "900009",
-      "city": "Burbank",
-      "phone": "(818) 555-0109",
-      "classification": "C-33",
-      "source_url": "https://cslb.example/licenses/900009",
-      "status": "hold",
-      "qualification": {
-        "status": "hold",
-        "website_status": "unsure",
-        "website": "",
-        "reason": "The search evidence was too limited to determine website ownership and a specific contact need.",
-        "issue": "",
-        "evidence": [
-          {
-            "id": "registry",
-            "kind": "source",
-            "url": "https://cslb.example/licenses/900009",
-            "text": "Terra Kite Painting. CSLB license 900009. Classification C-33 painting and decorating. Listing city: Burbank. Listed business phone: (818) 555-0109."
-          }
-        ],
-        "issue_evidence_ids": [],
-        "facts": {
-          "services": [
-            "Painting and decorating"
-          ],
-          "city": "Burbank",
-          "service_area": "",
-          "service_areas": [],
-          "citations": {
-            "Painting and decorating": "registry"
-          }
-        },
-        "retrieval": "fts",
-        "model_mode": "code gates only",
-        "email": "",
-        "social": "",
-        "phone": "(818) 555-0109",
-        "profile": {
-          "work_links": [],
-          "review_links": [],
-          "media": [],
-          "testimonials": []
-        },
-        "retrieved_ids": [
-          "registry"
-        ],
-        "corpus_size": 1
-      },
-      "channel": ""
-    },
-    {
-      "name": "Rose Arch Painting",
-      "id": "900008",
-      "city": "Glendale",
-      "phone": "(818) 555-0108",
-      "classification": "C-33",
-      "source_url": "https://cslb.example/licenses/900008",
-      "status": "hold",
-      "qualification": {
-        "status": "hold",
-        "website_status": "unsure",
-        "website": "",
-        "reason": "The business-branded website could not be inspected after 2 checks (HTTP 503, HTTP 503).",
-        "issue": "",
-        "evidence": [
-          {
-            "id": "registry",
-            "kind": "source",
-            "url": "https://cslb.example/licenses/900008",
-            "text": "Rose Arch Painting. CSLB license 900008. Classification C-33 painting and decorating. Listing city: Glendale. Listed business phone: (818) 555-0108."
-          },
-          {
-            "id": "e1",
-            "url": "https://rosearch.example/",
-            "text": "Public website check: HTTP 503.",
-            "kind": "observation"
-          },
-          {
-            "id": "e2",
-            "url": "https://rosearch.example/",
-            "text": "A possible website could not be inspected (HTTP 503).",
-            "kind": "observation"
-          }
-        ],
-        "issue_evidence_ids": [],
-        "facts": {
-          "services": [
-            "Painting and decorating"
-          ],
-          "city": "Glendale",
-          "service_area": "",
-          "service_areas": [],
-          "citations": {
-            "Painting and decorating": "registry"
-          }
-        },
-        "retrieval": "fts",
-        "model_mode": "code gates only",
-        "email": "",
-        "social": "",
-        "phone": "(818) 555-0108",
-        "profile": {
-          "work_links": [],
-          "review_links": [],
-          "media": [],
-          "testimonials": []
-        },
-        "follow_up": {
-          "url": "https://rosearch.example/",
-          "source_url": "",
-          "evidence_ids": [
-            "e1",
-            "e2"
-          ],
-          "reason": "The business-branded website could not be inspected after 2 checks (HTTP 503, HTTP 503)."
-        },
-        "retrieved_ids": [
-          "registry",
-          "e1",
-          "e2"
-        ],
-        "corpus_size": 3
-      },
-      "channel": ""
     },
     {
       "name": "Copper Finch Painting",
@@ -1308,15 +1308,15 @@
           "e4",
           "e3"
         ],
-        "url": "https://p-f1a31c2c9c63293092.sitescout-previews-ec8f1c9e.pages.dev",
+        "url": "https://p-4d1976ac32d896648d.sitescout-previews-ec8f1c9e.pages.dev",
         "published": true,
         "http_status": 200,
         "content_verified": true,
-        "html_sha256": "fd07a19aff368ab7f272c43aeca227a69a246622471bfccd910b62c7d75db681"
+        "html_sha256": "dff8ac1fa77c079350dce9845c37b006919183d6b09b4f11c9aca3c800b137c3"
       },
       "pitch": {
         "subject": "A website idea for Copper Finch Painting",
-        "body": "Hi Copper Finch Painting team,\n\nI came across your Instagram page while looking at painters in Glendale. I looked for a website where a customer could ask you for an estimate and couldn’t find one.\n\nI put together a site with your own project gallery and a sample estimate form. You can try it and see how a homeowner could ask about a job.\n\nHere’s the preview: https://p-f1a31c2c9c63293092.sitescout-previews-ec8f1c9e.pages.dev\n\nWhat would you change to make it feel more like your business?\n\nAbraham",
+        "body": "Hi Copper Finch Painting team,\n\nI came across your Instagram page while looking at painters in Glendale. I looked for a website where a customer could ask you for an estimate and couldn’t find one.\n\nI put together a site with your own project gallery and a sample estimate form. You can try it and see how a homeowner could ask about a job.\n\nHere’s the preview: https://p-4d1976ac32d896648d.sitescout-previews-ec8f1c9e.pages.dev\n\nWhat would you change to make it feel more like your business?\n\nAbraham",
         "angle": "A simpler way to ask about a job",
         "opening": "I came across your Instagram page while looking at painters in Glendale. I looked for a website where a customer could ask you for an estimate and couldn’t find one.\n\nI put together a site with your own project gallery and a sample estimate form. You can try it and see how a homeowner could ask about a job.",
         "revision": false,
@@ -1422,7 +1422,7 @@
       },
       "review": {
         "passed": true,
-        "feedback": "The pitch accurately reflects the evidence, correctly notes that an estimate site could not be found, appropriately frames the preview and features, and avoids unsupported claims.",
+        "feedback": "The email accurately reflects the business evidence, accurately notes that no estimate website was found, and correctly references the preview features.",
         "checks": {
           "Rendered concept matches cited business facts": true,
           "Handoff reflects the business evidence used on the page": true,
@@ -1442,22 +1442,22 @@
   ],
   "events": [
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "",
       "lead_name": "",
       "stage": "Discover",
       "status": "started",
       "message": "Loading labeled synthetic source snapshots.",
-      "timestamp": "2026-11-21T08:38:01.313+00:00"
+      "timestamp": "2026-11-21T09:48:52.304+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "",
       "lead_name": "",
       "stage": "Discover",
       "status": "completed",
       "message": "10 businesses selected.",
-      "timestamp": "2026-11-21T08:38:01.314+00:00",
+      "timestamp": "2026-11-21T09:48:52.306+00:00",
       "handoff": {
         "candidates": [
           {
@@ -1504,139 +1504,139 @@
       }
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900002",
-      "lead_name": "Linen Leaf Painting",
-      "stage": "Qualify",
-      "status": "started",
-      "message": "Checking the business identity, official website and contact path.",
-      "timestamp": "2026-11-21T08:38:01.905+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
-      "lead_id": "900002",
-      "lead_name": "Linen Leaf Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "Applying the evidence rules to a frozen synthetic case.",
-      "timestamp": "2026-11-21T08:38:01.908+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
-      "lead_id": "900002",
-      "lead_name": "Linen Leaf Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "Checking business identity against public search results and the license listing.",
-      "timestamp": "2026-11-21T08:38:01.908+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900001",
       "lead_name": "Copper Finch Painting",
       "stage": "Qualify",
       "status": "started",
       "message": "Checking the business identity, official website and contact path.",
-      "timestamp": "2026-11-21T08:38:01.907+00:00"
+      "timestamp": "2026-11-21T09:48:52.641+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900002",
-      "lead_name": "Linen Leaf Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "The first search found a branded candidate matching the business identity; checking the actual site.",
-      "timestamp": "2026-11-21T08:38:01.909+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900001",
       "lead_name": "Copper Finch Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Applying the evidence rules to a frozen synthetic case.",
-      "timestamp": "2026-11-21T08:38:01.909+00:00"
+      "timestamp": "2026-11-21T09:48:52.645+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900002",
-      "lead_name": "Linen Leaf Painting",
+      "run_id": "3fb08b205b01",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
       "stage": "Qualify",
       "status": "info",
-      "message": "Reading a candidate website and checking its public contact path.",
-      "timestamp": "2026-11-21T08:38:01.910+00:00"
+      "message": "Checking business identity against public search results and the license listing.",
+      "timestamp": "2026-11-21T09:48:52.646+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900003",
-      "lead_name": "Indigo Frame Painting",
+      "run_id": "3fb08b205b01",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
       "stage": "Qualify",
       "status": "started",
       "message": "Checking the business identity, official website and contact path.",
-      "timestamp": "2026-11-21T08:38:01.904+00:00"
+      "timestamp": "2026-11-21T09:48:52.645+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900003",
-      "lead_name": "Indigo Frame Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "Applying the evidence rules to a frozen synthetic case.",
-      "timestamp": "2026-11-21T08:38:01.913+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
-      "lead_id": "900003",
-      "lead_name": "Indigo Frame Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "Checking business identity against public search results and the license listing.",
-      "timestamp": "2026-11-21T08:38:01.913+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
-      "lead_id": "900003",
-      "lead_name": "Indigo Frame Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "The first search found a branded candidate matching the business identity; checking the actual site.",
-      "timestamp": "2026-11-21T08:38:01.913+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
-      "lead_id": "900001",
-      "lead_name": "Copper Finch Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "Checking business identity against public search results and the license listing.",
-      "timestamp": "2026-11-21T08:38:01.910+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900001",
       "lead_name": "Copper Finch Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "The name/city search lacked a verified first-party candidate; cross-checking by phone or license.",
-      "timestamp": "2026-11-21T08:38:01.914+00:00"
+      "timestamp": "2026-11-21T09:48:52.648+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
+      "lead_id": "900003",
+      "lead_name": "Indigo Frame Painting",
+      "stage": "Qualify",
+      "status": "started",
+      "message": "Checking the business identity, official website and contact path.",
+      "timestamp": "2026-11-21T09:48:52.639+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900003",
+      "lead_name": "Indigo Frame Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Applying the evidence rules to a frozen synthetic case.",
+      "timestamp": "2026-11-21T09:48:52.652+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900003",
+      "lead_name": "Indigo Frame Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Checking business identity against public search results and the license listing.",
+      "timestamp": "2026-11-21T09:48:52.652+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Applying the evidence rules to a frozen synthetic case.",
+      "timestamp": "2026-11-21T09:48:52.648+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900003",
+      "lead_name": "Indigo Frame Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "The first search found a branded candidate matching the business identity; checking the actual site.",
+      "timestamp": "2026-11-21T09:48:52.654+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Checking business identity against public search results and the license listing.",
+      "timestamp": "2026-11-21T09:48:52.654+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
       "lead_id": "900003",
       "lead_name": "Indigo Frame Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Reading a candidate website and checking its public contact path.",
-      "timestamp": "2026-11-21T08:38:01.913+00:00"
+      "timestamp": "2026-11-21T09:48:52.655+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "The first search found a branded candidate matching the business identity; checking the actual site.",
+      "timestamp": "2026-11-21T09:48:52.656+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Reading a candidate website and checking its public contact path.",
+      "timestamp": "2026-11-21T09:48:52.657+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
       "lead_id": "900003",
       "lead_name": "Indigo Frame Painting",
       "stage": "Qualify",
       "status": "completed",
       "message": "The verified business website already offers a published phone, email, or request form.",
-      "timestamp": "2026-11-21T08:38:01.917+00:00",
+      "timestamp": "2026-11-21T09:48:52.658+00:00",
       "handoff": {
         "text": "The verified business website already offers a published phone, email, or request form.",
         "source_url": "https://indigoframe.example/",
@@ -1644,79 +1644,79 @@
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900003",
       "lead_name": "Indigo Frame Painting",
       "stage": "Queue",
       "status": "skipped",
       "message": "Skipped. No outreach.",
-      "timestamp": "2026-11-21T08:38:01.921+00:00",
+      "timestamp": "2026-11-21T09:48:52.664+00:00",
       "handoff": {
         "outcome": "skip"
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
       "stage": "Qualify",
       "status": "started",
       "message": "Checking the business identity, official website and contact path.",
-      "timestamp": "2026-11-21T08:38:01.927+00:00"
+      "timestamp": "2026-11-21T09:48:52.670+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Applying the evidence rules to a frozen synthetic case.",
-      "timestamp": "2026-11-21T08:38:01.934+00:00"
+      "timestamp": "2026-11-21T09:48:52.671+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Checking business identity against public search results and the license listing.",
-      "timestamp": "2026-11-21T08:38:01.935+00:00"
+      "timestamp": "2026-11-21T09:48:52.672+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "The first search found a branded candidate matching the business identity; checking the actual site.",
-      "timestamp": "2026-11-21T08:38:01.937+00:00"
+      "timestamp": "2026-11-21T09:48:52.674+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Reading a candidate website and checking its public contact path.",
-      "timestamp": "2026-11-21T08:38:01.942+00:00"
+      "timestamp": "2026-11-21T09:48:52.681+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Retrieved 3 of 3 evidence passages for the qualifier.",
-      "timestamp": "2026-11-21T08:38:01.943+00:00"
+      "timestamp": "2026-11-21T09:48:52.684+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
       "stage": "Qualify",
       "status": "completed",
       "message": "The linked quote or estimate page returned HTTP 410 on two checks.",
-      "timestamp": "2026-11-21T08:38:01.948+00:00",
+      "timestamp": "2026-11-21T09:48:52.689+00:00",
       "handoff": {
         "text": "The linked quote or estimate page returned HTTP 410 on two checks.",
         "source_url": "https://plumhill.example/quote",
@@ -1724,44 +1724,31 @@
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
       "stage": "Build",
       "status": "started",
       "message": "Rendering the painter concept from sourced business facts.",
-      "timestamp": "2026-11-21T08:38:01.950+00:00"
+      "timestamp": "2026-11-21T09:48:52.691+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900001",
       "lead_name": "Copper Finch Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Retrieved 3 of 5 evidence passages for the qualifier.",
-      "timestamp": "2026-11-21T08:38:01.949+00:00"
+      "timestamp": "2026-11-21T09:48:52.696+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900013",
-      "lead_name": "Plum Hill Painting",
-      "stage": "Build",
-      "status": "completed",
-      "message": "Placed (818) 555-0113 in the header and estimate section. Connected exterior painting to the estimate form.",
-      "timestamp": "2026-11-21T08:38:01.951+00:00",
-      "handoff": {
-        "text": "Placed (818) 555-0113 in the header and estimate section. Connected exterior painting to the estimate form.",
-        "section": "#estimate"
-      }
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900001",
       "lead_name": "Copper Finch Painting",
       "stage": "Qualify",
       "status": "completed",
       "message": "Customers can find this painter through public profiles. 2 targeted searches found no verified business-owned page for estimate inquiries.",
-      "timestamp": "2026-11-21T08:38:01.951+00:00",
+      "timestamp": "2026-11-21T09:48:52.697+00:00",
       "handoff": {
         "text": "Customers can find this painter through public profiles. 2 targeted searches found no verified business-owned page for estimate inquiries.",
         "source_url": "https://www.instagram.com/site_scout_demo_copperfinch/",
@@ -1769,62 +1756,44 @@
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
-      "stage": "Write",
-      "status": "started",
-      "message": "Preparing an opening and a setup invitation.",
-      "timestamp": "2026-11-21T08:38:01.959+00:00"
+      "stage": "Build",
+      "status": "completed",
+      "message": "Placed (818) 555-0113 in the header and estimate section. Connected exterior painting to the estimate form.",
+      "timestamp": "2026-11-21T09:48:52.697+00:00",
+      "handoff": {
+        "text": "Placed (818) 555-0113 in the header and estimate section. Connected exterior painting to the estimate form.",
+        "section": "#estimate"
+      }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900001",
       "lead_name": "Copper Finch Painting",
       "stage": "Build",
       "status": "started",
       "message": "Rendering the painter concept from sourced business facts.",
-      "timestamp": "2026-11-21T08:38:01.967+00:00"
+      "timestamp": "2026-11-21T09:48:52.699+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900001",
-      "lead_name": "Copper Finch Painting",
-      "stage": "Build",
-      "status": "completed",
-      "message": "Chose the concept’s accent from a color in its cover photograph. Placed (818) 555-0101 in the header and estimate section. Added the published email estimates@copperfinch.example to the estimate section. Built a gallery of 2 sourced project photos and chose “Brown paint on a roller beside the wall. Staged Instagram example” as its cover. Added an Instagram icon that opens the local sample gallery. Connected interior painting to the estimate form. Listed the published service area covering Glendale.",
-      "timestamp": "2026-11-21T08:38:01.975+00:00",
-      "handoff": {
-        "text": "Chose the concept’s accent from a color in its cover photograph. Placed (818) 555-0101 in the header and estimate section. Added the published email estimates@copperfinch.example to the estimate section. Built a gallery of 2 sourced project photos and chose “Brown paint on a roller beside the wall. Staged Instagram example” as its cover. Added an Instagram icon that opens the local sample gallery. Connected interior painting to the estimate form. Listed the published service area covering Glendale.",
-        "section": "#estimate"
-      }
-    },
-    {
-      "run_id": "40198099d50a",
-      "lead_id": "900001",
-      "lead_name": "Copper Finch Painting",
-      "stage": "Write",
-      "status": "started",
-      "message": "Preparing an opening and a setup invitation.",
-      "timestamp": "2026-11-21T08:38:01.979+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900002",
       "lead_name": "Linen Leaf Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Retrieved 7 of 18 evidence passages for the qualifier.",
-      "timestamp": "2026-11-21T08:38:01.976+00:00"
+      "timestamp": "2026-11-21T09:48:52.722+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900002",
       "lead_name": "Linen Leaf Painting",
       "stage": "Qualify",
       "status": "completed",
       "message": "The linked quote or estimate page returned HTTP 404 on two checks.",
-      "timestamp": "2026-11-21T08:38:01.984+00:00",
+      "timestamp": "2026-11-21T09:48:52.743+00:00",
       "handoff": {
         "text": "The linked quote or estimate page returned HTTP 404 on two checks.",
         "source_url": "https://linenleaf.example/request-estimate",
@@ -1832,109 +1801,173 @@
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900002",
       "lead_name": "Linen Leaf Painting",
       "stage": "Build",
       "status": "started",
       "message": "Rendering the painter concept from sourced business facts.",
-      "timestamp": "2026-11-21T08:38:01.988+00:00"
+      "timestamp": "2026-11-21T09:48:52.752+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
+      "lead_id": "900013",
+      "lead_name": "Plum Hill Painting",
+      "stage": "Write",
+      "status": "started",
+      "message": "Preparing an opening and a setup invitation.",
+      "timestamp": "2026-11-21T09:48:52.748+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
       "lead_id": "900002",
       "lead_name": "Linen Leaf Painting",
       "stage": "Build",
       "status": "completed",
       "message": "Chose the concept’s accent from a color in its cover photograph. Placed (818) 555-0102 in the header and estimate section. Built a gallery of 3 sourced project photos and chose “Sunlit California stucco and shadowed trim. Staged portfolio example” as its cover. Linked the business gallery (“Visit the project gallery”). Included 2 attributed customer reviews. Connected exterior painting, cabinet refinishing to the estimate form. Listed the published service area covering Pasadena, Altadena, San Marino.",
-      "timestamp": "2026-11-21T08:38:01.996+00:00",
+      "timestamp": "2026-11-21T09:48:52.760+00:00",
       "handoff": {
         "text": "Chose the concept’s accent from a color in its cover photograph. Placed (818) 555-0102 in the header and estimate section. Built a gallery of 3 sourced project photos and chose “Sunlit California stucco and shadowed trim. Staged portfolio example” as its cover. Linked the business gallery (“Visit the project gallery”). Included 2 attributed customer reviews. Connected exterior painting, cabinet refinishing to the estimate form. Listed the published service area covering Pasadena, Altadena, San Marino.",
         "section": "#estimate"
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900002",
       "lead_name": "Linen Leaf Painting",
       "stage": "Write",
       "status": "started",
       "message": "Preparing an opening and a setup invitation.",
-      "timestamp": "2026-11-21T08:38:02.003+00:00"
+      "timestamp": "2026-11-21T09:48:52.794+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Build",
+      "status": "completed",
+      "message": "Chose the concept’s accent from a color in its cover photograph. Placed (818) 555-0101 in the header and estimate section. Added the published email estimates@copperfinch.example to the estimate section. Built a gallery of 2 sourced project photos and chose “Brown paint on a roller beside the wall. Staged Instagram example” as its cover. Added an Instagram icon that opens the local sample gallery. Connected interior painting to the estimate form. Listed the published service area covering Glendale.",
+      "timestamp": "2026-11-21T09:48:52.750+00:00",
+      "handoff": {
+        "text": "Chose the concept’s accent from a color in its cover photograph. Placed (818) 555-0101 in the header and estimate section. Added the published email estimates@copperfinch.example to the estimate section. Built a gallery of 2 sourced project photos and chose “Brown paint on a roller beside the wall. Staged Instagram example” as its cover. Added an Instagram icon that opens the local sample gallery. Connected interior painting to the estimate form. Listed the published service area covering Glendale.",
+        "section": "#estimate"
+      }
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
+      "stage": "Write",
+      "status": "started",
+      "message": "Preparing an opening and a setup invitation.",
+      "timestamp": "2026-11-21T09:48:52.811+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
       "stage": "Write",
       "status": "completed",
       "message": "A customer’s estimate path",
-      "timestamp": "2026-11-21T08:38:05.872+00:00",
+      "timestamp": "2026-11-21T09:48:56.071+00:00",
       "handoff": {
         "text": "I came across your business while looking at painters in Glendale. I tried the estimate link on your site twice and landed on a missing page both times.\n\nI made a page with your number up front so someone planning a repaint can call you directly."
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
       "stage": "Review",
       "status": "started",
       "message": "Checking the business, cited claims, preview features and invitation.",
-      "timestamp": "2026-11-21T08:38:05.878+00:00"
+      "timestamp": "2026-11-21T09:48:56.081+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900002",
       "lead_name": "Linen Leaf Painting",
       "stage": "Write",
       "status": "completed",
       "message": "A simpler way to ask about a job",
-      "timestamp": "2026-11-21T08:38:06.223+00:00",
+      "timestamp": "2026-11-21T09:48:56.867+00:00",
       "handoff": {
         "text": "I came across your business while looking at painters in Pasadena. I tried the estimate link on your site twice and landed on a missing page both times.\n\nI put together a site with your own project gallery and a sample estimate form. You can try it and see how a homeowner could ask about a job."
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900002",
       "lead_name": "Linen Leaf Painting",
       "stage": "Review",
       "status": "started",
       "message": "Checking the business, cited claims, preview features and invitation.",
-      "timestamp": "2026-11-21T08:38:06.244+00:00"
+      "timestamp": "2026-11-21T09:48:56.880+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900001",
       "lead_name": "Copper Finch Painting",
       "stage": "Write",
       "status": "completed",
       "message": "A simpler way to ask about a job",
-      "timestamp": "2026-11-21T08:38:07.125+00:00",
+      "timestamp": "2026-11-21T09:48:57.534+00:00",
       "handoff": {
         "text": "I came across your Instagram page while looking at painters in Glendale. I looked for a website where a customer could ask you for an estimate and couldn’t find one.\n\nI put together a site with your own project gallery and a sample estimate form. You can try it and see how a homeowner could ask about a job."
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900001",
       "lead_name": "Copper Finch Painting",
       "stage": "Review",
       "status": "started",
       "message": "Checking the business, cited claims, preview features and invitation.",
-      "timestamp": "2026-11-21T08:38:07.129+00:00"
+      "timestamp": "2026-11-21T09:48:57.547+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
+      "lead_id": "900013",
+      "lead_name": "Plum Hill Painting",
+      "stage": "Review",
+      "status": "completed",
+      "message": "The email accurately references the broken estimate link backed by evidence, correctly cites Glendale and the phone number feature, and extends a polite invitation without unsupported claims.",
+      "timestamp": "2026-11-21T09:48:58.393+00:00",
+      "handoff": {
+        "text": "The email accurately references the broken estimate link backed by evidence, correctly cites Glendale and the phone number feature, and extends a polite invitation without unsupported claims.",
+        "checks": {
+          "Rendered concept matches cited business facts": true,
+          "Handoff reflects the business evidence used on the page": true,
+          "Contact form collects the homeowner’s contact details and project in preview mode": true,
+          "Published phone matches the header and estimate actions": true,
+          "The concept has a business-specific contact, service or portfolio source": true,
+          "Selected testimonials are favorable and individually sourced": true,
+          "Assigned preview link is present": true,
+          "Citations belong to the selected observation": true,
+          "Pitch uses only evidenced claims and working features": true,
+          "Independent model review": true
+        }
+      }
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900013",
+      "lead_name": "Plum Hill Painting",
+      "stage": "Publish",
+      "status": "started",
+      "message": "Uploading only this reviewed preview and checking the served HTML.",
+      "timestamp": "2026-11-21T09:48:58.400+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
       "lead_id": "900002",
       "lead_name": "Linen Leaf Painting",
       "stage": "Review",
       "status": "completed",
-      "message": "The email accurately reflects the verified business evidence, noting the broken estimate link and Pasadena location, and appropriately introduces the preview concept without unsupported claims.",
-      "timestamp": "2026-11-21T08:38:08.568+00:00",
+      "message": "The email accurately references the verified locality, specific 404 broken estimate link backed by evidence, and features of the concept site without overstepping or making false claims.",
+      "timestamp": "2026-11-21T09:48:58.552+00:00",
       "handoff": {
-        "text": "The email accurately reflects the verified business evidence, noting the broken estimate link and Pasadena location, and appropriately introduces the preview concept without unsupported claims.",
+        "text": "The email accurately references the verified locality, specific 404 broken estimate link backed by evidence, and features of the concept site without overstepping or making false claims.",
         "checks": {
           "Rendered concept matches cited business facts": true,
           "Handoff reflects the business evidence used on the page": true,
@@ -1951,24 +1984,24 @@
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900002",
       "lead_name": "Linen Leaf Painting",
       "stage": "Publish",
       "status": "started",
       "message": "Uploading only this reviewed preview and checking the served HTML.",
-      "timestamp": "2026-11-21T08:38:08.580+00:00"
+      "timestamp": "2026-11-21T09:48:58.561+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900013",
-      "lead_name": "Plum Hill Painting",
+      "run_id": "3fb08b205b01",
+      "lead_id": "900001",
+      "lead_name": "Copper Finch Painting",
       "stage": "Review",
       "status": "completed",
-      "message": "The email accurately references verified business details, correctly notes the broken estimate link backed by evidence, and presents an honest preview invitation without false promises.",
-      "timestamp": "2026-11-21T08:38:08.764+00:00",
+      "message": "The email accurately reflects the business evidence, accurately notes that no estimate website was found, and correctly references the preview features.",
+      "timestamp": "2026-11-21T09:49:02.293+00:00",
       "handoff": {
-        "text": "The email accurately references verified business details, correctly notes the broken estimate link backed by evidence, and presents an honest preview invitation without false promises.",
+        "text": "The email accurately reflects the business evidence, accurately notes that no estimate website was found, and correctly references the preview features.",
         "checks": {
           "Rendered concept matches cited business facts": true,
           "Handoff reflects the business evidence used on the page": true,
@@ -1984,125 +2017,92 @@
       }
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900013",
-      "lead_name": "Plum Hill Painting",
-      "stage": "Publish",
-      "status": "started",
-      "message": "Uploading only this reviewed preview and checking the served HTML.",
-      "timestamp": "2026-11-21T08:38:08.766+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
-      "lead_id": "900001",
-      "lead_name": "Copper Finch Painting",
-      "stage": "Review",
-      "status": "completed",
-      "message": "The pitch accurately reflects the evidence, correctly notes that an estimate site could not be found, appropriately frames the preview and features, and avoids unsupported claims.",
-      "timestamp": "2026-11-21T08:38:09.571+00:00",
-      "handoff": {
-        "text": "The pitch accurately reflects the evidence, correctly notes that an estimate site could not be found, appropriately frames the preview and features, and avoids unsupported claims.",
-        "checks": {
-          "Rendered concept matches cited business facts": true,
-          "Handoff reflects the business evidence used on the page": true,
-          "Contact form collects the homeowner’s contact details and project in preview mode": true,
-          "Published phone matches the header and estimate actions": true,
-          "The concept has a business-specific contact, service or portfolio source": true,
-          "Selected testimonials are favorable and individually sourced": true,
-          "Assigned preview link is present": true,
-          "Citations belong to the selected observation": true,
-          "Pitch uses only evidenced claims and working features": true,
-          "Independent model review": true
-        }
-      }
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900001",
       "lead_name": "Copper Finch Painting",
       "stage": "Publish",
       "status": "started",
       "message": "Uploading only this reviewed preview and checking the served HTML.",
-      "timestamp": "2026-11-21T08:38:09.576+00:00"
+      "timestamp": "2026-11-21T09:49:02.311+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
       "stage": "Publish",
       "status": "completed",
       "message": "Verified the content at the shareable address.",
-      "timestamp": "2026-11-21T08:38:15.438+00:00",
+      "timestamp": "2026-11-21T09:49:05.321+00:00",
       "handoff": {
         "text": "Verified the content at the shareable address.",
-        "url": "https://p-07f3bf1dd08de67a69.sitescout-previews-ec8f1c9e.pages.dev"
+        "url": "https://p-48a7412957f9f958e4.sitescout-previews-ec8f1c9e.pages.dev"
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900013",
       "lead_name": "Plum Hill Painting",
       "stage": "Queue",
       "status": "completed",
       "message": "Manual contact queue using phone.",
-      "timestamp": "2026-11-21T08:38:15.441+00:00",
+      "timestamp": "2026-11-21T09:49:05.471+00:00",
       "handoff": {
         "outcome": "manual"
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900004",
       "lead_name": "Cobalt Pine Painting",
       "stage": "Qualify",
       "status": "started",
       "message": "Checking the business identity, official website and contact path.",
-      "timestamp": "2026-11-21T08:38:15.445+00:00"
+      "timestamp": "2026-11-21T09:49:05.488+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900004",
       "lead_name": "Cobalt Pine Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Applying the evidence rules to a frozen synthetic case.",
-      "timestamp": "2026-11-21T08:38:15.445+00:00"
+      "timestamp": "2026-11-21T09:49:05.489+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900004",
       "lead_name": "Cobalt Pine Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Checking business identity against public search results and the license listing.",
-      "timestamp": "2026-11-21T08:38:15.445+00:00"
+      "timestamp": "2026-11-21T09:49:05.489+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900004",
       "lead_name": "Cobalt Pine Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "The first search found a branded candidate matching the business identity; checking the actual site.",
-      "timestamp": "2026-11-21T08:38:15.446+00:00"
+      "timestamp": "2026-11-21T09:49:05.490+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900004",
       "lead_name": "Cobalt Pine Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Reading a candidate website and checking its public contact path.",
-      "timestamp": "2026-11-21T08:38:15.446+00:00"
+      "timestamp": "2026-11-21T09:49:05.491+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900004",
       "lead_name": "Cobalt Pine Painting",
       "stage": "Qualify",
       "status": "completed",
       "message": "The verified business website already offers a published phone, email, or request form.",
-      "timestamp": "2026-11-21T08:38:15.447+00:00",
+      "timestamp": "2026-11-21T09:49:05.492+00:00",
       "handoff": {
         "text": "The verified business website already offers a published phone, email, or request form.",
         "source_url": "https://cobaltpine.example/",
@@ -2110,408 +2110,408 @@
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900004",
       "lead_name": "Cobalt Pine Painting",
       "stage": "Queue",
       "status": "skipped",
       "message": "Skipped. No outreach.",
-      "timestamp": "2026-11-21T08:38:15.447+00:00",
+      "timestamp": "2026-11-21T09:49:05.493+00:00",
       "handoff": {
         "outcome": "skip"
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900005",
       "lead_name": "Birch Step Painting",
       "stage": "Qualify",
       "status": "started",
       "message": "Checking the business identity, official website and contact path.",
-      "timestamp": "2026-11-21T08:38:15.449+00:00"
+      "timestamp": "2026-11-21T09:49:05.497+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900005",
       "lead_name": "Birch Step Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Applying the evidence rules to a frozen synthetic case.",
-      "timestamp": "2026-11-21T08:38:15.450+00:00"
+      "timestamp": "2026-11-21T09:49:05.497+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900005",
       "lead_name": "Birch Step Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Checking business identity against public search results and the license listing.",
-      "timestamp": "2026-11-21T08:38:15.450+00:00"
+      "timestamp": "2026-11-21T09:49:05.497+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900005",
       "lead_name": "Birch Step Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "The name/city search lacked a verified first-party candidate; cross-checking by phone or license.",
-      "timestamp": "2026-11-21T08:38:15.450+00:00"
+      "timestamp": "2026-11-21T09:49:05.497+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900005",
       "lead_name": "Birch Step Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Reading a candidate website and checking its public contact path.",
-      "timestamp": "2026-11-21T08:38:15.451+00:00"
+      "timestamp": "2026-11-21T09:49:05.498+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900002",
-      "lead_name": "Linen Leaf Painting",
-      "stage": "Publish",
-      "status": "completed",
-      "message": "Verified the content at the shareable address.",
-      "timestamp": "2026-11-21T08:38:15.452+00:00",
-      "handoff": {
-        "text": "Verified the content at the shareable address.",
-        "url": "https://p-c9b92013f138527438.sitescout-previews-ec8f1c9e.pages.dev"
-      }
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900005",
       "lead_name": "Birch Step Painting",
       "stage": "Qualify",
       "status": "completed",
       "message": "The site names this business but publishes a different phone from the license record.",
-      "timestamp": "2026-11-21T08:38:15.452+00:00",
+      "timestamp": "2026-11-21T09:49:05.500+00:00",
       "handoff": {
         "text": "The site names this business but publishes a different phone from the license record."
       }
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900002",
-      "lead_name": "Linen Leaf Painting",
-      "stage": "Queue",
-      "status": "completed",
-      "message": "Manual contact queue using phone.",
-      "timestamp": "2026-11-21T08:38:15.459+00:00",
-      "handoff": {
-        "outcome": "manual"
-      }
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900005",
       "lead_name": "Birch Step Painting",
       "stage": "Queue",
       "status": "held",
       "message": "Held for human review.",
-      "timestamp": "2026-11-21T08:38:15.463+00:00",
+      "timestamp": "2026-11-21T09:49:05.501+00:00",
       "handoff": {
         "outcome": "hold"
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900006",
       "lead_name": "Fennel Star Painting",
       "stage": "Qualify",
       "status": "started",
       "message": "Checking the business identity, official website and contact path.",
-      "timestamp": "2026-11-21T08:38:15.465+00:00"
+      "timestamp": "2026-11-21T09:49:05.505+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900006",
       "lead_name": "Fennel Star Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Applying the evidence rules to a frozen synthetic case.",
-      "timestamp": "2026-11-21T08:38:15.469+00:00"
+      "timestamp": "2026-11-21T09:49:05.506+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900007",
-      "lead_name": "Harbor Tile Painting",
-      "stage": "Qualify",
-      "status": "started",
-      "message": "Checking the business identity, official website and contact path.",
-      "timestamp": "2026-11-21T08:38:15.471+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900006",
       "lead_name": "Fennel Star Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Checking business identity against public search results and the license listing.",
-      "timestamp": "2026-11-21T08:38:15.471+00:00"
+      "timestamp": "2026-11-21T09:49:05.506+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900007",
-      "lead_name": "Harbor Tile Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "Applying the evidence rules to a frozen synthetic case.",
-      "timestamp": "2026-11-21T08:38:15.471+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900006",
       "lead_name": "Fennel Star Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "The name/city search lacked a verified first-party candidate; cross-checking by phone or license.",
-      "timestamp": "2026-11-21T08:38:15.472+00:00"
+      "timestamp": "2026-11-21T09:49:05.507+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900007",
-      "lead_name": "Harbor Tile Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "Checking business identity against public search results and the license listing.",
-      "timestamp": "2026-11-21T08:38:15.472+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900006",
       "lead_name": "Fennel Star Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Looking for a public social or trade profile and its business website.",
-      "timestamp": "2026-11-21T08:38:15.472+00:00"
+      "timestamp": "2026-11-21T09:49:05.507+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900007",
-      "lead_name": "Harbor Tile Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "The name/city search lacked a verified first-party candidate; cross-checking by phone or license.",
-      "timestamp": "2026-11-21T08:38:15.472+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
-      "lead_id": "900007",
-      "lead_name": "Harbor Tile Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "Looking for a public social or trade profile and its business website.",
-      "timestamp": "2026-11-21T08:38:15.473+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900006",
       "lead_name": "Fennel Star Painting",
       "stage": "Qualify",
       "status": "completed",
       "message": "The search evidence was too limited to determine website ownership and a specific contact need.",
-      "timestamp": "2026-11-21T08:38:15.473+00:00",
+      "timestamp": "2026-11-21T09:49:05.508+00:00",
       "handoff": {
         "text": "The search evidence was too limited to determine website ownership and a specific contact need."
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
+      "lead_id": "900006",
+      "lead_name": "Fennel Star Painting",
+      "stage": "Queue",
+      "status": "held",
+      "message": "Held for human review.",
+      "timestamp": "2026-11-21T09:49:05.509+00:00",
+      "handoff": {
+        "outcome": "hold"
+      }
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900007",
+      "lead_name": "Harbor Tile Painting",
+      "stage": "Qualify",
+      "status": "started",
+      "message": "Checking the business identity, official website and contact path.",
+      "timestamp": "2026-11-21T09:49:05.512+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900007",
+      "lead_name": "Harbor Tile Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Applying the evidence rules to a frozen synthetic case.",
+      "timestamp": "2026-11-21T09:49:05.513+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900007",
+      "lead_name": "Harbor Tile Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Checking business identity against public search results and the license listing.",
+      "timestamp": "2026-11-21T09:49:05.513+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900007",
+      "lead_name": "Harbor Tile Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "The name/city search lacked a verified first-party candidate; cross-checking by phone or license.",
+      "timestamp": "2026-11-21T09:49:05.513+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900007",
+      "lead_name": "Harbor Tile Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Looking for a public social or trade profile and its business website.",
+      "timestamp": "2026-11-21T09:49:05.514+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
       "lead_id": "900007",
       "lead_name": "Harbor Tile Painting",
       "stage": "Qualify",
       "status": "completed",
       "message": "Instruction-like content detected in external evidence.",
-      "timestamp": "2026-11-21T08:38:15.474+00:00",
+      "timestamp": "2026-11-21T09:49:05.515+00:00",
       "handoff": {
         "text": "Instruction-like content detected in external evidence."
       }
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900006",
-      "lead_name": "Fennel Star Painting",
-      "stage": "Queue",
-      "status": "held",
-      "message": "Held for human review.",
-      "timestamp": "2026-11-21T08:38:15.474+00:00",
-      "handoff": {
-        "outcome": "hold"
-      }
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900007",
       "lead_name": "Harbor Tile Painting",
       "stage": "Queue",
       "status": "blocked",
       "message": "Blocked. No outreach.",
-      "timestamp": "2026-11-21T08:38:15.474+00:00",
+      "timestamp": "2026-11-21T09:49:05.516+00:00",
       "handoff": {
         "outcome": "blocked"
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900008",
       "lead_name": "Rose Arch Painting",
       "stage": "Qualify",
       "status": "started",
       "message": "Checking the business identity, official website and contact path.",
-      "timestamp": "2026-11-21T08:38:15.476+00:00"
+      "timestamp": "2026-11-21T09:49:05.519+00:00"
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900008",
       "lead_name": "Rose Arch Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Applying the evidence rules to a frozen synthetic case.",
-      "timestamp": "2026-11-21T08:38:15.477+00:00"
+      "timestamp": "2026-11-21T09:49:05.520+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900009",
-      "lead_name": "Terra Kite Painting",
-      "stage": "Qualify",
-      "status": "started",
-      "message": "Checking the business identity, official website and contact path.",
-      "timestamp": "2026-11-21T08:38:15.478+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900008",
       "lead_name": "Rose Arch Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Checking business identity against public search results and the license listing.",
-      "timestamp": "2026-11-21T08:38:15.478+00:00"
+      "timestamp": "2026-11-21T09:49:05.520+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900009",
-      "lead_name": "Terra Kite Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "Applying the evidence rules to a frozen synthetic case.",
-      "timestamp": "2026-11-21T08:38:15.478+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900008",
       "lead_name": "Rose Arch Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "The first search found a branded candidate matching the business identity; checking the actual site.",
-      "timestamp": "2026-11-21T08:38:15.479+00:00"
+      "timestamp": "2026-11-21T09:49:05.521+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900009",
-      "lead_name": "Terra Kite Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "Checking business identity against public search results and the license listing.",
-      "timestamp": "2026-11-21T08:38:15.479+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900008",
       "lead_name": "Rose Arch Painting",
       "stage": "Qualify",
       "status": "info",
       "message": "Reading a candidate website and checking its public contact path.",
-      "timestamp": "2026-11-21T08:38:15.479+00:00"
+      "timestamp": "2026-11-21T09:49:05.521+00:00"
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900009",
-      "lead_name": "Terra Kite Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "The name/city search lacked a verified first-party candidate; cross-checking by phone or license.",
-      "timestamp": "2026-11-21T08:38:15.479+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
-      "lead_id": "900009",
-      "lead_name": "Terra Kite Painting",
-      "stage": "Qualify",
-      "status": "info",
-      "message": "Looking for a public social or trade profile and its business website.",
-      "timestamp": "2026-11-21T08:38:15.479+00:00"
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900008",
       "lead_name": "Rose Arch Painting",
       "stage": "Qualify",
       "status": "completed",
       "message": "The business-branded website could not be inspected after 2 checks (HTTP 503, HTTP 503).",
-      "timestamp": "2026-11-21T08:38:15.480+00:00",
+      "timestamp": "2026-11-21T09:49:05.522+00:00",
       "handoff": {
         "text": "The business-branded website could not be inspected after 2 checks (HTTP 503, HTTP 503)."
       }
     },
     {
-      "run_id": "40198099d50a",
-      "lead_id": "900009",
-      "lead_name": "Terra Kite Painting",
-      "stage": "Qualify",
-      "status": "completed",
-      "message": "The search evidence was too limited to determine website ownership and a specific contact need.",
-      "timestamp": "2026-11-21T08:38:15.480+00:00",
-      "handoff": {
-        "text": "The search evidence was too limited to determine website ownership and a specific contact need."
-      }
-    },
-    {
-      "run_id": "40198099d50a",
-      "lead_id": "900009",
-      "lead_name": "Terra Kite Painting",
-      "stage": "Queue",
-      "status": "held",
-      "message": "Held for human review.",
-      "timestamp": "2026-11-21T08:38:15.481+00:00",
-      "handoff": {
-        "outcome": "hold"
-      }
-    },
-    {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900008",
       "lead_name": "Rose Arch Painting",
       "stage": "Queue",
       "status": "held",
       "message": "Held for human review.",
-      "timestamp": "2026-11-21T08:38:15.482+00:00",
+      "timestamp": "2026-11-21T09:49:05.523+00:00",
       "handoff": {
         "outcome": "hold"
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
+      "lead_id": "900009",
+      "lead_name": "Terra Kite Painting",
+      "stage": "Qualify",
+      "status": "started",
+      "message": "Checking the business identity, official website and contact path.",
+      "timestamp": "2026-11-21T09:49:05.526+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900009",
+      "lead_name": "Terra Kite Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Applying the evidence rules to a frozen synthetic case.",
+      "timestamp": "2026-11-21T09:49:05.527+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900009",
+      "lead_name": "Terra Kite Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Checking business identity against public search results and the license listing.",
+      "timestamp": "2026-11-21T09:49:05.527+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900009",
+      "lead_name": "Terra Kite Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "The name/city search lacked a verified first-party candidate; cross-checking by phone or license.",
+      "timestamp": "2026-11-21T09:49:05.528+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900009",
+      "lead_name": "Terra Kite Painting",
+      "stage": "Qualify",
+      "status": "info",
+      "message": "Looking for a public social or trade profile and its business website.",
+      "timestamp": "2026-11-21T09:49:05.528+00:00"
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900009",
+      "lead_name": "Terra Kite Painting",
+      "stage": "Qualify",
+      "status": "completed",
+      "message": "The search evidence was too limited to determine website ownership and a specific contact need.",
+      "timestamp": "2026-11-21T09:49:05.529+00:00",
+      "handoff": {
+        "text": "The search evidence was too limited to determine website ownership and a specific contact need."
+      }
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900009",
+      "lead_name": "Terra Kite Painting",
+      "stage": "Queue",
+      "status": "held",
+      "message": "Held for human review.",
+      "timestamp": "2026-11-21T09:49:05.530+00:00",
+      "handoff": {
+        "outcome": "hold"
+      }
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Publish",
+      "status": "completed",
+      "message": "Verified the content at the shareable address.",
+      "timestamp": "2026-11-21T09:49:05.874+00:00",
+      "handoff": {
+        "text": "Verified the content at the shareable address.",
+        "url": "https://p-4fa23422feb79b5c4a.sitescout-previews-ec8f1c9e.pages.dev"
+      }
+    },
+    {
+      "run_id": "3fb08b205b01",
+      "lead_id": "900002",
+      "lead_name": "Linen Leaf Painting",
+      "stage": "Queue",
+      "status": "completed",
+      "message": "Manual contact queue using phone.",
+      "timestamp": "2026-11-21T09:49:05.886+00:00",
+      "handoff": {
+        "outcome": "manual"
+      }
+    },
+    {
+      "run_id": "3fb08b205b01",
       "lead_id": "900001",
       "lead_name": "Copper Finch Painting",
       "stage": "Publish",
       "status": "completed",
       "message": "Verified the content at the shareable address.",
-      "timestamp": "2026-11-21T08:38:15.682+00:00",
+      "timestamp": "2026-11-21T09:49:07.924+00:00",
       "handoff": {
         "text": "Verified the content at the shareable address.",
-        "url": "https://p-f1a31c2c9c63293092.sitescout-previews-ec8f1c9e.pages.dev"
+        "url": "https://p-4d1976ac32d896648d.sitescout-previews-ec8f1c9e.pages.dev"
       }
     },
     {
-      "run_id": "40198099d50a",
+      "run_id": "3fb08b205b01",
       "lead_id": "900001",
       "lead_name": "Copper Finch Painting",
       "stage": "Queue",
       "status": "completed",
       "message": "Editable email ready for Abraham to copy.",
-      "timestamp": "2026-11-21T08:38:15.688+00:00",
+      "timestamp": "2026-11-21T09:49:07.938+00:00",
       "handoff": {
         "outcome": "ready"
       }

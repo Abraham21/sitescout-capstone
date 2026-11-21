@@ -173,8 +173,9 @@ def endorses_work(text, rating=None):
     # These expressions are common in praise. Other reservations still disqualify the review.
     text = re.sub(r"\bnot only\b", "", text, flags=re.I)
     text = re.sub(r"\bcould(?: not|n['’]t) (?:have been|be) (?:happier|more pleased)\b", "pleased", text, flags=re.I)
+    text = re.sub(r"\bcan(?:not|['’]t) say enough good things\b", "excellent", text, flags=re.I)
     if re.search(
-        r"\b(?:not|never|but|however|although|except|unprofessional|disappoint\w*|poor\w*|"
+        r"\b(?:not|never|cannot|far from|fell short|hardly|but|however|although|except|unprofessional|disappoint\w*|poor\w*|"
         r"terrible|awful|slow|rude|shoddy|messy|unreliable|damage[ds]?|refund|incomplete|complaint|avoid|overcharg\w*)\b"
         r"|n['’]t\b",
         text,
@@ -184,7 +185,8 @@ def endorses_work(text, rating=None):
     return bool(
         re.search(
             r"\b(?:great|excellent|beautiful\w*|awesome|love[dl]?|wonderful|"
-            r"recommend(?:ed)?|pleased|happy|crisp|professional|lovely|outstanding|"
+            r"recommend(?:ed)?|pleased|happy|crisp|professionals?|lovely|outstanding|"
+            r"top[- ]notch|above and beyond|stellar|meticulous|incredible|"
             r"quality work|responsive|friendly|knowledgeable|exceeded|flawless|impeccable|phenomenal|fantastic)\b",
             text,
             re.I,

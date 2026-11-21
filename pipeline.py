@@ -8,7 +8,7 @@ import queue
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import date, datetime
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -322,6 +322,7 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=())
                 candidates = activity_intake.discover(int(limit), storage.seen_live_ids(), progress, audit=intake)
             else:
                 active = {row["id"]: row for row in research.discover(100_000, set())}
+                by_phone = activity_intake.registry_phone_index(active.values())
                 dismissed = storage.dismissed_ids()
                 candidates = []
                 ids = [entry["id"] for entry in showcase_entries()] if mode == "showcase" else listings
@@ -337,6 +338,15 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=())
                                 lead = {**lead, "directory_url": canonical[0]}
                                 if activity:
                                     lead["activity"] = json.loads(activity)
+                                    if lead["activity"].get("listing_city"):
+                                        current = activity_intake.recent_profile(canonical[0], date.today())
+                                        match = activity_intake.match_profile(current, by_phone) if current else None
+                                        if not match or match["id"] != license_id:
+                                            lead.pop("directory_url")
+                                        else:
+                                            lead["activity"] = current["activity"].copy()
+                                            if research.words(current["city"]) != research.words(lead["city"]):
+                                                lead["activity"]["listing_city"] = current["city"].strip().title()
                         candidates.append(lead)
                 candidates = candidates[: int(limit)]
                 progress(
@@ -366,7 +376,7 @@ def run_batch(limit=3, mode="live", on_event=None, *, recheck=None, licenses=())
             if candidates and os.environ.get("CLOUDFLARE_API_TOKEN")
             else ""
         )
-        if mode != "demo" and not domain:
+        if candidates and mode != "demo" and not domain:
             emit("Publish", "held", "Hosting credentials unavailable. Any previews stay local.")
         with ThreadPoolExecutor(max_workers=3) as pool:
             futures = [
@@ -440,7 +450,7 @@ if __name__ == "__main__":
         help="Research a real batch again using its licenses and any public intake listings.",
     )
     parser.add_argument(
-        "--daily", action="store_true", help="Process ten unseen live leads once today."
+        "--daily", action="store_true", help="Research up to ten unseen painters with an opportunity signal once today."
     )
     parser.add_argument("--licenses", nargs="+", default=(), help="Limit a recheck to these licenses from that run.")
     args = parser.parse_args()

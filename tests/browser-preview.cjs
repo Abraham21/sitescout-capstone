@@ -84,9 +84,19 @@ async function main() {
       await checkLayout(page);
     } else {
       await page.goto(process.env.SITESCOUT_DESK_URL || 'http://127.0.0.1:8501');
-      const draft = page.getByRole('link', {name: 'Open draft →'}).first();
+      const draft = page.getByRole('link', {name: 'Open draft →'}).last();
       const rehearsal = page.getByRole('link', {name: 'Open saved rehearsal'});
-      await draft.or(rehearsal).first().click();
+      await draft.or(rehearsal).first().waitFor();
+      if (await draft.count()) {
+        const documentStart = await page.evaluate(() => performance.timeOrigin);
+        await draft.click();
+        await page.getByRole('button', {name: 'Back to queue'}).waitFor();
+        const heading = await page.locator('#business-detail').boundingBox();
+        assert.ok(heading.y >= 0 && heading.y < page.viewportSize().height, 'The selected business should be in view');
+        assert.equal(await page.evaluate(() => performance.timeOrigin), documentStart, 'Opening a draft reloaded the page');
+      } else {
+        await rehearsal.click();
+      }
       await page.getByRole('tab', {name: 'Website preview'}).click();
       site = page.frameLocator('iframe[title="Saved business website preview"]')
         .frameLocator('iframe[title="Business website preview"]');

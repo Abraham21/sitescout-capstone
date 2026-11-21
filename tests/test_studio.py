@@ -339,7 +339,7 @@ def test_testimonial_selection_checks_full_feedback_and_preserves_individual_sta
                 "rating": 5,
                 "quote": "Great ceiling work. However, they damaged our trim.",
             },
-            {"author": "Three", "rating": 5, "quote": "The ceiling looks wonderful."},
+            {"author": "Three", "rating": 5, "quote": "The ceiling looks wonderful.", "date": "2024-10-08"},
             {"author": "Four", "quote": "The room looks beautiful."},
         ],
         url,
@@ -353,7 +353,10 @@ def test_testimonial_selection_checks_full_feedback_and_preserves_individual_sta
     assert len(cards) == 2
     assert page.select_one("#reviews-title").text == "Customer reviews"
     assert cards[0].select_one('[aria-label="5 out of 5 stars"]')
+    assert cards[0].select_one('time[datetime="2024-10-08"]').text == "October 2024"
     assert not cards[1].select_one(".review-stars")
+    profile["testimonials"][0]["date"] = "2025-10-08"
+    assert "<time " not in build_preview(LEAD, q)["html"]
     profile["testimonials"][1]["rating"] = 5
     assert (
         len(BeautifulSoup(build_preview(LEAD, q)["html"], "html.parser").select("#reviews figure")) == 1
@@ -390,6 +393,17 @@ def test_syndicated_praise_keeps_context_and_an_empty_review_section_is_omitted(
     page = BeautifulSoup(build_preview(LEAD, q)["html"], "html.parser")
     assert not page.select_one('#reviews, a[href="#reviews"], .review-source')
     assert "Read reviews on Yahoo Local" not in page.get_text()
+
+
+def test_five_star_endorsements_need_explicit_praise_without_a_contrary_remark():
+    from business_profile import endorses_work
+
+    assert endorses_work("They went above and beyond.", 5)
+    assert endorses_work("I can't say enough good things about these painters!", 5)
+    assert endorses_work("They are true professionals.", 5)
+    assert not endorses_work("The finish was far from stellar.", 5)
+    assert not endorses_work("Top-notch painting, but the crew never finished.", 5)
+    assert not endorses_work("I cannot recommend this painter.", 5)
 
 
 def test_instagram_portfolio_in_rehearsal_and_when_a_real_profile_hides_its_photos():
