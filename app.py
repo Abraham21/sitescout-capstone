@@ -56,8 +56,17 @@ LOCAL_TIME = ZoneInfo("America/Los_Angeles")
 st.set_page_config(page_title="SiteScout · Lead workspace", page_icon="🧭", layout="wide")
 st.html("""
 <style>
-html{scroll-behavior:smooth}
-.stMainBlockContainer{max-width:1530px;padding:2rem 3.5rem 4rem}
+html{scroll-behavior:smooth;--desk-gutter:3.5rem;--draft-padding:1.5rem}
+.stMainBlockContainer{max-width:1530px;padding:2rem var(--desk-gutter) 4rem}
+/* Align the draft with the queue and keep Close reachable while its contents scroll. */
+[data-testid="stDialog"]:has(#business-detail){
+  padding:1rem calc(var(--desk-gutter) - var(--draft-padding));
+  & > div{margin:0;max-width:100%}
+  [role="dialog"]{max-height:calc(100dvh - 2rem)}
+  [role="dialog"] > :is(h2,div){padding-inline:var(--draft-padding)}
+  [role="dialog"] > div{overflow:auto;overscroll-behavior:contain}
+  button[aria-label="Close"]{width:2.5rem;height:2.5rem;top:.5rem;right:.5rem}
+}
 button[kind=primary]{background:#185c4e;border-color:#185c4e;color:white}
 button[kind=primary]:hover{background:#104a3e;border-color:#104a3e;color:white}
 button[kind=primary]:focus-visible,.ss-chain a:focus-visible{outline:3px solid #ba8043}
@@ -98,8 +107,8 @@ button[kind=primary]:focus-visible,.ss-chain a:focus-visible{outline:3px solid #
 .ss-batch tr:has(.ss-following) th[scope=row]{box-shadow:inset 3px 0 #27704d;padding-left:.7rem}
 .ss-following{display:inline-block;margin-left:.5rem;color:#286147;font-size:.72rem;font-weight:650}
 @media(max-width:830px){.ss-batch .stage-col{display:none}.ss-batch th[scope=row]{width:62%}.ss-batch td:last-child{width:auto}.ss-batch header{gap:.25rem}}
-@media(max-width:1150px){.stMainBlockContainer{padding-inline:1.6rem}.ss-chain{grid-template-columns:repeat(2,minmax(0,1fr))}.ss-card:nth-child(2)::after{display:none}}
-@media(max-width:700px){.stMainBlockContainer{padding:4.2rem 1rem 1rem}.ss-chain{grid-template-columns:minmax(0,1fr);gap:.5rem}.ss-card:not(:last-child)::after{display:none}.ss-event{grid-template-columns:4rem 4rem 1fr}}
+@media(max-width:1150px){html{--desk-gutter:1.6rem;--draft-padding:1rem}.ss-chain{grid-template-columns:repeat(2,minmax(0,1fr))}.ss-card:nth-child(2)::after{display:none}}
+@media(max-width:700px){html{--desk-gutter:1rem}.stMainBlockContainer{padding:4.2rem var(--desk-gutter) 1rem}.ss-chain{grid-template-columns:minmax(0,1fr);gap:.5rem}.ss-card:not(:last-child)::after{display:none}.ss-event{grid-template-columns:4rem 4rem 1fr}}
 
 .ss-queue{border-top:1px solid #cbd8cf}.ss-lead{display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(220px,1.3fr) auto;align-items:center;gap:1.5rem;padding:1.05rem .35rem;border-bottom:1px solid #d9e3dc}
 .ss-lead h3{font:600 1.12rem system-ui;margin:0 0 .2rem;color:#213c2d}.ss-lead small{color:#597164}.ss-contacts{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem 1.1rem;font-size:.93rem}.ss-contacts a{max-width:100%;overflow-wrap:anywhere}
@@ -822,8 +831,9 @@ def return_to_queue():
     set_location(group=st.session_state.queue_group)
 
 
-@st.dialog("Business details", position="right", width=980, on_dismiss=return_to_queue)
-def contact_drawer(record, run_id):
+# The 1530px workspace minus its two desktop gutters, plus the dialog's padding.
+@st.dialog("Business details", width=1466, on_dismiss=return_to_queue)
+def contact_dialog(record, run_id):
     # A contact action clears the selection in its callback. Refresh the list
     # outside the dialog too, so the moved business leaves its old group.
     if st.session_state.get("contact") != record["id"]:
@@ -883,7 +893,7 @@ def show_contacts(runs):
         run_id = selected["run_id"]
         record = next((row for row in pipeline.leads(run_id) if row["id"] == selected["id"]), None)
         if record:
-            contact_drawer(record, run_id)
+            contact_dialog(record, run_id)
 
 
 def contact_links(lead):

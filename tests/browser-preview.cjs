@@ -92,16 +92,19 @@ async function main() {
         await draft.scrollIntoViewIfNeeded();
         const rowTop = (await draft.boundingBox()).y;
         await draft.click();
-        const drawer = page.getByRole('dialog');
-        await drawer.waitFor();
-        const heading = await drawer.locator('#business-detail').boundingBox();
+        const dialog = page.getByRole('dialog');
+        await dialog.waitFor();
+        const heading = await dialog.locator('#business-detail').boundingBox();
+        const queue = await page.locator('.ss-queue').boundingBox();
+        assert.ok(Math.abs(heading.x - queue.x) < 2 && Math.abs(heading.width - queue.width) < 2,
+          'The draft should use the same centered reading area as the queue');
         assert.ok(heading.y >= 0 && heading.y < page.viewportSize().height, 'The selected business should be in view');
         assert.equal(await page.evaluate(() => performance.timeOrigin), documentStart, 'Opening a draft reloaded the page');
         await page.keyboard.press('Escape');
-        await drawer.waitFor({state: 'hidden'});
+        await dialog.waitFor({state: 'hidden'});
         assert.ok(Math.abs((await draft.boundingBox()).y - rowTop) < 3, 'Closing a draft should preserve the queue position');
         await draft.click();
-        await drawer.waitFor();
+        await dialog.waitFor();
       } else {
         await rehearsal.click();
       }

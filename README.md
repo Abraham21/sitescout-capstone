@@ -31,7 +31,7 @@ uv pip install -r requirements.txt
 
 | View | What you can do |
 | --- | --- |
-| Contact queue | **Open draft** shows the painter’s message, preview and contact details in a side panel. Close it or press **Esc** to return to your place in the list. After reaching out, use **Mark contacted**. **Dismiss lead** sets a business aside. The Contacted and Dismissed views keep the date and the saved draft. **Restore lead** lets the latest research determine whether it returns to the ready list. |
+| Contact queue | **Open draft** shows the painter’s message, preview and contact details at the same width as the queue. Use **×** or **Esc** to return to your place in the list. After reaching out, use **Mark contacted**. **Dismiss lead** sets a business aside. The Contacted and Dismissed views keep the date and the saved draft. **Restore lead** lets the latest research determine whether it returns to the ready list. |
 | Runs | Choose a recorded batch or follow a running one. Select a business in the activity list or use **Inspect business**. Business rows switch the detail panel in place. The URL keeps the selection for sharing or reloading. Up to three businesses can be in progress. |
 | How it works | Pick a business and play, step back or advance through its actual handoffs, including a skipped lead, a reviewer hold or a repair when present in the selected run. |
 
