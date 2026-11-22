@@ -114,6 +114,13 @@ button[kind=primary]:focus-visible,.ss-chain a:focus-visible{outline:3px solid #
 .ss-lead h3{font:600 1.12rem system-ui;margin:0 0 .2rem;color:#213c2d}.ss-lead small{color:#597164}.ss-contacts{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem 1.1rem;font-size:.93rem}.ss-contacts a{max-width:100%;overflow-wrap:anywhere}
 .ss-queue a,.ss-inspect{color:#175c45}.ss-draft-link{font-weight:650}.ss-inspect{text-decoration:none}.ss-inspect:hover,.ss-inspect:focus-visible{text-decoration:underline}
 .ss-draft{padding:0 0 .4rem;user-select:text}.ss-draft p{color:#263f30;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;font-size:1rem;margin:1rem 0}.ss-draft strong{display:block;font-size:.85rem;color:#52675b}
+.ss-technologies{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1.4rem 2rem;margin:0;padding:0}
+.ss-technologies>div{border-top:1px solid #c8d8ce;padding-top:.9rem}
+.ss-technologies dt{display:flex;align-items:center;gap:.65rem;font-size:1.08rem;font-weight:650;color:#20342a}
+.ss-technologies img{width:36px;height:36px;object-fit:contain}
+.ss-technologies dd{margin:.55rem 0 0;color:#42594c;font-size:.95rem;line-height:1.5}
+@media(max-width:1050px){.ss-technologies{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.ss-technologies{grid-template-columns:1fr;gap:1rem}}
 @media(max-width:700px){.ss-lead{grid-template-columns:1fr auto;gap:.45rem 1rem}.ss-contacts{grid-column:1/-1;grid-row:2}.ss-draft-link{grid-column:2;grid-row:1}}
 </style>
 """)

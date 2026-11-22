@@ -1,14 +1,14 @@
 """Read the saved handoffs and evidence. These views never call an external service."""
 
+import base64
 import json
 import re
 from html import escape
-from pathlib import Path
 from urllib.parse import urlsplit
 
 import streamlit as st
 
-from studio import display_name, web_url
+from studio import ASSETS, display_name, web_url
 
 
 # A normal click selects in-place. The links still support copying a URL or opening a new tab.
@@ -126,6 +126,35 @@ def retrieval_view(lead, *, synthetic=False):
                 )
 
 
+def technologies_used():
+    st.subheader("Technologies Used")
+    technologies = [
+        ("LangGraph", "langgraph",
+         "Routes painters between the four agents and sends work back when the reviewer requests changes."),
+        ("Exa", "exa",
+         "Searches the web for the painter’s own website, public profiles and ways to get in touch."),
+        ("SQLite", "sqlite",
+         "Saves each run. Its full-text search retrieves source passages about one painter for Gemini to read."),
+        ("Gemini Flash", "gemini",
+         "Reads source passages and photos, helps write the outreach, and checks the draft against the evidence and preview."),
+        ("Python", "python",
+         "Builds the website preview using the painter’s verified details, project photos and contact information."),
+        ("Cloudflare Pages", "cloudflare-pages",
+         "Hosts the approved preview. SiteScout verifies the published page before adding its link to the contact queue."),
+        ("Streamlit", "streamlit",
+         "Powers this desk, where you can watch a run, inspect the evidence and decide who to contact."),
+    ]
+    entries = []
+    for name, slug, role in technologies:
+        logo = (ASSETS / "tech-logos" / f"{slug}.svg").read_bytes()
+        src = "data:image/svg+xml;base64," + base64.b64encode(logo).decode("ascii")
+        entries.append(
+            f'<div><dt><img src="{src}" alt="" width="36" height="36">{escape(name)}</dt>'
+            f'<dd>{escape(role)}</dd></div>'
+        )
+    st.html('<dl class="ss-technologies">' + "".join(entries) + "</dl>")
+
+
 def how_it_works(events=(), *, synthetic=False):
     st.subheader("How SiteScout works")
     st.caption("Approved drafts enter the contact queue. Holds and skips stay in the run history.")
@@ -157,7 +186,8 @@ def how_it_works(events=(), *, synthetic=False):
             batch_start = e.get("stage") == "Discover" and not e.get("lead_id")
             if (batch_start or e.get("lead_id") == lead_id) and e["status"] not in {"started", "info"}:
                 steps.append({"stage": e["stage"], "status": e["status"], "message": e["message"]})
-    template = (Path(__file__).parent / "assets" / "workflow.html").read_text()
+    template = (ASSETS / "workflow.html").read_text()
     # A source or model observation may contain HTML. Keep it inside JSON and render as text.
     data = json.dumps(steps, ensure_ascii=False).replace("<", "\\u003c")
-    st.iframe(template.replace("WORKFLOW_STEPS", data), height=438, alt="SiteScout workflow playback")
+    st.iframe(template.replace("WORKFLOW_STEPS", data), alt="SiteScout workflow playback")
+    technologies_used()

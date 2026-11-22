@@ -53,6 +53,7 @@ class OperatorDeskTest(unittest.TestCase):
             self.assertNotIn(f'href="{url}"', chain)
             for note in (h.value for h in app.get("html") if 'class="ss-note"' in h.value):
                 self.assertNotIn("<a ", note)
+
             events = storage.events(run_id)
             first_source_event = next(
                 i for i, e in enumerate(events, 1) if e.get("handoff", {}).get("source_url")
@@ -62,6 +63,13 @@ class OperatorDeskTest(unittest.TestCase):
             self.assertIn("Synthetic source snapshot", chain)
             self.assertNotIn("href=", chain)
             self.assertNotIn("Read saved source excerpt", chain)
+
+            app.segmented_control(key="view").set_value("How it works").run()
+            self.assertFalse(app.exception)
+            tools = next(h.value for h in app.get("html") if 'class="ss-technologies"' in h.value)
+            self.assertIn("LangGraph", tools)
+            self.assertIn("Cloudflare Pages", tools)
+            self.assertEqual(tools.count("<dt>"), tools.count("data:image/svg+xml;base64,"))
 
     def test_reviewed_draft_survives_rerun_and_replay_is_read_only(self):
         with (
