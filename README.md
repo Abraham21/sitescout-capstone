@@ -2,22 +2,13 @@
 
 SiteScout is a research assistant for an independent web designer. It discovers licensed painting businesses in Los Angeles or Orange County, checks whether customers can reach them online, and prepares a website concept and a personalized outreach draft when the evidence supports one. Abraham decides whether to make contact.
 
-**Open the operator desk** to see real businesses ready to contact, their verified preview links and the published ways to reach them. **Run discovery** starts live research. **Runs** lets you inspect a batch, play its recording, or try the ten-business rehearsal. **How it works** plays one business’s recorded path through the graph and explains which technologies power each part of SiteScout. A new checkout includes a fictional rehearsal that works without API keys.
+## Review without installing
 
-For the presentation on the prepared Mac, open [Runs](http://127.0.0.1:8501/?view=runs) → **Run options → Start live showcase** to follow Color-Me-Custom through fresh research. To inspect the original Orange County decisions, [replay the saved batch](http://127.0.0.1:8501/?replay=c2b2a6384c70&at=1) or [advance through Color-Me-Custom’s recorded handoffs](http://127.0.0.1:8501/?view=workflow&run=c2b2a6384c70&business=595143). The [original business record](http://127.0.0.1:8501/?run=c2b2a6384c70&business=595143) shows the eight retrieved passages, including `e4`. The [showcase preview pictured in the slides](https://p-60a69027bb7cea992b.sitescout-previews-ec8f1c9e.pages.dev/) displays the painter’s logo above its project photos.
+Follow Color-Me-Custom Painting from the research decision to a website with the painter’s logo, project photos and estimate form. [Capstone report (PDF)](submission/SiteScout%20Report.pdf) · [Presentation slides (PDF)](submission/SiteScout%20Presentation.pdf) · [Public website preview](https://p-60a69027bb7cea992b.sitescout-previews-ec8f1c9e.pages.dev/)
 
-An earlier discovery trial produced a reviewed phone follow-up for a Long Beach painter. The [current JMN concept](https://p-50cddcce849716ddb3.sitescout-previews-ec8f1c9e.pages.dev) shows six project photos and four independently attributed reviews. Open the [ten real businesses on the prepared Mac](http://127.0.0.1:8501/?run=6372a8b0d5db). [BE Painting](https://p-dc3948d7e16d9df62f.sitescout-previews-ec8f1c9e.pages.dev) shows the business’s logo, five project photos and two attributed Google reviews. [Tony Castaneda](https://p-9405c26f8241177248.sitescout-previews-ec8f1c9e.pages.dev) shows five Instagram project photos with links to the original posts. For a predictable walkthrough, use the [fictional ten-business rehearsal](http://127.0.0.1:8501/?replay=3fb08b205b01).
+## Try the demo without API keys
 
-## Open the desk
-
-On Abraham’s prepared Mac, double-click **Open SiteScout.command** in Finder. It opens the desk and keeps it running if you close Terminal or Codex. After signing back in or restarting the Mac, double-click it again. Saved runs and contacts appear in the same desk. To run the dashboard in the foreground instead, use these commands and open **http://127.0.0.1:8501** in a browser.
-
-```sh
-cd /Users/abe/agent/cmu-agentic-ai/sitescout-capstone
-.venv/bin/streamlit run app.py
-```
-
-On a new Mac or Linux checkout, use Python 3.12 with SQLite FTS5 support. The following uses [uv](https://docs.astral.sh/uv/). Standard Python 3.12 with `python3.12 -m venv .venv` and `.venv/bin/python -m pip install -r requirements.txt` works too.
+The repository includes a recorded ten-business rehearsal with fictional painters. On macOS or Linux, use Python 3.12 with SQLite FTS5 support. These commands use [uv](https://docs.astral.sh/uv/).
 
 ```sh
 git clone https://github.com/Abraham21/sitescout-capstone.git
@@ -27,7 +18,13 @@ uv pip install -r requirements.txt
 .venv/bin/streamlit run app.py
 ```
 
-### Use the desk
+With standard Python, replace the two `uv` commands with `python3.12 -m venv .venv` and `.venv/bin/python -m pip install -r requirements.txt`.
+
+1. Open the local URL printed by Streamlit. A fresh **Contact queue** starts empty. Click **Open saved rehearsal**.
+2. Click **Play replay** to watch the batch move through research, building, writing and review.
+3. After playback, select **Copper Finch Painting** in the batch. Open **Research & RAG** for the evidence, **Website preview** for the result and **Outreach draft** for the prepared message.
+
+## Use the desk
 
 | View | What you can do |
 | --- | --- |
@@ -38,6 +35,16 @@ uv pip install -r requirements.txt
 **Run discovery** starts with painters who received a dated customer review, then verifies their licenses and researches their websites. Under **Runs → Run options**, the live showcase starts with Color-Me-Custom and three other real licenses. It looks up their current registry records, checks any supplied listing, and runs the same qualification, build, writing and review steps as fresh discovery. The rehearsal exercises ten fictional cases, and Daily autopilot controls the Mac’s schedule. A saved replay uses historical decisions and drafts. You can select and copy its text. Current reviewed drafts can be edited from the contact queue.
 
 Open a business to see the research decision above its draft and preview. **Website preview** shows how it was customized. **Research & RAG** shows the research passages and which ones retrieval selected or the qualifier cited. **Agent trace** shows the handoffs and reviewer feedback for that painter. **Full run log** shows the timestamped events across the batch. The live board and replay both read these events from local SQLite. The same database tracks Exa and Gemini usage. A person chooses whether and how to send each message.
+
+## Presenter’s Mac
+
+On Abraham’s prepared Mac, double-click **Open SiteScout.command** in Finder to start the desk. The original runs used in the presentation are stored in its local database.
+
+- [Runs](http://127.0.0.1:8501/?view=runs) → **Run options → Start live showcase** follows Color-Me-Custom through fresh research.
+- [Replay the original Orange County batch](http://127.0.0.1:8501/?replay=c2b2a6384c70&at=1) or [step through Color-Me-Custom’s recorded handoffs](http://127.0.0.1:8501/?view=workflow&run=c2b2a6384c70&business=595143). The [original business record](http://127.0.0.1:8501/?run=c2b2a6384c70&business=595143) contains eight retrieved passages, including `e4`.
+- An earlier ten-business trial produced a reviewed phone follow-up for a Long Beach painter. [Open the saved trial](http://127.0.0.1:8501/?run=6372a8b0d5db)
+
+You can also open these public previews from any computer. JMN’s concept shows six project photos and four attributed reviews. BE Painting’s includes its logo and two Google reviews. Tony Castaneda’s gallery links five photos to the painter’s original Instagram posts. [JMN](https://p-50cddcce849716ddb3.sitescout-previews-ec8f1c9e.pages.dev) · [BE Painting](https://p-dc3948d7e16d9df62f.sitescout-previews-ec8f1c9e.pages.dev) · [Tony Castaneda](https://p-9405c26f8241177248.sitescout-previews-ec8f1c9e.pages.dev)
 
 ## Read the code
 
