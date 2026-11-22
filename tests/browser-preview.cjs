@@ -89,11 +89,19 @@ async function main() {
       await draft.or(rehearsal).first().waitFor();
       if (await draft.count()) {
         const documentStart = await page.evaluate(() => performance.timeOrigin);
+        await draft.scrollIntoViewIfNeeded();
+        const rowTop = (await draft.boundingBox()).y;
         await draft.click();
-        await page.getByRole('button', {name: 'Back to queue'}).waitFor();
-        const heading = await page.locator('#business-detail').boundingBox();
+        const drawer = page.getByRole('dialog');
+        await drawer.waitFor();
+        const heading = await drawer.locator('#business-detail').boundingBox();
         assert.ok(heading.y >= 0 && heading.y < page.viewportSize().height, 'The selected business should be in view');
         assert.equal(await page.evaluate(() => performance.timeOrigin), documentStart, 'Opening a draft reloaded the page');
+        await page.keyboard.press('Escape');
+        await drawer.waitFor({state: 'hidden'});
+        assert.ok(Math.abs((await draft.boundingBox()).y - rowTop) < 3, 'Closing a draft should preserve the queue position');
+        await draft.click();
+        await drawer.waitFor();
       } else {
         await rehearsal.click();
       }

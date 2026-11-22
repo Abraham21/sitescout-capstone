@@ -63,6 +63,8 @@ button[kind=primary]:hover{background:#104a3e;border-color:#104a3e;color:white}
 button[kind=primary]:focus-visible,.ss-chain a:focus-visible{outline:3px solid #ba8043}
 .ss-title,.ss-company{font:500 clamp(2rem,3vw,3.4rem)/1.02 Georgia,serif;letter-spacing:-.055em;margin:.2rem 0}
 .ss-title{font-size:clamp(1.8rem,2.7vw,2.7rem)}
+.ss-workspace-heading{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 1rem}
+.ss-niche{margin:0;color:#315044;font-size:.95rem}.ss-niche span{margin-right:.4rem;color:#53695d}
 .ss-rule{height:1px;background:#c8d8ce;margin:.6rem 0}
 .ss-companyline{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin:.4rem 0 .24rem}
 .ss-companyline small{font-size:.82rem;color:#52695c}
@@ -820,19 +822,20 @@ def return_to_queue():
     set_location(group=st.session_state.queue_group)
 
 
+@st.dialog("Business details", position="right", width=980, on_dismiss=return_to_queue)
+def contact_drawer(record, run_id):
+    # A contact action clears the selection in its callback. Refresh the list
+    # outside the dialog too, so the moved business leaves its old group.
+    if st.session_state.get("contact") != record["id"]:
+        st.rerun()
+    lead_panel(record, run_id, pipeline.events(run_id), False, from_queue=True)
+
+
 def show_contacts(runs):
     st.header("Contact queue")
     group = st.segmented_control("Business status", list(CONTACT_GROUPS), format_func=CONTACT_GROUPS.get,
                                  default="ready", key="queue_group", required=True, on_change=return_to_queue)
     queue = storage.contact_queue(group)
-    selected = next((row for row in queue if row["id"] == st.session_state.get("contact")), None)
-    if selected:
-        run_id = selected["run_id"]
-        record = next((row for row in pipeline.leads(run_id) if row["id"] == selected["id"]), None)
-        if record:
-            st.button("← Back to queue", on_click=return_to_queue)
-            lead_panel(record, run_id, pipeline.events(run_id), False, from_queue=True)
-            return
     if not queue:
         if group != "ready":
             st.info("Businesses you mark contacted will appear here." if group == "contacted"
@@ -864,7 +867,7 @@ def show_contacts(runs):
         links = "".join([*destinations, *contact_links(lead)])
         cards.append(
             f'<article class="ss-lead"><div><h3>{name}</h3><small>{escape(detail)}</small></div>'
-            f'<div class="ss-contacts">{links}</div><a class="ss-draft-link" href="{escape(url, quote=True)}" target="_self">{open_label} →</a></article>'
+            f'<div class="ss-contacts">{links}</div><a class="ss-draft-link" href="{escape(url, quote=True)}" target="_self" aria-haspopup="dialog">{open_label} →</a></article>'
         )
     def open_draft():
         lead_id = st.session_state.queue_links.business
@@ -874,6 +877,13 @@ def show_contacts(runs):
 
     markup = f'<section class="ss-queue" aria-label="{CONTACT_GROUPS[group]}">' + "".join(cards) + "</section>"
     desk_views.business_links(key="queue_links", on_business_change=open_draft, data=markup)
+
+    selected = next((row for row in queue if row["id"] == st.session_state.get("contact")), None)
+    if selected:
+        run_id = selected["run_id"]
+        record = next((row for row in pipeline.leads(run_id) if row["id"] == selected["id"]), None)
+        if record:
+            contact_drawer(record, run_id)
 
 
 def contact_links(lead):
@@ -962,7 +972,10 @@ def main():
     capable = bool(os.getenv("GOOGLE_API_KEY") and os.getenv("EXA_API_KEY"))
     title, start = st.columns([3, 1], vertical_alignment="center")
     with title:
-        st.html('<h1 class="ss-title">SiteScout</h1>')
+        st.html(
+            '<div class="ss-workspace-heading"><h1 class="ss-title">SiteScout</h1>'
+            '<p class="ss-niche"><span>Niche</span> <strong>Painting contractors</strong></p></div>'
+        )
         latest = next((r for r in runs if r["mode"] == "live"), None)
         st.caption(
             "Discovery running"

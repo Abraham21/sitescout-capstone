@@ -14,18 +14,22 @@ from studio import display_name, web_url
 # A normal click selects in-place. The links still support copying a URL or opening a new tab.
 business_links = st.components.v2.component(
     "sitescout_business_links",
-    html='<div class="ss-links-root" style="scroll-margin-top:4rem"></div>',
+    html='<div class="ss-links-root"></div>',
     isolate_styles=False,
     js="""export default function({parentElement, data, setTriggerValue}) {
       const root = parentElement.querySelector('.ss-links-root');
-      root.innerHTML = data;
+      // Keep the queue links mounted so the dialog can return keyboard focus
+      // to the same row when it closes.
+      if (root.renderedMarkup !== data) {
+        root.innerHTML = data;
+        root.renderedMarkup = data;
+      }
       root.onclick = event => {
         if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         const draft = event.target.closest('a.ss-draft-link');
         const link = draft || event.target.closest('tbody tr')?.querySelector('a.ss-inspect');
         if (!link) return;
         event.preventDefault();
-        if (draft) root.scrollIntoView({behavior: 'instant', block: 'start'});
         setTriggerValue('business', new URL(link.href).searchParams.get(draft ? 'contact' : 'business'));
       };
     }""",

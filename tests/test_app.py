@@ -154,9 +154,11 @@ class OperatorDeskTest(unittest.TestCase):
             app.query_params["contact"] = "abc"
             app.run()
             self.assertFalse(app.exception)
-            self.assertFalse(app.get("bidi_component"))
+            self.assertEqual(app.get("bidi_component")[0].key, "queue_links")
             self.assertTrue(any(all(channel in h.value for channel in channels) for h in app.get("html")))
-            next(b for b in app.button if b.label == "← Back to queue").click().run()
+            app.query_params.clear()
+            app.query_params["group"] = "ready"
+            app.run()
             self.assertEqual(app.session_state.opened_location, {"group": "ready"})
             self.assertFalse(app.text_input)
             app.query_params["contact"] = "abc"
