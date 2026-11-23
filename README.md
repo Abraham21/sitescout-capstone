@@ -4,6 +4,8 @@ SiteScout is a research assistant for an independent web designer. It discovers 
 
 ## Review without installing
 
+[Watch the SiteScout demo on YouTube (9:34)](https://youtu.be/BC-R9BR2avk)
+
 Follow Color-Me-Custom Painting from the research decision to a website with the painter’s logo, project photos and estimate form. [Capstone report (PDF)](submission/SiteScout%20Report.pdf) · [Presentation slides (PDF)](submission/SiteScout%20Presentation.pdf) · [Public website preview](https://p-60a69027bb7cea992b.sitescout-previews-ec8f1c9e.pages.dev/)
 
 ## Try the demo without API keys
